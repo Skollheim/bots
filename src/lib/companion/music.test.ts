@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import type { MediaState } from './media';
-import { accentOf, barOf, clockAfter, DRIFT_MS, fallTo, LEVEL_FLOOR, liftOnBlack, mirrored, nextCeiling, positionAt, type MusicBase } from './music';
+import { accentOf, barOf, clockAfter, DRIFT_MS, fallTo, heldClock, LEVEL_FLOOR, liftOnBlack, mirrored, nextCeiling, positionAt, seekTo, type MusicBase } from './music';
+import { Music } from './music.svelte';
 
 const state = (position: number | null, playing = true, duration = 200_000): MediaState => ({ title: 'Song', artist: 'Band', app: 'Spotify.exe', playing, position, duration });
 
@@ -19,6 +20,35 @@ test('a read that agrees with the count keeps the base; a seek, a pause or a new
   expect(clockAfter(base, state(60_000), 4_000)).toEqual({ position: 60_000, at: 4_000, duration: 200_000, playing: true });
   expect(clockAfter(base, state(13_000, false), 4_000)?.playing).toBe(false);
   expect(clockAfter(base, state(13_000, true, 90_000), 4_000)?.duration).toBe(90_000);
+});
+
+test('a seek moves the clock at once, within the track', () => {
+  const base: MusicBase = { position: 10_000, at: 1_000, duration: 200_000, playing: true };
+  expect(seekTo(base, 120_000, 5_000)).toEqual({ position: 120_000, at: 5_000, duration: 200_000, playing: true });
+  expect(seekTo(base, 999_000, 5_000)?.position).toBe(200_000);
+  expect(seekTo(base, -5, 5_000)?.position).toBe(0);
+  expect(seekTo(null, 120_000, 5_000)).toBeNull();
+});
+
+test('while a seek settles, a read from before it is not believed, but a pause or another track is', () => {
+  const sought: MusicBase = { position: 120_000, at: 5_000, duration: 200_000, playing: true };
+  expect(heldClock(sought, state(14_000), 6_000)).toBe(sought);
+  expect(heldClock(sought, state(121_000), 6_000)).toBe(sought);
+  expect(heldClock(sought, state(14_000, false), 6_000)?.playing).toBe(false);
+  expect(heldClock(sought, state(2_000, true, 90_000), 6_000)?.duration).toBe(90_000);
+  expect(heldClock(sought, null, 6_000)).toBeNull();
+});
+
+test('the music holds a seek against stale reads for a while, then follows the player again', () => {
+  const music = new Music();
+  music.sync(state(10_000), 1_000);
+  music.seek(120_000, 2_000);
+  expect(music.position(2_000)).toBe(120_000);
+  music.sync(state(11_000), 2_500);
+  expect(music.position(3_000)).toBe(121_000);
+  // The player never moved: once the hold is over, its word wins.
+  music.sync(state(15_000), 9_000);
+  expect(music.position(9_000)).toBe(15_000);
 });
 
 test('a player with no timeline has no clock', () => {

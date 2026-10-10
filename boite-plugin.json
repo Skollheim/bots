@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "bots",
-  "name": "Bots",
+  "name": "B.O.T.S",
   "version": "0.1.3",
   "description": "Little robots on your desktop that follow your Boite agents, answer your questions and keep you company while you work.",
   "homepage": "https://github.com/beboite/bots",

@@ -1,6 +1,6 @@
-# Bots
+# B.O.T.S
 
-Bots is the desktop companion for [Boite](https://github.com/beboite/boite): little robots that sit on your desktop, watch your agents work and let you talk to them without opening Boite's window.
+B.O.T.S (Bots in its code, its repository and its plugin id, `bots`) is the desktop companion for [Boite](https://github.com/beboite/boite): little robots that sit on your desktop, watch your agents work and let you talk to them without opening Boite's window.
 
 Bots is a Boite plugin with its own window. Boite installs it, starts it, and hands it the address of the Boite core and a token to talk to it. When you quit Bots from its tray icon, it stays stopped until Boite starts it again.
 

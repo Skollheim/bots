@@ -1,11 +1,11 @@
 <!--
   Home's update card: a newer Boite is out on its track (`lib/island/
-  update.svelte.ts`). Open Boite brings its window forward, where its app
-  update settings install it; Later sets this version aside.
+  update.svelte.ts`). Install opens Boite on its app updates, where it
+  installs; Later sets this version aside.
 -->
 <script lang="ts">
   import { Sparkles } from '@lucide/svelte';
-  import { showMain } from '../../../lib/companion/shell';
+  import { showUpdates } from '../../../lib/companion/shell';
   import { useView } from '../../../lib/island/contract';
   import { fill, strings } from '../../../lib/strings';
 
@@ -23,7 +23,7 @@
       <p class="version">{fill(copy.version, { version: offer.version })}</p>
     </div>
     <button class="button ghost" onclick={() => update.dismiss()} data-testid="update-later">{copy.later}</button>
-    <button class="button primary" title={copy.openTitle} onclick={() => void showMain(null).catch(() => {})} data-testid="update-open">{copy.open}</button>
+    <button class="button primary" title={copy.openTitle} onclick={() => void showUpdates()} data-testid="update-open">{copy.open}</button>
   </section>
 {/if}
 

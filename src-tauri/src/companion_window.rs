@@ -268,7 +268,7 @@ fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<WebviewWindow<R>> {
     let page = if query.is_empty() { "index.html".to_string() } else { format!("index.html?{query}") };
     #[allow(unused_mut)]
     let mut builder = tauri::WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App(page.into()))
-        .title("Bots").inner_size(WIDTH, HEIGHT).resizable(false)
+        .title("B.O.T.S").inner_size(WIDTH, HEIGHT).resizable(false)
         .decorations(false).shadow(false).skip_taskbar(true).always_on_top(true)
         .visible(false).focused(false)
         // Files dropped on the companion reach the page as HTML drops, with
@@ -705,9 +705,11 @@ pub async fn companion_media(webview: Webview) -> Result<Option<crate::platform:
 }
 
 #[tauri::command]
-pub async fn companion_media_control(webview: Webview, action: String) -> Result<(), String> {
+/// A button of the media session, or `seek` with the `position` to move the
+/// track to, in milliseconds.
+pub async fn companion_media_control(webview: Webview, action: String, position: Option<f64>) -> Result<(), String> {
     only_companion(&webview)?;
-    let action = crate::platform::media::MediaAction::parse(&action)?;
+    let action = crate::platform::media::MediaAction::parse(&action, position)?;
     tauri::async_runtime::spawn_blocking(move || crate::platform::media::media_control(action)).await.map_err(|error| error.to_string())?
 }
 

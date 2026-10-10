@@ -1,5 +1,6 @@
 //! What the system media session is playing, and its play/pause, next and
-//! previous buttons: Windows' GlobalSystemMediaTransportControls. A Spotify
+//! previous buttons and its timeline: Windows'
+//! GlobalSystemMediaTransportControls. A Spotify
 //! session wins over whichever the system calls current. Elsewhere nothing
 //! plays, as far as the shell can tell.
 
@@ -21,6 +22,9 @@ pub(crate) struct MediaState {
     pub position: Option<f64>,
     /// How long the track lasts, in milliseconds; `None` as for `position`.
     pub duration: Option<f64>,
+    /// The player takes a new position (`MediaAction::Seek`): its timeline
+    /// is known and its session allows the move.
+    pub seekable: bool,
 }
 
 /// Where a track is now: the position the player last reported, moved on by
@@ -84,18 +88,24 @@ fn cover_of(track: &str, read: impl FnOnce() -> Option<String>) -> Option<String
     art
 }
 
-/// The three buttons of the media session, and bringing the player forward.
+/// The three buttons of the media session, a move along the track (to a
+/// position in milliseconds), and bringing the player forward.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) enum MediaAction { Toggle, Next, Previous, Show }
+pub(crate) enum MediaAction { Toggle, Next, Previous, Show, Seek(u64) }
 
 impl MediaAction {
-    pub(crate) fn parse(action: &str) -> Result<Self, String> {
+    /// `position`, in milliseconds, goes with `seek` only.
+    pub(crate) fn parse(action: &str, position: Option<f64>) -> Result<Self, String> {
         match action {
             "toggle" => Ok(Self::Toggle),
             "next" => Ok(Self::Next),
             "previous" => Ok(Self::Previous),
             "show" => Ok(Self::Show),
-            _ => Err(format!("media action must be toggle, next, previous or show, not {action:?}")),
+            "seek" => match position {
+                Some(ms) if ms.is_finite() && ms >= 0.0 => Ok(Self::Seek(ms.round() as u64)),
+                _ => Err(format!("seek needs a position in milliseconds, not {position:?}")),
+            },
+            _ => Err(format!("media action must be toggle, next, previous, show or seek, not {action:?}")),
         }
     }
 }
@@ -134,10 +144,12 @@ mod imp {
             let (title, artist, app) = (properties.Title()?.to_string(), properties.Artist()?.to_string(), session.SourceAppUserModelId()?.to_string());
             // A cover that cannot be read leaves the pill without one, not without the music.
             let art = super::cover_of(&format!("{app}\n{title}\n{artist}"), || cover(&properties).ok().flatten());
-            let playing = session.GetPlaybackInfo()?.PlaybackStatus()? == Status::Playing;
+            let info = session.GetPlaybackInfo()?;
+            let playing = info.PlaybackStatus()? == Status::Playing;
             // A timeline that cannot be read leaves the music without its progress.
             let (position, duration) = timeline(&session, playing).unwrap_or((None, None));
-            Ok(Some(MediaState { title, artist, app, playing, art, position, duration }))
+            let seekable = duration.is_some() && info.Controls().and_then(|controls| controls.IsPlaybackPositionEnabled()).unwrap_or(false);
+            Ok(Some(MediaState { title, artist, app, playing, art, position, duration, seekable }))
         };
         read().map_err(|error| error.to_string())
     }
@@ -206,6 +218,8 @@ mod imp {
                 MediaAction::Toggle => session.TryTogglePlayPauseAsync()?.get()?,
                 MediaAction::Next => session.TrySkipNextAsync()?.get()?,
                 MediaAction::Previous => session.TrySkipPreviousAsync()?.get()?,
+                // The timeline counts in 100 ns ticks.
+                MediaAction::Seek(ms) => session.TryChangePlaybackPositionAsync(i64::try_from(ms).unwrap_or(i64::MAX).saturating_mul(10_000))?.get()?,
                 MediaAction::Show => true,
             };
             Ok(())
@@ -242,12 +256,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_the_three_buttons_and_show_are_accepted() {
-        assert_eq!(MediaAction::parse("toggle"), Ok(MediaAction::Toggle));
-        assert_eq!(MediaAction::parse("next"), Ok(MediaAction::Next));
-        assert_eq!(MediaAction::parse("previous"), Ok(MediaAction::Previous));
-        assert_eq!(MediaAction::parse("show"), Ok(MediaAction::Show));
-        assert!(MediaAction::parse("stop").unwrap_err().contains("\"stop\""));
+    fn only_the_three_buttons_show_and_seek_are_accepted() {
+        assert_eq!(MediaAction::parse("toggle", None), Ok(MediaAction::Toggle));
+        assert_eq!(MediaAction::parse("next", None), Ok(MediaAction::Next));
+        assert_eq!(MediaAction::parse("previous", None), Ok(MediaAction::Previous));
+        assert_eq!(MediaAction::parse("show", None), Ok(MediaAction::Show));
+        assert!(MediaAction::parse("stop", None).unwrap_err().contains("\"stop\""));
+    }
+
+    #[test]
+    fn a_seek_takes_a_position_in_milliseconds() {
+        assert_eq!(MediaAction::parse("seek", Some(74_000.4)), Ok(MediaAction::Seek(74_000)));
+        assert_eq!(MediaAction::parse("seek", Some(0.0)), Ok(MediaAction::Seek(0)));
+        assert!(MediaAction::parse("seek", None).is_err(), "no position");
+        assert!(MediaAction::parse("seek", Some(-1.0)).is_err(), "before the start");
+        assert!(MediaAction::parse("seek", Some(f64::NAN)).is_err());
     }
 
     #[test]

@@ -34,6 +34,26 @@ export function clockAfter(base: MusicBase | null, state: MediaState | null, now
   return same ? base : { position: state.position, at: now, duration: state.duration, playing: state.playing };
 }
 
+/** How long after a seek a read that tells another position is taken for one the player sent before it. */
+export const SEEK_HOLD_MS = 3000;
+
+/** The base `position` milliseconds into the track, from `now`; null with no base. */
+export function seekTo(base: MusicBase | null, position: number, now: number): MusicBase | null {
+  if (!base) return null;
+  return { ...base, position: Math.min(base.duration, Math.max(0, position)), at: now };
+}
+
+/**
+ * The base after a read while a seek settles: kept against a read telling
+ * the old position, unless the play state or the track's length changed
+ * (another track, a pause).
+ */
+export function heldClock(base: MusicBase | null, state: MediaState | null, now: number): MusicBase | null {
+  const next = clockAfter(base, state, now);
+  if (base === null || next === null || next === base) return next;
+  return next.playing === base.playing && Math.abs(next.duration - base.duration) < 1000 ? base : next;
+}
+
 /** The loudness the bars are drawn against: it follows a louder peak at once and lets go slowly, never under `LEVEL_FLOOR`. */
 export const LEVEL_FLOOR = 0.06;
 export function nextCeiling(ceiling: number, peak: number): number {

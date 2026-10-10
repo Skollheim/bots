@@ -2,7 +2,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { RpcErrorCode } from '@boite/contracts';
 import { RpcFailure, type Client } from '@boite/ui/lib/client';
 import { reveal, revealProblem, useReveal } from './reveal';
-import { showAgent, showMain } from './companion/shell';
+import { showAgent, showMain, showUpdates } from './companion/shell';
 import { strings } from './strings';
 
 afterEach(() => useReveal(null, null));
@@ -32,6 +32,20 @@ test('another failure carries its reason, cut short', async () => {
   expect(told).toBe(failed.mock.calls[0]![0]);
   expect(told!.length).toBeLessThan(200);
   expect(revealProblem(new Error('closed'))).toContain('closed');
+});
+
+test('the update card opens Boite on its app updates; an older Boite says where they are', async () => {
+  const call = vi.fn(async () => ({ delivered: 1 }));
+  useReveal(clientWith(call), () => {});
+  await showUpdates();
+  expect(call).toHaveBeenCalledWith('ui.reveal', { target: { kind: 'update' } });
+
+  const failed = vi.fn();
+  useReveal(clientWith(async () => { throw new RpcFailure({ code: RpcErrorCode.InvalidParams, message: 'ui.reveal target must be { kind: "thread", threadId } or { kind: "agent", agentId }' }); }), failed);
+  await expect(showUpdates()).resolves.toBeUndefined();
+  expect(failed).toHaveBeenCalledWith(strings.island.update.manual);
+  // A thread refused for its params is still the plain failure.
+  expect(revealProblem(new RpcFailure({ code: RpcErrorCode.InvalidParams, message: 'gone' }), { kind: 'thread', threadId: 't-1' })).toContain('gone');
 });
 
 test('without a client yet, the reveal fails quietly too', async () => {

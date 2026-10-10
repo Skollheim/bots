@@ -4,18 +4,20 @@
   moves with the sound, the track's progress along its bottom edge. Under the
   pointer or the keyboard it unfolds into the player: the cover (which opens
   Spotify), the title and the artist, the meter, previous, play or pause, and
-  next, and the time. It wears the cover's colour. A sideways swipe skips a
+  next, and the timeline, where a click or a drag moves the track
+  (`MusicTimeline`). It wears the cover's colour. A sideways swipe skips a
   track. With nothing playing, it still opens Spotify where Spotify played.
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
   import { Music2, Pause, Play, SkipBack, SkipForward, SquareArrowOutUpRight } from '@lucide/svelte';
   import type { Companion } from '../../../lib/companion/companion.svelte';
-  import { appName, canShow, trackTime, type MediaAction } from '../../../lib/companion/media';
+  import { appName, canShow, type MediaAction } from '../../../lib/companion/media';
   import { inShell } from '../../../lib/companion/shell';
   import { fill, strings } from '../../../lib/strings';
   import Marquee from '../../companion/Marquee.svelte';
   import MusicMeter from './MusicMeter.svelte';
+  import MusicTimeline from './MusicTimeline.svelte';
 
   interface Props {
     companion: Companion;
@@ -173,10 +175,7 @@
           </div>
         </div>
         {#if duration > 0}
-          <div class="time" role="progressbar" aria-label={fill(copy.position, { position: trackTime(position), duration: trackTime(duration) })} aria-valuemin={0} aria-valuemax={Math.round(duration / 1000)} aria-valuenow={Math.round(position / 1000)}>
-            <span class="track"><i style:transform="scaleX({progress.toFixed(4)})"></i></span>
-            <span class="clock" aria-hidden="true"><span>{trackTime(position)}</span><span>{trackTime(duration)}</span></span>
-          </div>
+          <MusicTimeline {position} {duration} seekable={media.seekable === true} onseek={(to) => companion.seekMedia(to)} />
         {/if}
       </div>
     {/if}
@@ -272,8 +271,7 @@
     background: rgb(255 255 255 / 0.1);
     pointer-events: none;
   }
-  .line i,
-  .track i {
+  .line i {
     display: block;
     width: 100%;
     height: 100%;
@@ -382,26 +380,6 @@
   }
   .play:active {
     transform: scale(0.94);
-  }
-  .time {
-    grid-column: 1 / -1;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-  .track {
-    height: 3px;
-    overflow: hidden;
-    border-radius: 2px;
-    background: rgb(255 255 255 / 0.12);
-  }
-  .clock {
-    display: flex;
-    justify-content: space-between;
-    color: var(--island-muted);
-    font-size: 10.5px;
-    font-variant-numeric: tabular-nums;
-    line-height: 12px;
   }
 
   @keyframes bud {
