@@ -23,6 +23,9 @@
   import { openSettings, showMain } from '../../lib/companion/shell';
   import { provideView } from '../../lib/island/contract';
   import { ISLAND_TABS, type IslandFrame, type IslandTab } from '../../lib/island/frame.svelte';
+  import { currentStep } from '../../lib/island/sessions';
+  import { Sessions } from '../../lib/island/sessions.svelte';
+  import { stepText } from '../../lib/island/session-text';
   import { islandStatus } from '../../lib/island/status';
   import { fill, strings } from '../../lib/strings';
   import CompanionCharacter, { type Gaze } from '../companion/CompanionCharacter.svelte';
@@ -56,7 +59,12 @@
   let barFace = $state<HTMLElement | null>(null);
 
   const lead = $derived(companion.members[0]!);
-  const target = $derived(frame.size === 'open' ? { w: OPEN_WIDTH, h: Math.min(Math.max(measured, 120), OPEN_MAX) } : SIZES[frame.size]);
+  const sessions = new Sessions({ client: () => companion.client, threads: () => companion.threads, own: () => companion.ownThreads });
+  $effect(() => sessions.start());
+  const leadSession = $derived(sessions.lead);
+  const leadStep = $derived(leadSession ? currentStep(leadSession) : null);
+  const PEEK = { min: 240, max: 420, chrome: 82 };
+  let statusWidth = $state(0);
   const box = new Spring({ ...SIZES.collapsed }, { stiffness: 0.18, damping: 0.72 });
   const radius = $derived(Math.min(RADIUS, box.current.h / 2));
   const status = $derived(
@@ -64,11 +72,15 @@
       blocking: companion.blocking,
       finished: frame.flashing,
       talking: companion.talking ? (companion.members.find((member) => member.talk.thinking)?.name ?? '') : null,
-      busy: companion.busy.length
+      busy: companion.busy.length,
+      lead: leadSession ? { title: leadSession.title, step: leadStep ? stepText(leadStep) : (leadSession.task ?? leadSession.detail) } : null
     })
   );
   /** One dot per agent at work, amber first while one waits on the user. */
   const dots = $derived([...(companion.blocking > 0 ? ['attention'] : []), ...companion.busy.slice(0, 5).map(() => 'working')]);
+  /** The peek fits its line: the status's own width (`measure`) plus the face, the gaps and the padding, and the dots. */
+  const peekWidth = $derived(Math.round(Math.min(PEEK.max, Math.max(PEEK.min, statusWidth + PEEK.chrome + Math.max(0, dots.length * 12 - 5)))));
+  const target = $derived(frame.size === 'open' ? { w: OPEN_WIDTH, h: Math.min(Math.max(measured, 120), OPEN_MAX) } : frame.size === 'peek' ? { ...SIZES.peek, w: peekWidth } : SIZES[frame.size]);
 
   provideView({
     get companion() {
@@ -102,7 +114,8 @@
     },
     hold: (key, on) => frame.hold(key, on),
     reveal: (threadId) => showMain(threadId),
-    show: (tab) => frame.show(tab)
+    show: (tab) => frame.show(tab),
+    sessions
   });
 
   $effect(() => {
@@ -197,6 +210,7 @@
   ondragover={(event) => companion.attached.dragover(event)}
   ondrop={drop}
 >
+  <span class="measure" aria-hidden="true" bind:offsetWidth={statusWidth}>{status.text}</span>
   {#if frame.size !== 'open'}
     <button
       class="bar"
@@ -248,6 +262,12 @@
               <Icon size={15} strokeWidth={1.9} />
             </button>
           {/each}
+          {#if companion.blocking > 0}
+            <span class="waiting" role="status" title={fill(copy.sessions.waitingCount, { count: String(companion.blocking) })} data-testid="island-waiting">
+              <span aria-hidden="true">{companion.blocking}</span>
+              <span class="sr">{fill(copy.sessions.waitingCount, { count: String(companion.blocking) })}</span>
+            </span>
+          {/if}
         </div>
         <div class="group">
           <button class="tab" class:on={frame.pinned} aria-pressed={frame.pinned} aria-label={frame.pinned ? copy.unpin : copy.pin} title={frame.pinned ? copy.unpin : copy.pin} onclick={() => frame.togglePin()}>
@@ -424,6 +444,40 @@
   .tab:focus-visible {
     outline: 2px solid var(--island-talking);
     outline-offset: 1px;
+  }
+  /* Requests waiting: a small amber count beside the tabs, gone at zero. */
+  .waiting {
+    align-self: center;
+    min-width: 16px;
+    height: 16px;
+    margin-left: 4px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--island-attention);
+    color: var(--island-attention-ink);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Sizes the peek's one-line status; never seen. */
+  .measure {
+    position: absolute;
+    top: 0;
+    left: 0;
+    visibility: hidden;
+    white-space: nowrap;
+    font-weight: 500;
+    pointer-events: none;
+  }
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .body {
     display: flex;

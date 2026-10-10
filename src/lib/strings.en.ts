@@ -62,7 +62,36 @@ export const strings = {
       ask: 'Ask about them'
     },
     attention: { title: 'Your agents need you' },
-    dock: 'Back to the island'
+    dock: 'Back to the island',
+    /** Home's live sessions, the request card and the tab bar's count (`lib/island/sessions.ts`). */
+    sessions: {
+      title: 'Sessions',
+      none: 'No session at work right now.',
+      states: { working: 'Working', waiting: 'Waiting for you', done: 'Done a moment ago', failed: 'Failed' },
+      tools: { command: 'Command', edit: 'Edit', write: 'Write', read: 'Read', search: 'Search', fetch: 'Fetch', web: 'Web', agent: 'Agent', other: 'Tool', done: 'Done' },
+      stepStatus: { running: 'Running', done: 'Done', error: 'Failed', denied: 'Denied' },
+      showSteps: 'Show the last steps',
+      hideSteps: 'Hide the steps',
+      noSteps: 'No step yet.',
+      reveal: 'Open in Boite',
+      showDiff: 'Show the change',
+      hideDiff: 'Hide the change',
+      folded: '{count} unchanged lines',
+      lead: '{title}: {step}',
+      waitingCount: '{count} requests wait for you',
+      card: {
+        of: '{index} of {count}',
+        previous: 'Previous request',
+        next: 'Next request',
+        deny: 'Deny',
+        allowOnce: 'Allow once',
+        send: 'Send',
+        skip: 'Skip',
+        answer: 'Your answer…',
+        keyEnter: 'Enter',
+        keyEscape: 'Esc'
+      }
+    }
   },
 
   companion: {
