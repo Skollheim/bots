@@ -1,12 +1,10 @@
 <!--
-  The island's Home: the agents at work (a click shows one in Boite), the
+  The island's Home: the live sessions (`sessions/SessionsList.svelte`), the
   reminders and what finished, the focus timer and its tools, the music, the
   threads that waited a while, the tasks launched, and the quotas of the
   subscription proxy, one gauge each.
 -->
 <script lang="ts">
-  import { elapsed } from '@boite/ui/lib/format';
-  import { page } from '@boite/ui/lib/page-hidden.svelte';
   import ProviderLogo from '@boite/ui/components/ProviderLogo.svelte';
   import { useView } from '../../../lib/island/contract';
   import { strings } from '../../../lib/strings';
@@ -17,6 +15,7 @@
   import CompanionTimer from '../../companion/CompanionTimer.svelte';
   import CompanionTools from '../../companion/CompanionTools.svelte';
   import MediaPill from '../../companion/MediaPill.svelte';
+  import SessionsList from '../sessions/SessionsList.svelte';
 
   const view = useView();
   const companion = $derived(view.companion);
@@ -28,42 +27,13 @@
     companion.history = on;
     if (on) view.show('chat');
   }
-
-  // The clock of the agents at work runs while they show.
-  let now = $state(Date.now());
-  $effect(() => {
-    if (companion.busy.length === 0 || page.hidden) return;
-    now = Date.now();
-    const timer = setInterval(() => (now = Date.now()), 1000);
-    return () => clearInterval(timer);
-  });
-
 </script>
 
 <div class="home" data-testid="island-home">
-  <CompanionNotes members={[]} notes={companion.notes} open={false} reachable={companion.reachable} />
+  <!-- A finished thread Sessions still shows carries its card on its row. -->
+  <CompanionNotes members={[]} notes={companion.notes} open={false} reachable={companion.reachable} except={view.sessions.ended} />
 
-  <section class="island-card">
-    <h3 class="island-heading">{copy.busy}</h3>
-    {#if companion.busy.length === 0}
-      <p class="none">{copy.none}</p>
-    {:else}
-      <ul class="busy">
-        {#each companion.busy as thread (thread.id)}
-          <li>
-            <button class="row" onclick={() => open(thread.id)} data-testid="island-busy">
-              <i class="dot" aria-hidden="true"></i>
-              <span class="lines">
-                <span class="title">{thread.title}{#if thread.project}<span class="project"> · {thread.project}</span>{/if}</span>
-                <span class="step">{thread.step}</span>
-              </span>
-              {#if thread.since !== null}<span class="time">{elapsed(now - thread.since)}</span>{/if}
-            </button>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </section>
+  <SessionsList />
 
   {#if companion.radar.shown}
     <CompanionRadar radar={companion.radar} onopen={open} onreply={(threadId, text) => companion.replyFromRadar(threadId, text)} />
@@ -111,11 +81,6 @@
     flex-direction: column;
     gap: 8px;
   }
-  .none {
-    margin: 0;
-    color: var(--island-muted);
-  }
-  .busy,
   .gauges {
     display: flex;
     flex-direction: column;
@@ -123,60 +88,6 @@
     margin: 0;
     padding: 0;
     list-style: none;
-  }
-  .row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    height: auto;
-    padding: 6px 8px;
-    margin: 0 -8px;
-    border: none;
-    border-radius: 10px;
-    background: none;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-  .row:hover {
-    background: var(--island-card-hover);
-  }
-  .dot {
-    flex: none;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--island-working);
-  }
-  .lines {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-width: 0;
-  }
-  .title,
-  .step {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .title {
-    font-weight: 500;
-  }
-  .project,
-  .step,
-  .time {
-    color: var(--island-muted);
-    font-weight: 400;
-  }
-  .step,
-  .time {
-    font-size: 12px;
-  }
-  .time {
-    font-variant-numeric: tabular-nums;
   }
   .focus :global([data-testid='companion-tools']) {
     padding: 4px 0 0;

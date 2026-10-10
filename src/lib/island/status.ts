@@ -1,7 +1,8 @@
 /*
  * The island's one line when it peeks: what matters most right now, and the
  * tone it glows in. A request waiting comes first, then a turn just finished,
- * then a reply on its way, then the agents at work.
+ * then a reply on its way, then the lead session and its step, then a count
+ * of the agents at work.
  */
 import { fill, strings } from '../strings';
 
@@ -16,6 +17,8 @@ export interface StatusInput {
   talking: string | null;
   /** Other threads at work. */
   busy: number;
+  /** The lead live session (`Sessions.lead`) and its step, when one is at work. */
+  lead?: { title: string; step: string | null } | null;
 }
 
 export interface IslandStatus {
@@ -23,11 +26,12 @@ export interface IslandStatus {
   tone: StatusTone;
 }
 
-export function islandStatus({ blocking, finished, talking, busy }: StatusInput): IslandStatus {
+export function islandStatus({ blocking, finished, talking, busy, lead }: StatusInput): IslandStatus {
   const copy = strings.island;
   if (blocking > 0) return { text: blocking === 1 ? copy.waitingOne : fill(copy.waitingMany, { count: String(blocking) }), tone: 'attention' };
   if (finished) return { text: copy.finished, tone: 'done' };
   if (talking !== null) return { text: fill(copy.talking, { name: talking || copy.label }), tone: 'talking' };
+  if (lead) return { text: lead.step ? fill(copy.sessions.lead, { title: lead.title, step: lead.step }) : lead.title, tone: 'working' };
   if (busy > 0) return { text: fill(busy === 1 ? copy.busyOne : copy.busyMany, { count: String(busy) }), tone: 'working' };
   return { text: copy.quiet, tone: 'idle' };
 }

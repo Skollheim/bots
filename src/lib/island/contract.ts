@@ -17,11 +17,13 @@
  *   is away (a field with the keyboard, a menu, a drag over it); `false` lets it go.
  * - `reveal(threadId)`: shows a thread in Boite's window.
  * - `show(tab)`: turns the island to another tab.
+ * - `sessions`: the live sessions Home lists and the peek speaks of, read-only.
  */
 import { getContext, setContext } from 'svelte';
 import type { Client } from '@boite/ui/lib/client';
 import type { Companion } from '../companion/companion.svelte';
 import type { IslandGlow, IslandSize, IslandTab } from './frame.svelte';
+import type { Sessions } from './sessions.svelte';
 
 export interface IslandCore {
   readonly client: Client | null;
@@ -43,6 +45,8 @@ export interface ViewContext {
   hold(key: string, on: boolean): void;
   reveal(threadId: string): Promise<void>;
   show(tab: IslandTab): void;
+  /** The live sessions (`lib/island/sessions.svelte.ts`): one row per thread at work or waiting, its last steps, the lead one. */
+  readonly sessions: Sessions;
 }
 
 const KEY = Symbol('island-view');

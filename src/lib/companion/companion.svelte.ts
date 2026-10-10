@@ -455,6 +455,14 @@ export class Companion {
     } else {
       await client.call('questions.skip', { threadId: action.question.threadId, questionId: action.question.id });
     }
+    this.settled(action.kind === 'allow' || action.kind === 'deny' ? action.request.id : action.question.id);
+  }
+
+  /** A request answered here or elsewhere leaves the lists at once; the core is read again right after. */
+  private settled(id: string): void {
+    if (this.permissions.some((request) => request.id === id)) this.permissions = this.permissions.filter((request) => request.id !== id);
+    if (this.questions.some((question) => question.id === id)) this.questions = this.questions.filter((question) => question.id !== id);
+    this.recompute();
     this.soon(0);
   }
 
@@ -626,7 +634,7 @@ export class Companion {
       let client: Client;
       if (fake) {
         const { FakeClient } = await import('../fake-client');
-        client = new FakeClient({ hudDemo: true });
+        client = new FakeClient({ hudDemo: true, sessionsDemo: true });
         this.notice = strings.bots.demo;
       } else {
         const endpoint = await waitForCore(() => this.disposed, () => (this.waiting = true));
@@ -654,9 +662,9 @@ export class Companion {
       off.push(client.on('thread.created', this.acceptThread));
       off.push(client.on('thread.removed', () => this.soon()));
       off.push(client.on('permission.requested', () => this.soon(0)));
-      off.push(client.on('permission.resolved', () => this.soon(0)));
+      off.push(client.on('permission.resolved', ({ requestId }) => this.settled(requestId)));
       off.push(client.on('question.asked', () => this.soon(0)));
-      off.push(client.on('question.answered', () => this.soon(0)));
+      off.push(client.on('question.answered', ({ questionId }) => this.settled(questionId)));
       off.push(client.on('message.started', (message) => this.talks.forEach((talk) => talk.started(message))));
       off.push(client.on('message.delta', (delta) => this.talks.forEach((talk) => talk.delta(delta))));
       off.push(client.on('message.part', (part) => this.talks.forEach((talk) => talk.part(part))));

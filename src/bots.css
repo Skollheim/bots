@@ -59,13 +59,22 @@
 }
 .island-heading {
   margin: 0 0 6px;
-  color: var(--island-faint);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  color: var(--island-muted);
+  font-size: 12px;
+  font-weight: 500;
 }
 /* Boite's cards inside the island's views lose their own frame and shadow. */
 .island-tokens :is(.card, .panel) {
   box-shadow: none;
+}
+
+/* Sessions: Home's live sessions and the request card. The diff's added and removed lines, its type, the key hints. */
+:root {
+  --island-diff-add: rgb(52 211 153 / 0.13);
+  --island-diff-add-ink: #86efac;
+  --island-diff-remove: rgb(248 113 113 / 0.13);
+  --island-diff-remove-ink: #fca5a5;
+  --island-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --island-key: rgb(255 255 255 / 0.12);
+  --island-attention-ink: #000;
 }

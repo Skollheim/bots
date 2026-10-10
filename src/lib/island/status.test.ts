@@ -17,6 +17,15 @@ test('a finished turn, then a reply on its way, then the agents at work', () => 
   expect(islandStatus({ ...calm, busy: 4 })).toEqual({ text: fill(strings.island.busyMany, { count: '4' }), tone: 'working' });
 });
 
+test('the lead session speaks for the agents at work, with its step when it has one', () => {
+  expect(islandStatus({ ...calm, busy: 2, lead: { title: 'Tidy the README', step: 'Edit README.md' } })).toEqual({
+    text: fill(strings.island.sessions.lead, { title: 'Tidy the README', step: 'Edit README.md' }),
+    tone: 'working'
+  });
+  expect(islandStatus({ ...calm, busy: 1, lead: { title: 'Tidy the README', step: null } }).text).toBe('Tidy the README');
+  expect(islandStatus({ ...calm, blocking: 1, lead: { title: 'Tidy the README', step: null } }).tone).toBe('attention');
+});
+
 test('with nothing going on, all is quiet', () => {
   expect(islandStatus(calm)).toEqual({ text: strings.island.quiet, tone: 'idle' });
 });

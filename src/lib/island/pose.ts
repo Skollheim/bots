@@ -6,12 +6,18 @@
  *   on the desktop;
  * - `tab=home|chat|drop`: the tab the open island shows;
  * - `calm=1`: the requests the fake core starts with are answered first, so
- *   the tab shows without the amber card over it.
+ *   the tab shows without the amber card over it;
+ * - `answer=permissions`: only the permissions are answered first, so the
+ *   card shows the question;
+ * - `unfold=<threadId>,…` and `diff=<toolId>`: Home's session rows shown
+ *   unfolded, and the Edit diff of one step open;
+ * - `reply=<threadId>`: that finished thread's card answered from its row.
  *
  * A wallpaper goes under the transparent window, so the black island shows.
  */
 import type { Companion } from '../companion/companion.svelte';
 import { ISLAND_TABS, type IslandFrame, type IslandTab } from './frame.svelte';
+import { unfolding } from './sessions.svelte';
 
 const WALLPAPER = 'html[data-companion] body { background: linear-gradient(160deg, #34466e, #7d6797 55%, #d49c78) !important; }';
 
@@ -28,6 +34,18 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     for (const request of companion.permissions) await companion.act({ kind: 'allow', request });
     for (const question of companion.questions) await companion.act({ kind: 'skip', question });
     await until(() => companion.blocking === 0);
+  } else if (params.get('answer') === 'permissions') {
+    for (const request of companion.permissions) await companion.act({ kind: 'allow', request });
+    await until(() => companion.permissions.length === 0);
+  }
+  const unfold = params.get('unfold');
+  if (unfold) unfolding.rows = unfold.split(',').filter(Boolean);
+  unfolding.diff = params.get('diff');
+  const reply = params.get('reply');
+  if (reply) {
+    await until(() => companion.notes.notices.some((notice) => notice.threadId === reply));
+    const notice = companion.notes.notices.find((entry) => entry.threadId === reply);
+    if (notice) companion.notes.answer(notice.id);
   }
   const pose = params.get('pose');
   const tab = params.get('tab') as IslandTab | null;

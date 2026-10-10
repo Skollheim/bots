@@ -1,35 +1,165 @@
 <!--
-  What the island lays over its view while an agent waits on the user: an
-  amber card with the permissions to grant and the questions to answer
-  (`CompanionPanel`, requests only). The island opened on its own for them and
-  stays open until they are answered.
+  What the island lays over its view while an agent waits on the user: one
+  amber card at a time, with "1 of 3" and previous / next when several wait.
+  A permission: Deny (Escape) and Allow once (Enter). A question: its choices
+  (keys 1 to 9) and a free answer when it takes one. A request answered
+  elsewhere leaves at once (`Companion.settled`).
 -->
 <script lang="ts">
-  import { BellRing } from '@lucide/svelte';
+  import { BellRing, ChevronLeft, ChevronRight } from '@lucide/svelte';
+  import type { QuestionRequest } from '@boite/contracts';
+  import type { RequestAction } from '../../../lib/companion/companion.svelte';
+  import { describePermission, threadLabel } from '../../../lib/companion/describe';
   import { useView } from '../../../lib/island/contract';
-  import { strings } from '../../../lib/strings';
-  import CompanionPanel from '../../companion/CompanionPanel.svelte';
+  import { keyAction, placeIn, requestQueue, step, type PendingRequest } from '../../../lib/island/requests';
+  import { fill, strings } from '../../../lib/strings';
 
   const view = useView();
   const companion = $derived(view.companion);
+  const copy = strings.island.sessions.card;
+
+  const queue = $derived(requestQueue(companion.permissions, companion.questions));
+  let index = $state(0);
+  let shownId = $state<string | null>(null);
+  const at = $derived(placeIn(queue, shownId, index));
+  const current = $derived<PendingRequest | null>(queue[at] ?? null);
+  const origin = $derived(current ? threadLabel(companion.threads, companion.projects, current.request.threadId) : null);
+
+  // The card keeps to the request it shows while others come and go.
+  $effect(() => {
+    shownId = current?.id ?? null;
+    index = at;
+  });
+
+  let busy = $state<string | null>(null);
+  let failure = $state<{ id: string; message: string } | null>(null);
+  let picked = $state<string[]>([]);
+  let draft = $state('');
+
+  // Another request in view starts with no pick and an empty field.
+  $effect(() => {
+    void current?.id;
+    picked = [];
+    draft = '';
+  });
+
+  function go(by: -1 | 1) {
+    const next = step(at, queue.length, by);
+    index = next;
+    shownId = queue[next]?.id ?? null;
+  }
+
+  async function act(id: string, action: RequestAction) {
+    if (busy) return;
+    busy = id;
+    failure = null;
+    try {
+      await companion.act(action);
+    } catch (error) {
+      failure = { id, message: error instanceof Error ? error.message : String(error) };
+    } finally {
+      busy = null;
+    }
+  }
+
+  function pick(question: QuestionRequest, optionId: string) {
+    if (question.multiple) picked = picked.includes(optionId) ? picked.filter((entry) => entry !== optionId) : [...picked, optionId];
+    else void act(question.id, { kind: 'answer', question, optionIds: [optionId] });
+  }
+
+  function sendText(question: QuestionRequest) {
+    const text = draft.trim();
+    if (text) void act(question.id, { kind: 'answer', question, optionIds: picked, text });
+  }
+
+  function onkey(event: KeyboardEvent) {
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    const typing = !!target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+    const control = !!target?.closest('button, a, [role="button"], [role="tab"]');
+    const action = keyAction(current, { key: event.key, modified: event.ctrlKey || event.altKey || event.metaKey, typing, control });
+    if (!action || !current || busy) return;
+    // The island's own Escape (it closes) waits behind the card's.
+    event.preventDefault();
+    event.stopPropagation();
+    if (current.kind === 'permission') {
+      const request = current.request;
+      void act(request.id, { kind: action.kind === 'deny' ? 'deny' : 'allow', request });
+    } else if (action.kind === 'pick') pick(current.request, action.optionId);
+  }
 </script>
+
+<svelte:window onkeydowncapture={onkey} />
+
+{#snippet hint(key: string)}<kbd aria-hidden="true">{key}</kbd>{/snippet}
 
 <section class="attention" role="alert" data-testid="island-attention">
   <header>
     <BellRing size={14} aria-hidden="true" />
-    <span>{strings.island.attention.title}</span>
-    <span class="count">{companion.blocking}</span>
+    <span class="title">{strings.island.attention.title}</span>
+    {#if queue.length > 1}
+      <span class="pager">
+        <button class="nav" aria-label={copy.previous} title={copy.previous} onclick={() => go(-1)}><ChevronLeft size={14} strokeWidth={2} /></button>
+        <span class="of" data-testid="attention-of">{fill(copy.of, { index: String(at + 1), count: String(queue.length) })}</span>
+        <button class="nav" aria-label={copy.next} title={copy.next} onclick={() => go(1)}><ChevronRight size={14} strokeWidth={2} /></button>
+      </span>
+    {/if}
   </header>
-  <CompanionPanel
-    threads={companion.threads}
-    projects={companion.projects}
-    permissions={companion.permissions}
-    questions={companion.questions}
-    mood={companion.mood}
-    own={companion.ownThreads}
-    onact={(action) => companion.act(action)}
-    requestsOnly
-  />
+
+  {#if current && origin}
+    {@const waiting = busy === current.id}
+    {#key current.id}
+      <div class="request" class:waiting>
+        <p class="origin"><span class="thread">{origin.title}</span>{#if origin.project}<span class="project">&nbsp;· {origin.project}</span>{/if}</p>
+        {#if current.kind === 'permission'}
+          {@const request = current.request}
+          {@const said = describePermission(request)}
+          <p class="ask">{said.verb}{#if said.target}&nbsp;<code>{said.target}</code>{/if}</p>
+          {#if request.description}<p class="hint">{request.description}</p>{/if}
+          <div class="actions">
+            <button class="button ghost" disabled={waiting} data-testid="attention-deny" onclick={() => act(request.id, { kind: 'deny', request })}>
+              {copy.deny}{@render hint(copy.keyEscape)}
+            </button>
+            <button class="button primary" disabled={waiting} data-testid="attention-allow" onclick={() => act(request.id, { kind: 'allow', request })}>
+              {copy.allowOnce}{@render hint(copy.keyEnter)}
+            </button>
+          </div>
+        {:else}
+          {@const question = current.request}
+          <p class="ask">{question.text}</p>
+          {#if question.options.length > 0}
+            <div class="choices">
+              {#each question.options as option, number (option.id)}
+                <button
+                  class="button choice"
+                  title={option.description}
+                  aria-pressed={question.multiple ? picked.includes(option.id) : undefined}
+                  disabled={waiting}
+                  onclick={() => pick(question, option.id)}
+                >
+                  {#if number < 9}{@render hint(String(number + 1))}{/if}{option.label}
+                </button>
+              {/each}
+            </div>
+          {/if}
+          {#if question.allowText}
+            <form class="free" onsubmit={(event) => { event.preventDefault(); sendText(question); }}>
+              <input type="text" placeholder={copy.answer} aria-label={copy.answer} disabled={waiting} bind:value={draft} />
+              <button class="button primary" type="submit" disabled={waiting || !draft.trim()}>{copy.send}</button>
+            </form>
+          {/if}
+          <div class="actions">
+            <button class="button ghost" disabled={waiting} onclick={() => act(question.id, { kind: 'skip', question })}>{copy.skip}</button>
+            {#if question.multiple}
+              <button class="button primary" disabled={waiting || picked.length === 0} onclick={() => act(question.id, { kind: 'answer', question, optionIds: picked })}>
+                {strings.companion.confirm}
+              </button>
+            {/if}
+          </div>
+        {/if}
+        {#if failure?.id === current.id}<p class="failure" role="alert">{failure.message}</p>{/if}
+      </div>
+    {/key}
+  {/if}
 </section>
 
 <style>
@@ -45,25 +175,167 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 9px 12px 4px;
+    min-height: 32px;
+    padding: 6px 8px 0 12px;
     color: var(--island-attention);
     font-weight: 600;
   }
-  .count {
-    margin-left: auto;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
-    border-radius: 999px;
-    background: var(--island-attention);
-    color: #000;
-    font-size: 11px;
-    line-height: 18px;
-    text-align: center;
+  .title {
+    flex: 1;
+    min-width: 0;
   }
-  .attention :global(.panel) {
-    background: none;
+  .pager {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    color: var(--island-muted);
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .nav {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
     border: none;
+    border-radius: 999px;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+  }
+  .nav:hover {
+    background: var(--island-pill);
+    color: var(--island-text);
+  }
+  .request {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px 12px 12px;
+    animation: turn 180ms ease-out;
+  }
+  .request.waiting {
+    opacity: 0.6;
+  }
+  .origin,
+  .ask,
+  .hint,
+  .failure {
+    margin: 0;
+  }
+  .origin {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+  .thread {
+    font-weight: 500;
+  }
+  .project,
+  .hint {
+    color: var(--island-muted);
+  }
+  .hint {
+    font-size: 12px;
+  }
+  .ask code {
+    overflow-wrap: anywhere;
+    font-size: 12px;
+  }
+  .failure {
+    color: var(--island-danger);
+    font-size: 12px;
+  }
+  .actions,
+  .choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .actions {
+    justify-content: flex-end;
+  }
+  .button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--island-line-strong);
+    border-radius: 999px;
+    background: var(--island-pill);
+    color: var(--island-text);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .button:hover:not(:disabled) {
+    background: var(--island-card-hover);
+  }
+  .button:disabled {
+    cursor: default;
+    opacity: 0.55;
+  }
+  .button.ghost {
+    background: none;
+  }
+  .button.primary {
+    border-color: transparent;
+    background: var(--island-attention);
+    color: var(--island-attention-ink);
+  }
+  .button.primary:hover:not(:disabled) {
+    background: var(--island-attention);
+    filter: brightness(1.08);
+  }
+  .button.choice[aria-pressed='true'] {
+    border-color: var(--island-attention);
+  }
+  .button:focus-visible,
+  .nav:focus-visible {
+    outline: 2px solid var(--island-talking);
+    outline-offset: 1px;
+  }
+  kbd {
+    padding: 0 4px;
+    border-radius: 4px;
+    background: var(--island-key);
+    color: inherit;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 16px;
+    opacity: 0.8;
+  }
+  .button.primary kbd {
+    background: rgb(0 0 0 / 0.14);
+  }
+  .free {
+    display: flex;
+    gap: 6px;
+  }
+  .free input {
+    flex: 1;
+    min-width: 0;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--island-line-strong);
+    border-radius: 999px;
+    background: var(--island-bg);
+    color: var(--island-text);
+    font: inherit;
+    font-size: 12px;
+  }
+  .free input:focus-visible {
+    outline: 2px solid var(--island-talking);
+    outline-offset: 0;
+  }
+  .free input::placeholder {
+    color: var(--island-muted);
   }
   @keyframes arrive {
     from {
@@ -71,8 +343,14 @@
       transform: translateY(-6px);
     }
   }
+  @keyframes turn {
+    from {
+      opacity: 0;
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
-    .attention {
+    .attention,
+    .request {
       animation: none;
     }
   }

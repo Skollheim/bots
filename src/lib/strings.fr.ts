@@ -57,7 +57,35 @@ export const fr: Messages = {
       ask: 'Poser une question dessus'
     },
     attention: { title: 'Vos agents ont besoin de vous' },
-    dock: 'Retour dans l’île'
+    dock: 'Retour dans l’île',
+    sessions: {
+      title: 'Sessions',
+      none: 'Aucune session au travail pour l’instant.',
+      states: { working: 'Au travail', waiting: 'Vous attend', done: 'Terminé à l’instant', failed: 'En échec' },
+      tools: { command: 'Commande', edit: 'Modifie', write: 'Écrit', read: 'Lit', search: 'Cherche', fetch: 'Télécharge', web: 'Web', agent: 'Agent', other: 'Outil', done: 'Terminé' },
+      stepStatus: { running: 'En cours', done: 'Fait', error: 'En échec', denied: 'Refusé' },
+      showSteps: 'Afficher les dernières étapes',
+      hideSteps: 'Masquer les étapes',
+      noSteps: 'Aucune étape pour l’instant.',
+      reveal: 'Ouvrir dans Boite',
+      showDiff: 'Afficher la modification',
+      hideDiff: 'Masquer la modification',
+      folded: '{count} lignes inchangées',
+      lead: '{title} : {step}',
+      waitingCount: '{count} demandes vous attendent',
+      card: {
+        of: '{index} sur {count}',
+        previous: 'Demande précédente',
+        next: 'Demande suivante',
+        deny: 'Refuser',
+        allowOnce: 'Autoriser une fois',
+        send: 'Envoyer',
+        skip: 'Passer',
+        answer: 'Votre réponse…',
+        keyEnter: 'Entrée',
+        keyEscape: 'Échap'
+      }
+    }
   },
 
   companion: {
