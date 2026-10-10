@@ -1,0 +1,149 @@
+name: Release
+
+# Builds the raw executables Boite downloads, publishes them as release
+# v<version>, then opens a pull request that writes their URLs and hashes into
+# boite-plugin.json. Merging that pull request is what makes Boite offer the
+# new version.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, without the v (1.2.0, 1.2.0-beta.1)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: windows-latest, target: x86_64-pc-windows-msvc, ext: .exe, optional: false }
+          - { runner: windows-11-arm, target: aarch64-pc-windows-msvc, ext: .exe, optional: true }
+          - { runner: macos-latest, target: aarch64-apple-darwin, ext: '', optional: false }
+          - { runner: macos-latest, target: x86_64-apple-darwin, ext: '', optional: false }
+          - { runner: ubuntu-22.04, target: x86_64-unknown-linux-gnu, ext: '', optional: false }
+          - { runner: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu, ext: '', optional: true }
+    runs-on: ${{ matrix.runner }}
+    # The arm64 Windows and Linux builds are a bonus: the release goes out without them.
+    continue-on-error: ${{ matrix.optional }}
+    timeout-minutes: 45
+    steps:
+      - name: Check the version
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "version must look like 1.2.0, not $VERSION" >&2
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          submodules: true
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - name: Install Linux WebKit dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+      - name: Build
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+          TARGET: ${{ matrix.target }}
+        run: bun run tauri build --no-bundle --target "$TARGET" --config "{\"version\":\"$VERSION\"}"
+      - name: Name the executable
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          EXT: ${{ matrix.ext }}
+        run: |
+          mkdir -p out
+          cp "src-tauri/target/$TARGET/release/bots$EXT" "out/bots-$TARGET$EXT"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: bots-${{ matrix.target }}
+          path: out/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish v${{ inputs.version }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: bots-*
+          path: out
+          merge-multiple: true
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          cd out
+          sha256sum bots-* > SHA256SUMS.txt
+          flags=()
+          if [[ "$VERSION" == *-* ]]; then flags+=(--prerelease); fi
+          gh release create "v$VERSION" bots-* SHA256SUMS.txt --target "$GITHUB_SHA" --title "Bots v$VERSION" --generate-notes "${flags[@]}"
+
+  manifest:
+    name: Manifest pull request
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          submodules: true
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version-file: package.json
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: bots-*
+          path: out
+          merge-multiple: true
+      - name: Write the release into boite-plugin.json
+        env:
+          VERSION: ${{ inputs.version }}
+        run: bun scripts/release-manifest.ts "$VERSION" out
+      - name: Open the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          branch="release/v$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add boite-plugin.json
+          git commit -m "chore(release): point boite-plugin.json at v$VERSION"
+          git push origin "$branch"
+          gh pr create --base "${GITHUB_REF_NAME}" --head "$branch" \
+            --title "chore(release): point boite-plugin.json at v$VERSION" \
+            --body "Writes the version, URLs and sha256 of the v$VERSION executables into boite-plugin.json. Boite offers the new version once this is merged."
