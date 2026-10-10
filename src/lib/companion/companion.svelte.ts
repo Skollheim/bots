@@ -691,7 +691,9 @@ export class Companion {
 
   /** The demo opens on an exchange: the lead is asked something, and answers. */
   private async demo(): Promise<void> {
-    if (this.disposed || this.active.talk.phase !== 'none') return;
+    // The fake core's first agent is made once its projects are read: the question waits for it.
+    for (let tried = 0; tried < 50 && !this.disposed && this.crew.members.length === 0; tried++) await new Promise((resolve) => setTimeout(resolve, 100));
+    if (this.disposed || this.crew.members.length === 0 || this.active.talk.phase !== 'none') return;
     this.draft = strings.bots.demoQuestion;
     await this.ask(false);
   }
