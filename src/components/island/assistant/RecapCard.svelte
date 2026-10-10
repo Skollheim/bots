@@ -51,8 +51,8 @@
         {#each recap.threads as line (line.id)}
           <li>
             <button class="row" title={fill(copy.open, { title: line.title })} onclick={() => void view.reveal(line.id).catch(() => {})}>
-              <span class="title">{line.title}{#if line.project}<span class="project"> · {line.project}</span>{/if}</span>
-              <span class="meta">{#if line.files > 0}{files(line.files)} · {/if}{time(line.workedMs)}</span>
+              <span class="title">{line.title}{#if line.project}<span class="project">{` · ${line.project}`}</span>{/if}</span>
+              <span class="meta">{[line.files > 0 ? files(line.files) : '', time(line.workedMs)].filter(Boolean).join(' · ')}</span>
             </button>
           </li>
         {/each}

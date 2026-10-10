@@ -5,7 +5,8 @@
  * - `running`: an answer streaming in, a tool at work and Stop showing;
  * - `chips`: two files waiting for the next message;
  * - `menu` / `agents`: the model and effort menu, or the agents menu, open;
- * - `quotas`: the quotas pill's panel open.
+ * - `quotas`: the quotas pill's panel open;
+ * - `recap`: Home scrolled down to the Today card.
  */
 import type { Attachment, Message } from '@boite/contracts';
 import type { Companion } from '../companion/companion.svelte';
@@ -59,4 +60,8 @@ export async function strikeAssistantPose(companion: Companion, params: URLSearc
   if (scenes.has('menu')) await click('assistant-model');
   if (scenes.has('agents')) await click('assistant-agent');
   if (scenes.has('quotas')) await click('island-quotas');
+  if (scenes.has('recap')) {
+    await until(() => document.querySelector('[data-testid="island-recap"]') !== null);
+    document.querySelector('[data-testid="island-recap"]')?.scrollIntoView({ block: 'end' });
+  }
 }

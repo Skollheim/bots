@@ -3,12 +3,15 @@
  * and per account, a bar for each window with its reset time. Everything comes
  * from the core: `quotas.list` on open and every few minutes, `quotas.updated`
  * when the core reads them again, and `usage.get` for the tokens the threads used.
+ * The subscription proxy's gauges, which Home showed in phase 1, join the same
+ * panel (`proxyAccounts`), so the island has one quotas display.
  *
  * Amber under 25 % left, red under 10 %: the pill and the bars say the same.
  */
 import type { AccountQuota, Usage } from '@boite/contracts';
 import type { Client } from '@boite/ui/lib/client';
 import { shownQuotas } from '@boite/ui/lib/quota-reader.svelte';
+import type { HudGauge } from '../companion/hud';
 
 export type QuotaTone = 'ok' | 'amber' | 'red';
 
@@ -66,11 +69,30 @@ export function quotaAccounts(rows: AccountQuota[]): QuotaAccount[] {
     .sort((a, b) => a.left - b.left);
 }
 
-/** The window with the least left across every account, what the pill shows. */
-export function tightest(accounts: QuotaAccount[]): { account: QuotaAccount; bar: QuotaBar } | null {
-  const account = accounts[0];
-  const bar = account?.bars[0];
-  return account && bar ? { account, bar } : null;
+/**
+ * The subscription proxy's gauges (`Companion.gauges`, with the Settings
+ * choices already applied) as accounts of one bar, the window nearest its
+ * limit; the proxy gives no reset time. Unknown gauges are left out.
+ */
+export function proxyAccounts(gauges: HudGauge[]): QuotaAccount[] {
+  return gauges
+    .filter((gauge) => gauge.used !== null)
+    .map((gauge): QuotaAccount => {
+      const left = clamp(100 - (gauge.used ?? 0));
+      const bar: QuotaBar = { id: gauge.window || gauge.id, label: gauge.window, left, tone: toneOf(left), resetsAt: null };
+      return { id: `proxy:${gauge.id}`, name: gauge.name, provider: gauge.providerId, bars: [bar], left, tone: bar.tone };
+    })
+    .sort((a, b) => a.left - b.left);
+}
+
+/** The window with the least left across every account given, what the pill shows. */
+export function tightest(...groups: QuotaAccount[][]): { account: QuotaAccount; bar: QuotaBar } | null {
+  let found: { account: QuotaAccount; bar: QuotaBar } | null = null;
+  for (const account of groups.flat()) {
+    const bar = account.bars[0];
+    if (bar && (found === null || bar.left < found.bar.left)) found = { account, bar };
+  }
+  return found;
 }
 
 /** How long until `resetsAt`, short: `45 min`, `3 h`, `2 d`. Null when it is unknown or past. */

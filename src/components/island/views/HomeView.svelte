@@ -1,13 +1,12 @@
 <!--
   The island's Home: the agents at work (a click shows one in Boite), the
   reminders and what finished, the focus timer and its tools, the music, the
-  threads that waited a while, the tasks launched, and the quotas of the
-  subscription proxy, one gauge each.
+  threads that waited a while, the tasks launched, and the day's recap
+  (`assistant/RecapCard.svelte`). The quotas show in the tab bar's pill.
 -->
 <script lang="ts">
   import { elapsed } from '@boite/ui/lib/format';
   import { page } from '@boite/ui/lib/page-hidden.svelte';
-  import ProviderLogo from '@boite/ui/components/ProviderLogo.svelte';
   import { useView } from '../../../lib/island/contract';
   import { strings } from '../../../lib/strings';
   import CompanionFocusCards from '../../companion/CompanionFocusCards.svelte';
@@ -66,6 +65,8 @@
     {/if}
   </section>
 
+  <RecapCard />
+
   {#if companion.radar.shown}
     <CompanionRadar radar={companion.radar} onopen={open} onreply={(threadId, text) => companion.replyFromRadar(threadId, text)} />
   {/if}
@@ -88,23 +89,6 @@
   {#if companion.media}
     <MediaPill media={companion.media} oncontrol={(action) => companion.pressMediaKey(action)} />
   {/if}
-
-  {#if companion.gauges.length > 0}
-    <section class="island-card">
-      <h3 class="island-heading">{copy.quotas}</h3>
-      <ul class="gauges">
-        {#each companion.gauges as gauge (gauge.id)}
-          <li class="gauge" data-level={gauge.level} title={gauge.label}>
-            <ProviderLogo providerId={gauge.providerId} size={13} />
-            <span class="name">{gauge.name}</span>
-            <span class="meter" role="img" aria-label={gauge.label}><i style:width="{gauge.used === null ? 0 : 100 - gauge.used}%"></i></span>
-            <span class="left">{gauge.used === null ? '–' : `${Math.round(100 - gauge.used)}%`}</span>
-          </li>
-        {/each}
-      </ul>
-    </section>
-  {/if}
-  <RecapCard />
 </div>
 
 <style>
@@ -117,8 +101,7 @@
     margin: 0;
     color: var(--island-muted);
   }
-  .busy,
-  .gauges {
+  .busy {
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -182,41 +165,5 @@
   }
   .focus :global([data-testid='companion-tools']) {
     padding: 4px 0 0;
-  }
-  .gauge {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) 120px 38px;
-    align-items: center;
-    gap: 8px;
-    padding: 3px 0;
-  }
-  .name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .meter {
-    height: 5px;
-    border-radius: 999px;
-    background: var(--island-pill);
-    overflow: hidden;
-  }
-  .meter i {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: var(--island-done);
-  }
-  .gauge[data-level='warning'] .meter i {
-    background: var(--island-attention);
-  }
-  .gauge[data-level='danger'] .meter i {
-    background: var(--island-danger);
-  }
-  .left {
-    color: var(--island-muted);
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-    text-align: right;
   }
 </style>

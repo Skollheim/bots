@@ -125,11 +125,12 @@
       {#each assistant.bubbles as bubble (bubble.id)}
         <AssistantMessage {bubble} />
       {/each}
-      {#if assistant.running}
-        <p class="working" data-testid="assistant-working">{assistant.tool ?? fill(copy.working, { name })}</p>
-      {/if}
       {#if notice}<p class="problem" role="alert">{notice}</p>{/if}
     </div>
+
+    {#if assistant.running}
+      <p class="working" data-testid="assistant-working">{assistant.tool ?? fill(copy.working, { name })}</p>
+    {/if}
 
     <div
       class="island-card composer"
@@ -227,7 +228,9 @@
     font-size: 11.5px;
   }
   .working {
+    margin: -2px 0 -2px 2px;
     overflow: hidden;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

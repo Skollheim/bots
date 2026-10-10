@@ -2,14 +2,16 @@
   The quotas at a glance, in the island's tab bar so they show on every tab:
   the least left across the subscriptions as a small pill (amber under a
   quarter, red under a tenth), and on a click every account with a bar per
-  window and when it resets, then the tokens the threads used. The core's
-  `quotas.list`, `quotas.updated` and `usage.get` only.
+  window, and when it resets, then the tokens the threads used. The core's
+  `quotas.list`, `quotas.updated` and `usage.get`, and the subscription
+  proxy's gauges (`companion.gauges`, as Settings shows or hides them), which
+  had their own card in Home before: the island keeps one quotas display.
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
   import { Gauge } from '@lucide/svelte';
   import { useView } from '../../../lib/island/contract';
-  import { compactCount, QuotaWatch, resetIn, tokensOf } from '../../../lib/island/quotas.svelte';
+  import { compactCount, proxyAccounts, QuotaWatch, resetIn, tightest, tokensOf, type QuotaAccount } from '../../../lib/island/quotas.svelte';
   import { fill, strings } from '../../../lib/strings';
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
@@ -22,7 +24,8 @@
   let panel = $state<HTMLDivElement | null>(null);
   let now = $state(Date.now());
 
-  const top = $derived(watch.tightest);
+  const proxy = $derived(proxyAccounts(view.companion.gauges));
+  const top = $derived(tightest(watch.accounts, proxy));
   const tokens = $derived(tokensOf(watch.usage));
 
   $effect(() => {
@@ -51,11 +54,34 @@
     trigger?.focus();
   }
 
-  function resets(at: number | null): string {
+  /** How long until the window resets, short (`3 h`); empty when unknown. */
+  function until(at: number | null): string {
     const left = resetIn(at, now);
-    return left ? fill(copy.resets, { time: fill(copy.units[left.unit], { value: String(left.value) }) }) : '';
+    return left ? fill(copy.units[left.unit], { value: String(left.value) }) : '';
+  }
+
+  function resets(at: number | null): string {
+    const time = until(at);
+    return time ? fill(copy.resets, { time }) : '';
   }
 </script>
+
+{#snippet accounts(list: QuotaAccount[])}
+  {#each list as account (account.id)}
+    <section class="account">
+      <p class="name">{account.name}</p>
+      {#each account.bars as bar (bar.id)}
+        {@const said = [fill(copy.left, { percent: String(bar.left) }), resets(bar.resetsAt)].filter(Boolean).join(', ')}
+        <div class="bar" data-tone={bar.tone} title={said}>
+          <span class="window">{bar.label}</span>
+          <span class="track" role="img" aria-label="{bar.label}: {said}"><i style:width="{bar.left}%"></i></span>
+          <span class="left" aria-hidden="true">{fill(copy.pill, { percent: String(bar.left) })}</span>
+          <span class="resets" aria-hidden="true">{until(bar.resetsAt)}</span>
+        </div>
+      {/each}
+    </section>
+  {/each}
+{/snippet}
 
 {#if top}
   <div class="quotas" onkeydown={keys} role="presentation">
@@ -76,21 +102,11 @@
     {#if open}
       <div bind:this={panel} class="panel" role="dialog" aria-label={copy.title} data-testid="island-quotas-panel">
         <p class="title">{copy.title}</p>
-        {#each watch.accounts as account (account.id)}
-          <section class="account">
-            <p class="name">{account.name}</p>
-            {#each account.bars as bar (bar.id)}
-              <div class="bar" data-tone={bar.tone}>
-                <span class="window">{bar.label}</span>
-                <span class="track" role="img" aria-label="{bar.label}: {fill(copy.left, { percent: String(bar.left) })}"><i style:width="{bar.left}%"></i></span>
-                <span class="left">{fill(copy.left, { percent: String(bar.left) })}</span>
-                {#if bar.resetsAt}<span class="resets">{resets(bar.resetsAt)}</span>{/if}
-              </div>
-            {/each}
-          </section>
-        {:else}
-          <p class="none">{copy.none}</p>
-        {/each}
+        {@render accounts(watch.accounts)}
+        {#if proxy.length > 0}
+          <p class="title">{copy.proxy}</p>
+          {@render accounts(proxy)}
+        {/if}
         {#if tokens > 0}<p class="tokens">{fill(copy.tokens, { count: compactCount(tokens) })}</p>{/if}
       </div>
     {/if}
@@ -139,7 +155,11 @@
     flex-direction: column;
     gap: 10px;
     width: 268px;
+    max-height: 270px;
     padding: 10px 12px 12px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
     border: 1px solid var(--island-line-strong);
     border-radius: 14px;
     background: var(--island-menu);
@@ -168,19 +188,21 @@
   }
   .bar {
     display: grid;
-    grid-template-columns: 58px minmax(0, 1fr) auto;
+    grid-template-columns: 52px minmax(0, 1fr) 34px 36px;
     align-items: center;
     column-gap: 8px;
-    row-gap: 1px;
     font-size: 11.5px;
   }
   .window,
   .resets {
+    overflow: hidden;
     color: var(--island-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .resets {
-    grid-column: 2 / 4;
     font-size: 11px;
+    text-align: right;
   }
   .track {
     height: 5px;
@@ -203,6 +225,7 @@
   .left {
     color: var(--island-text);
     font-variant-numeric: tabular-nums;
+    text-align: right;
   }
   .bar[data-tone='amber'] .left {
     color: var(--island-quota-amber);
@@ -210,7 +233,6 @@
   .bar[data-tone='red'] .left {
     color: var(--island-quota-red);
   }
-  .none,
   .tokens {
     margin: 0;
     color: var(--island-muted);

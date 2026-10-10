@@ -101,7 +101,7 @@ export const strings = {
         resets: 'resets in {time}',
         units: { min: '{value} min', h: '{value} h', d: '{value} d' },
         tokens: '{count} tokens used by your threads',
-        none: 'No subscription reports its limits.'
+        proxy: 'Subscription proxy'
       },
       recap: {
         title: 'Today',

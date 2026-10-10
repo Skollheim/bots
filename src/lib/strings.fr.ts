@@ -95,7 +95,7 @@ export const fr: Messages = {
         resets: 'réinitialisé dans {time}',
         units: { min: '{value} min', h: '{value} h', d: '{value} j' },
         tokens: '{count} jetons utilisés par vos fils',
-        none: 'Aucun abonnement n’indique ses limites.'
+        proxy: 'Proxy d’abonnements'
       },
       recap: {
         title: 'Aujourd’hui',
