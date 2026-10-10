@@ -4,6 +4,12 @@
   its lid and how it moves. The only colour is the light on the lid, which
   tells the mood. It knows its mood and a few flags, not Boite. Colours come
   from the theme (`app.css`).
+
+  It is drawn in stacked layers over the same 100 unit square: the body, the
+  eyes, the outline, the lid and its light, what it wears, the marks around
+  it. What keeps moving (a breath, a blink, the gaze, the lid, the light) is a
+  whole layer moved by transform or opacity only, which the compositor plays
+  on its own: the page paints nothing while the robot lives.
 -->
 <script module lang="ts">
   /** Where it looks, each axis from -1 (left, up) to 1 (right, down). */
@@ -130,7 +136,7 @@
 {#if skin?.family === 'jelly'}
   <JellyCharacter robot={skin} {face} {tone} {look} {bouncing} {dizzy} {act} {size} {label} />
 {:else}
-<svg
+<div
   class="char f-{face} t-{tone} {act ? `a-${act}` : ''}"
   class:quiet={face === 'calm'}
   class:music
@@ -140,116 +146,132 @@
   class:dizzy
   class:skinned={paint !== null}
   class:tinted={paint !== null && paint.lid !== 'var(--color-surface)'}
+  class:with-headset={headset}
+  class:with-cup={cup}
   style="--gx: {look.x.toFixed(2)}; --gy: {look.y.toFixed(2)}"
   style:--box-body={paint?.body}
   style:--box-lid={paint?.lid}
   style:--box-line={paint?.line}
   style:--box-eye={paint?.eye}
-  viewBox="0 0 100 100"
-  width={size}
-  height={size}
+  style:width="{size}px"
+  style:height="{size}px"
   role="img"
   aria-label={label}
 >
-  <g class="rig">
-    <rect class="body" x="15" y="38" width="70" height="50" rx="9" />
+  <div class="layer rig">
+    <svg class="layer" viewBox="0 0 100 100" aria-hidden="true"><rect class="body" x="15" y="38" width="70" height="50" rx="9" /></svg>
 
-    <g class="eyes">
-      <g class="scan">
+    <!-- The gaze, a glance and a blink each move the eyes' own layer. -->
+    <div class="layer eyes"><div class="layer scan"><div class="layer blink">
+      <svg class="layer" viewBox="0 0 100 100" aria-hidden="true">
         {#each [39, 61] as cx, index (cx)}
           <g class="eye" class:right={index === 1}>
-            <g class="blink">
-              <!-- The eye shuts from the top by `--shut`; lids the colour of the box slant or round it. -->
-              <rect class="pupil" class:lit={paint?.lit} x={cx - 4.5} y="54" width="9" height="14" rx="4.5" />
-              <rect class="upper" x={cx - 9} y="44" width="18" height="8" />
-              <ellipse class="lower" {cx} cy="76.5" rx="10" ry="7" />
-            </g>
+            <!-- The eye shuts from the top by `--shut`; lids the colour of the box slant or round it. -->
+            <rect class="pupil" class:lit={paint?.lit} x={cx - 4.5} y="54" width="9" height="14" rx="4.5" />
+            <rect class="upper" x={cx - 9} y="44" width="18" height="8" />
+            <ellipse class="lower" {cx} cy="76.5" rx="10" ry="7" />
           </g>
         {/each}
-      </g>
-    </g>
+      </svg>
+    </div></div></div>
     <!-- The outline over the lids, so that a lid sliding out of the face never cuts it. -->
-    <rect class="rim" x="15" y="38" width="70" height="50" rx="9" />
+    <svg class="layer" viewBox="0 0 100 100" aria-hidden="true"><rect class="rim" x="15" y="38" width="70" height="50" rx="9" /></svg>
 
-    <g class="shell lid">
-      <rect class="lidbox" x="10" y="26" width="80" height="13" rx="5" />
-      <rect class="led" x="43" y="30.25" width="14" height="4.5" rx="2.25" />
-      <!-- In the lid's group, so it tips when the lid flaps. -->
-      {#if paint && !capped}<BoxTop top={paint.top} x={50} y={26} />{/if}
-    </g>
+    <div class="layer lid">
+      <svg class="layer" viewBox="0 0 100 100" aria-hidden="true">
+        <g class="shell">
+          <rect class="lidbox" x="10" y="26" width="80" height="13" rx="5" />
+          <!-- On the lid, so it tips when the lid flaps. -->
+          {#if paint && !capped}<BoxTop top={paint.top} x={50} y={26} />{/if}
+        </g>
+      </svg>
+      <svg class="layer led" viewBox="0 0 100 100" aria-hidden="true"><rect class="light" x="43" y="30.25" width="14" height="4.5" rx="2.25" /></svg>
+    </div>
 
     {#if music && !tea && !headset}
-      <g class="phones">
+      <svg class="layer phones" viewBox="0 0 100 100" aria-hidden="true">
         <path class="band under" d="M10 60 V50 C10 10 90 10 90 50 V60" />
         <path class="band" d="M10 60 V50 C10 10 90 10 90 50 V60" />
         <rect class="cup" x="5" y="50" width="10" height="20" rx="3.5" /><rect class="cup" x="85" y="50" width="10" height="20" rx="3.5" />
-      </g>
+      </svg>
     {/if}
 
     {#if headset}
       <!-- A gaming headset, not the music's: a padded band, big cups with a light, a mic on a boom. -->
-      <g class="headset">
-        <path class="band under" d="M9 60 V48 C9 7 91 7 91 48 V60" />
-        <path class="band" d="M9 60 V48 C9 7 91 7 91 48 V60" />
-        <path class="pad under" d="M32 20 Q50 14.5 68 20" />
-        <path class="pad" d="M32 20 Q50 14.5 68 20" />
-        <path class="boom under" d="M9 70 C9 81 15 85.5 25 85.5" />
-        <path class="boom" d="M9 70 C9 81 15 85.5 25 85.5" />
-        <rect class="mic" x="23.5" y="82.5" width="8" height="6" rx="3" />
-        <rect class="cup" x="1.5" y="46" width="15" height="26" rx="5" /><rect class="cup" x="83.5" y="46" width="15" height="26" rx="5" />
-        <rect class="glow" x="7.5" y="52" width="3" height="14" rx="1.5" /><rect class="glow" x="89.5" y="52" width="3" height="14" rx="1.5" />
-      </g>
+      <div class="layer headset">
+        <svg class="layer" viewBox="0 0 100 100" aria-hidden="true">
+          <path class="band under" d="M9 60 V48 C9 7 91 7 91 48 V60" />
+          <path class="band" d="M9 60 V48 C9 7 91 7 91 48 V60" />
+          <path class="pad under" d="M32 20 Q50 14.5 68 20" />
+          <path class="pad" d="M32 20 Q50 14.5 68 20" />
+          <path class="boom under" d="M9 70 C9 81 15 85.5 25 85.5" />
+          <path class="boom" d="M9 70 C9 81 15 85.5 25 85.5" />
+          <rect class="mic" x="23.5" y="82.5" width="8" height="6" rx="3" />
+          <rect class="cup" x="1.5" y="46" width="15" height="26" rx="5" /><rect class="cup" x="83.5" y="46" width="15" height="26" rx="5" />
+        </svg>
+        <svg class="layer glow" viewBox="0 0 100 100" aria-hidden="true">
+          <rect x="7.5" y="52" width="3" height="14" rx="1.5" /><rect x="89.5" y="52" width="3" height="14" rx="1.5" />
+        </svg>
+      </div>
     {/if}
 
     {#if cup}
       <!-- A paper cup of coffee held up at its side, steam rising from the lid. -->
-      <g class="coffee">
-        <path class="steam" d="M83 63 c-2.5 -2.5 2.5 -4.5 0 -7 c-2.5 -2.5 2.5 -4.5 0 -7" />
-        <path class="steam s2" d="M78.5 64 c-2.5 -2.5 2.5 -4.5 0 -7" />
-        <path class="paper" d="M76.5 70 h16 l-2 18 h-12 z" />
-        <path class="sleeve" d="M77.2 75.5 h14.6 l-0.7 6.5 h-13.2 z" />
-        <rect class="cap" x="75" y="66" width="19" height="4.5" rx="2" />
-      </g>
+      <div class="layer coffee">
+        <svg class="layer steam" viewBox="0 0 100 100" aria-hidden="true"><path class="vapour halo" d="M83 63 c-2.5 -2.5 2.5 -4.5 0 -7 c-2.5 -2.5 2.5 -4.5 0 -7" /></svg>
+        <svg class="layer steam s2" viewBox="0 0 100 100" aria-hidden="true"><path class="vapour halo" d="M78.5 64 c-2.5 -2.5 2.5 -4.5 0 -7" /></svg>
+        <svg class="layer lift" viewBox="0 0 100 100" aria-hidden="true">
+          <g class="halo">
+            <path class="paper" d="M76.5 70 h16 l-2 18 h-12 z" />
+            <path class="sleeve" d="M77.2 75.5 h14.6 l-0.7 6.5 h-13.2 z" />
+            <rect class="cap" x="75" y="66" width="19" height="4.5" rx="2" />
+          </g>
+        </svg>
+      </div>
     {/if}
-  </g>
+  </div>
 
   {#if tea}
     <!-- A mug of tea on the desk at its side, the tag of the bag hanging out, steam rising. -->
-    <g class="mug">
-      <path class="steam" d="M81 60 c-2.5 -2.5 2.5 -4.5 0 -7 c-2.5 -2.5 2.5 -4.5 0 -7" />
-      <path class="steam s2" d="M88 61 c-2.5 -2.5 2.5 -4.5 0 -7" />
-      <path class="handle" d="M93 70 h1.5 a4.5 4.5 0 0 1 0 9 h-1.5" />
-      <path class="cup" d="M75 65 h18 v12 a8 8 0 0 1 -8 8 h-2 a8 8 0 0 1 -8 -8 z" />
-      <path class="string" d="M86 65.5 q-1 4 -5 6.5" />
-      <rect class="tag" x="77" y="71.5" width="6" height="6.5" rx="1.2" />
-    </g>
+    <div class="layer mug">
+      <svg class="layer steam" viewBox="0 0 100 100" aria-hidden="true"><path class="vapour halo" d="M81 60 c-2.5 -2.5 2.5 -4.5 0 -7 c-2.5 -2.5 2.5 -4.5 0 -7" /></svg>
+      <svg class="layer steam s2" viewBox="0 0 100 100" aria-hidden="true"><path class="vapour halo" d="M88 61 c-2.5 -2.5 2.5 -4.5 0 -7" /></svg>
+      <svg class="layer" viewBox="0 0 100 100" aria-hidden="true">
+        <g class="halo">
+          <path class="handle" d="M93 70 h1.5 a4.5 4.5 0 0 1 0 9 h-1.5" />
+          <path class="cup" d="M75 65 h18 v12 a8 8 0 0 1 -8 8 h-2 a8 8 0 0 1 -8 -8 z" />
+          <path class="string" d="M86 65.5 q-1 4 -5 6.5" />
+          <rect class="tag" x="77" y="71.5" width="6" height="6.5" rx="1.2" />
+        </g>
+      </svg>
+    </div>
   {/if}
 
   {#if face === 'sleep'}
-    <text class="mark z" x="80" y="20">z</text>
+    <svg class="layer z" viewBox="0 0 100 100" aria-hidden="true"><text class="halo" x="80" y="20">z</text></svg>
   {:else if face === 'calling' || face === 'alarm'}
-    <path class="mark stroke shout" d="M95 26 v11 M95 43 v0.5" />
+    <svg class="layer shout" viewBox="0 0 100 100" aria-hidden="true"><path class="stroke halo" d="M95 26 v11 M95 43 v0.5" /></svg>
   {:else if face === 'happy' || face === 'cheer'}
-    <path class="mark stroke spark" d="M9 22 l-5 -4 M50 9 v-6 M91 22 l5 -4" />
+    <svg class="layer spark" viewBox="0 0 100 100" aria-hidden="true"><path class="stroke halo" d="M9 22 l-5 -4 M50 9 v-6 M91 22 l5 -4" /></svg>
   {:else if face === 'startled'}
-    <path class="mark stroke" d="M10 26 l-5 -5 M90 26 l5 -5 M50 12 v-6" />
+    <svg class="layer" viewBox="0 0 100 100" aria-hidden="true"><path class="stroke halo" d="M10 26 l-5 -5 M90 26 l5 -5 M50 12 v-6" /></svg>
   {:else if face === 'worried'}
-    <path class="mark stroke" d="M95 30 v8 M95 44 v0.5" />
+    <svg class="layer" viewBox="0 0 100 100" aria-hidden="true"><path class="stroke halo" d="M95 30 v8 M95 44 v0.5" /></svg>
   {/if}
 
   {#if notes}
-    <g class="notes" transform="translate(90 4)">
-      <g class="note n1"><rect x="0" y="9" width="7" height="5.5" rx="2.75" /><path d="M6.5 11.5 V0 l5 2.5" /></g>
-      <g class="note n2" transform="translate(9 12)"><rect x="0" y="7" width="6" height="4.5" rx="2.25" /><path d="M5.5 9 V0 l4 2" /></g>
-    </g>
+    <!-- Two notes rise from the same spot, one after the other. -->
+    <svg class="layer note" viewBox="0 0 100 100" aria-hidden="true"><g class="halo" transform="translate(90 4)"><rect x="0" y="9" width="7" height="5.5" rx="2.75" /><path d="M6.5 11.5 V0 l5 2.5" /></g></svg>
+    <svg class="layer note n2" viewBox="0 0 100 100" aria-hidden="true"><g class="halo" transform="translate(90 4)"><rect x="0" y="7" width="6" height="4.5" rx="2.25" /><path d="M5.5 9 V0 l4 2" /></g></svg>
   {/if}
-</svg>
+</div>
 {/if}
 
 <style>
   .char {
-    overflow: visible;
+    position: relative;
     display: block;
+    flex: none;
     --fg: var(--color-foreground);
     --tone: var(--color-muted-foreground);
     /* The face: how far the eyes are shut, how far each lid has slid in, how the upper one tilts, how wide the eyes open. */
@@ -258,7 +280,11 @@
     --low: 0px;
     --tilt: 0deg;
     --open: 1;
+    /* Where a blink folds the eyes: their middle, which the face's lids move. */
+    --blink-y: 63.75%;
   }
+  /* Every layer is the same square, and what sticks out of it still shows. */
+  .layer { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
   .t-working { --tone: var(--color-live); }
   .t-calling { --tone: var(--color-accent); }
   .t-happy { --tone: var(--color-success); }
@@ -266,17 +292,17 @@
 
   .f-sleep { --shut: 12px; }
   .f-yawn { --shut: 11px; }
-  .f-groove { --shut: 5.5px; --low: 3px; }
-  .f-typing { --shut: 3.5px; }
-  .f-working { --top: 6.5px; --tilt: 12deg; }
+  .f-groove { --shut: 5.5px; --low: 3px; --blink-y: 65%; }
+  .f-typing { --shut: 3.5px; --blink-y: 65.5%; }
+  .f-working { --top: 6.5px; --tilt: 12deg; --blink-y: 66.1%; }
   .f-calling, .f-alarm { --open: 1.18; }
   .f-startled { --open: 1.34; }
   .f-happy { --low: 9px; }
-  .f-worried { --top: 6px; --tilt: -16deg; }
-  .f-calm { --shut: 6px; }
+  .f-worried { --top: 6px; --tilt: -16deg; --blink-y: 65.6%; }
+  .f-calm { --shut: 6px; --blink-y: 66.75%; }
   .f-rest { --shut: 7.5px; --low: 4px; }
   .f-cheer { --low: 9px; --open: 1.06; }
-  .f-game { --shut: 2.5px; --top: 3.5px; --tilt: 9deg; }
+  .f-game { --shut: 2.5px; --top: 3.5px; --tilt: 9deg; --blink-y: 66.1%; }
   .hover { --open: 1.1; }
 
   .body { fill: var(--color-surface); filter: var(--bots-shadow); }
@@ -284,7 +310,7 @@
   .rim, .lidbox { stroke: var(--fg); stroke-width: 4; stroke-linejoin: round; }
   .lidbox { fill: var(--color-surface); }
   .shell { filter: var(--bots-shadow); }
-  .led { fill: var(--tone); transition: fill var(--dur-2) var(--ease-out-quint); }
+  .light { fill: var(--tone); transition: fill var(--dur-2) var(--ease-out-quint); }
   .pupil { fill: var(--fg); }
   .upper, .lower { fill: var(--color-surface); }
   /* A box skin: its body, lid, outline and eyes; the eyelids wear the body so they still hide the eyes. */
@@ -294,9 +320,9 @@
   .skinned .pupil { fill: var(--box-eye); }
   .skinned .pupil.lit { stroke: var(--robot-ink); stroke-width: 2; }
   /* On a coloured lid the mood's light keeps a rim. */
-  .tinted .led { stroke: var(--box-line); stroke-width: 1.5; }
+  .tinted .light { stroke: var(--box-line); stroke-width: 1.5; }
   .stroke { fill: none; stroke: var(--tone); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
-  .z { fill: var(--fg); font: 600 13px var(--font-sans, sans-serif); }
+  .z text { fill: var(--fg); font: 600 13px var(--font-sans, sans-serif); }
   /* Two-tone headphones like the box (stroke and a surface rim): readable on light and dark. */
   .band { fill: none; stroke: var(--fg); stroke-width: 4.5; stroke-linecap: round; }
   .band.under { stroke: var(--color-surface); stroke-width: 9; }
@@ -305,10 +331,11 @@
   .note path { fill: none; stroke: var(--fg); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
   /* The tea's mug, not the headphones' cups. */
   .mug .cup { fill: var(--color-surface); stroke: var(--fg); stroke-width: 3.5; stroke-linejoin: round; }
-  .handle, .string, .steam { fill: none; stroke: var(--fg); stroke-linecap: round; }
+  .handle, .string, .vapour { fill: none; stroke: var(--fg); stroke-linecap: round; }
   .handle { stroke-width: 3.5; }
   .string { stroke-width: 1.2; }
-  .steam { stroke-width: 2; opacity: .7; }
+  .vapour { stroke-width: 2; }
+  .steam { opacity: .7; }
   .tag { fill: var(--tone); stroke: var(--fg); stroke-width: 1.2; }
   /* The gaming headset: the band of the music's, a pad, a boom and a light on each cup. */
   .pad { fill: none; stroke: var(--fg); stroke-width: 7; stroke-linecap: round; }
@@ -316,7 +343,7 @@
   .boom { fill: none; stroke: var(--fg); stroke-width: 3; stroke-linecap: round; }
   .boom.under { stroke: var(--color-surface); stroke-width: 6.5; }
   .mic { fill: var(--fg); stroke: var(--color-surface); stroke-width: 2.5; paint-order: stroke; }
-  .glow { fill: var(--color-accent); }
+  .glow rect { fill: var(--color-accent); }
   /* The coffee: a paper cup with its sleeve and lid. */
   .paper, .sleeve, .cap { stroke: var(--fg); stroke-linejoin: round; }
   .paper { fill: var(--color-surface); stroke-width: 3; }
@@ -326,13 +353,21 @@
   .char { transition: opacity var(--dur-3) var(--ease-out-quint), scale var(--dur-3) var(--ease-out-quint); }
   .quiet { opacity: .55; scale: .84; }
   /* What sticks out of the box is drawn over the wallpaper: a rim keeps it readable. */
-  .mark, .notes, .mug, .coffee { filter: drop-shadow(0 0 1.2px var(--color-surface)) drop-shadow(0 0 1.2px var(--color-surface)); }
+  .halo { filter: drop-shadow(0 0 1.2px var(--color-surface)) drop-shadow(0 0 1.2px var(--color-surface)); }
 
+  /*
+   * The layers turn round the points the drawing turned round: the body's
+   * foot (the headset's or the cup's when worn) and the lid's hinge. Their
+   * moves are in hundredths of the square, its own units.
+   */
+  .rig { transform-origin: 50% 88%; }
+  .with-cup .rig { transform-origin: 52.25% 88%; }
+  .with-headset .rig { transform-origin: 50% 88.5%; }
+  .lid { transform-origin: 10% 39%; }
+  .blink { transform-origin: 50% var(--blink-y); }
   /* The eyes morph from face to face: every part slides, nothing swaps. */
-  .rig { transform-box: fill-box; transform-origin: 50% 100%; }
-  .lid { transform-box: fill-box; transform-origin: 0% 100%; }
-  .eyes { translate: calc(var(--gx) * 4px) calc(var(--gy) * 2.5px); transition: translate .35s var(--ease-out-quint); }
-  .pupil, .blink, .upper { transform-box: fill-box; transform-origin: 50% 50%; }
+  .eyes { transform: translate(calc(var(--gx) * 4%), calc(var(--gy) * 2.5%)); transition: transform .35s var(--ease-out-quint); }
+  .pupil, .upper { transform-box: fill-box; transform-origin: 50% 50%; }
   .pupil {
     y: calc(54px + var(--shut));
     height: calc(14px - var(--shut));
@@ -381,38 +416,38 @@
   .t-calling .led, .t-worried .led { animation: beacon .7s ease-in-out infinite alternate; }
   .shout { animation: beacon .7s ease-in-out infinite alternate; }
   .z { animation: zz 3s ease-in-out infinite; }
-  .spark { animation: spark 1.2s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 50%; }
+  .spark { animation: spark 1.2s ease-in-out infinite; transform-origin: 50% 12.5%; }
   .note { animation: float 2s ease-out infinite; opacity: 0; }
   .note.n2 { animation-delay: 1s; }
   .phones, .mug, .headset, .coffee { animation: fade-in var(--dur-3) var(--ease-out-quint); }
   .steam { animation: steam 2.6s ease-in-out infinite; }
   .steam.s2 { animation-delay: 1.3s; }
   .glow { animation: beacon 1.6s ease-in-out infinite alternate; }
-  .coffee .paper, .coffee .sleeve, .coffee .cap { transform-box: view-box; transform-origin: 84px 88px; animation: lift 6s ease-in-out infinite; }
+  .lift { transform-origin: 84% 88%; animation: lift 6s ease-in-out infinite; }
 
   @keyframes fade-in { from { opacity: 0; } }
-  @keyframes wobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg) translateX(-1px); } 75% { transform: rotate(8deg) translateX(1px); } }
-  @keyframes swirl { 0% { translate: 3px 0; } 25% { translate: 0 3px; } 50% { translate: -3px 0; } 75% { translate: 0 -3px; } 100% { translate: 3px 0; } }
+  @keyframes wobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg) translateX(-1%); } 75% { transform: rotate(8deg) translateX(1%); } }
+  @keyframes swirl { 0% { transform: translate(3%, 0); } 25% { transform: translate(0, 3%); } 50% { transform: translate(-3%, 0); } 75% { transform: translate(0, -3%); } 100% { transform: translate(3%, 0); } }
   /* Brings the cup up to its lid now and then, and back down. */
-  @keyframes lift { 0%, 55%, 100% { transform: rotate(0) translateY(0); } 65%, 82% { transform: rotate(-14deg) translateY(-4px); } }
+  @keyframes lift { 0%, 55%, 100% { transform: rotate(0) translateY(0); } 65%, 82% { transform: rotate(-14deg) translateY(-4%); } }
   /* Jumps for joy, landing with a squash. */
-  @keyframes jump { 0%, 100% { transform: translateY(0) scale(1.04, .96); } 45% { transform: translateY(-10px) scale(.97, 1.04); } }
+  @keyframes jump { 0%, 100% { transform: translateY(0) scale(1.04, .96); } 45% { transform: translateY(-10%) scale(.97, 1.04); } }
   /* Eyes darting over the action. */
-  @keyframes dart { 0%, 22%, 100% { translate: 0 0; } 28%, 48% { translate: -3px 0; } 54%, 74% { translate: 3px -.5px; } }
+  @keyframes dart { 0%, 22%, 100% { transform: translate(0, 0); } 28%, 48% { transform: translate(-3%, 0); } 54%, 74% { transform: translate(3%, -.5%); } }
   /* Leans towards its tea now and then, and back. */
-  @keyframes sip { 0%, 30%, 70%, 100% { transform: rotate(0) scale(1, 1); } 15% { transform: rotate(0) scale(1.01, 1.025); } 42%, 58% { transform: rotate(4deg) translateX(1px); } }
-  @keyframes steam { 0% { transform: translateY(2px); opacity: 0; } 35% { opacity: .7; } 100% { transform: translateY(-5px); opacity: 0; } }
+  @keyframes sip { 0%, 30%, 70%, 100% { transform: rotate(0) scale(1, 1); } 15% { transform: rotate(0) scale(1.01, 1.025); } 42%, 58% { transform: rotate(4deg) translateX(1%); } }
+  @keyframes steam { 0% { transform: translateY(2%); opacity: 0; } 35% { opacity: .7; } 100% { transform: translateY(-5%); opacity: 0; } }
   @keyframes breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, 1.03); } }
-  @keyframes groove { from { transform: rotate(-4deg) translateY(0); } to { transform: rotate(4deg) translateY(-1.5px); } }
-  @keyframes nod { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1.2px); } }
-  @keyframes hum { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+  @keyframes groove { from { transform: rotate(-4deg) translateY(0); } to { transform: rotate(4deg) translateY(-1.5%); } }
+  @keyframes nod { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1.2%); } }
+  @keyframes hum { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5%); } }
   @keyframes hop {
     0%, 100% { transform: translateY(0) scale(1, 1); }
-    30% { transform: translateY(-8px) scale(.98, 1.03); }
+    30% { transform: translateY(-8%) scale(.98, 1.03); }
     52% { transform: translateY(0) scale(1.04, .96); }
     68% { transform: translateY(0) scale(1, 1); }
   }
-  @keyframes shiver { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+  @keyframes shiver { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-1%); } 75% { transform: translateX(1%); } }
   @keyframes ring { 0%, 40%, 100% { transform: rotate(0); } 8% { transform: rotate(-7deg); } 16% { transform: rotate(6deg); } 24% { transform: rotate(-4deg); } 32% { transform: rotate(2deg); } }
   @keyframes stretch { 0%, 100% { transform: scale(1, 1); } 40%, 60% { transform: scale(.96, 1.08); } }
   @keyframes boing { 0% { transform: scale(1, 1); } 25% { transform: scale(1.08, .88); } 55% { transform: scale(.95, 1.08); } 80% { transform: scale(1.02, .98); } 100% { transform: scale(1, 1); } }
@@ -421,15 +456,15 @@
   @keyframes yawn-lid { 0%, 100% { transform: rotate(0); } 30%, 70% { transform: rotate(-14deg); } }
   @keyframes peek { 0%, 100% { transform: rotate(0); } 25%, 60% { transform: rotate(-9deg); } }
   @keyframes pop { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-26deg); } 60% { transform: rotate(-8deg); } }
-  @keyframes blink { 0%, 93%, 100% { scale: 1 1; } 96% { scale: 1 .08; } }
-  @keyframes twice { 0%, 40%, 100% { scale: 1 1; } 20%, 60% { scale: 1 .08; } 80% { scale: 1 1; } }
-  @keyframes glance { 0%, 100% { translate: 0 0; } 20%, 40% { translate: -4px 0; } 60%, 80% { translate: 4px -1px; } }
-  @keyframes scan { from { translate: -3px 0; } to { translate: 3px 0; } }
-  @keyframes slide { from { transform: translateX(-22px); } to { transform: translateX(22px); } }
+  @keyframes blink { 0%, 93%, 100% { transform: scale(1, 1); } 96% { transform: scale(1, .08); } }
+  @keyframes twice { 0%, 40%, 100% { transform: scale(1, 1); } 20%, 60% { transform: scale(1, .08); } 80% { transform: scale(1, 1); } }
+  @keyframes glance { 0%, 100% { transform: translate(0, 0); } 20%, 40% { transform: translate(-4%, 0); } 60%, 80% { transform: translate(4%, -1%); } }
+  @keyframes scan { from { transform: translateX(-3%); } to { transform: translateX(3%); } }
+  @keyframes slide { from { transform: translateX(-22%); } to { transform: translateX(22%); } }
   @keyframes beacon { from { opacity: 1; } to { opacity: .3; } }
-  @keyframes zz { 0% { transform: translate(0, 0); opacity: 0; } 25% { opacity: .9; } 100% { transform: translate(6px, -10px); opacity: 0; } }
+  @keyframes zz { 0% { transform: translate(0, 0); opacity: 0; } 25% { opacity: .9; } 100% { transform: translate(6%, -10%); opacity: 0; } }
   @keyframes spark { 0%, 20% { opacity: 0; transform: scale(.5); } 40% { opacity: 1; transform: scale(1); } 75%, 100% { opacity: 0; transform: scale(1.1); } }
-  @keyframes float { 0% { transform: translate(0, 6px); opacity: 0; } 25% { opacity: 1; } 100% { transform: translate(8px, -14px); opacity: 0; } }
+  @keyframes float { 0% { transform: translate(0, 6%); opacity: 0; } 25% { opacity: 1; } 100% { transform: translate(8%, -14%); opacity: 0; } }
 
   @media (prefers-reduced-motion: reduce) {
     .char, .char * { animation: none !important; transition: none !important; }
