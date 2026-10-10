@@ -10,6 +10,7 @@
  * first one leading (`crew.svelte.ts`). The brain fields are what a companion
  * agent made from here runs on; each agent then keeps its own.
  */
+import { encodeRobot, parseRobot, type Robot, type RobotFamily } from '../robots';
 
 /** Along the top of the screen, or `free`: where the user dropped the character. */
 export type CompanionAnchor = 'left' | 'center' | 'right' | 'free';
@@ -17,8 +18,13 @@ export type CompanionAnchor = 'left' | 'center' | 'right' | 'free';
 export type CompanionControl = 'ask' | 'auto';
 /** What the eye shows: every screen, the one the companion is on, or a part the user picks each time. */
 export type CompanionScreenScope = 'all' | 'here' | 'zone';
+/** Where the robots live: in the island at the top of the screen, or loose on the desktop. */
+export type CompanionRobots = 'island' | 'desktop';
 /** The character's centre, in fractions of the screen's work area. */
 export interface CompanionSpot { x: number; y: number }
+/** The families the island's mascot may come from: Boîte, the box, or a Jelly. */
+export const MASCOT_FAMILIES = ['box', 'jelly'] as const satisfies readonly RobotFamily[];
+export type Mascot = Robot & { family: (typeof MASCOT_FAMILIES)[number] };
 
 /** The shortcuts Settings offers, in the shell's notation (`platform/desktop.rs`). */
 export const COMPANION_HOTKEYS = ['Alt+Shift+Space', 'Ctrl+Alt+Space', 'Ctrl+Shift+Space', 'Ctrl+Alt+B'] as const;
@@ -26,6 +32,12 @@ export const COMPANION_HOTKEYS = ['Alt+Shift+Space', 'Ctrl+Alt+Space', 'Ctrl+Shi
 export interface CompanionPrefs {
   /** The screen's name as the shell lists it; null is the primary screen. */
   monitor: string | null;
+  /** The island, or the robots loose on the desktop; dragging a robot out or back switches it. */
+  robots: CompanionRobots;
+  /** Hovering the island long enough opens its panel; off, only a click does. */
+  openOnHover: boolean;
+  /** The island's character, the first agent's on the desktop; null is that agent's own box (Boîte by default). */
+  mascot: Mascot | null;
   anchor: CompanionAnchor;
   /** Where the character was dropped, with `anchor: 'free'`. */
   spot: CompanionSpot | null;
@@ -67,6 +79,9 @@ export const COMPANION_STORAGE_KEY = 'bots.prefs';
 
 export const DEFAULT_COMPANION_PREFS: CompanionPrefs = {
   monitor: null,
+  robots: 'island',
+  openOnHover: true,
+  mascot: null,
   anchor: 'center',
   spot: null,
   hideFullscreen: true,
@@ -108,12 +123,26 @@ function spotOf(value: unknown): CompanionSpot | null {
   return left === null || top === null ? null : { x: left, y: top };
 }
 
+/** A box or a jelly, each part in its range; anything else is no mascot. */
+function mascotOf(value: unknown): Mascot | null {
+  if (!value || typeof value !== 'object') return null;
+  const { family, shape, color, eyes, top } = value as Record<string, unknown>;
+  if (family !== 'box' && family !== 'jelly') return null;
+  const parts = [shape, color, eyes, top];
+  if (!parts.every((part) => typeof part === 'number' && Number.isInteger(part) && part >= 0)) return null;
+  const robot = parseRobot(encodeRobot({ family, shape, color, eyes, top } as Robot));
+  return robot as Mascot | null;
+}
+
 /** Whatever is stored, read field by field: a missing or wrong field takes its default. */
 export function parseCompanionPrefs(raw: unknown): CompanionPrefs {
   const value = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const spot = spotOf(value.spot);
   return {
     monitor: text(value.monitor),
+    robots: value.robots === 'desktop' ? 'desktop' : 'island',
+    openOnHover: value.openOnHover !== false,
+    mascot: mascotOf(value.mascot),
     // A free place needs the spot it was dropped on.
     anchor: value.anchor === 'left' || value.anchor === 'right' || (value.anchor === 'free' && spot) ? value.anchor : 'center',
     spot,

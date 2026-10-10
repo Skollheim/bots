@@ -27,16 +27,18 @@
     /** The threads of the companion's own agents: their replies are in the bubble, so they are not listed with the others at work. */
     own: readonly string[];
     onact(action: PanelAction): Promise<void>;
+    /** Only what waits for an answer: the island's attention card, where the threads at work show elsewhere. */
+    requestsOnly?: boolean;
   }
 
-  let { threads, projects, permissions, questions, mood, own, onact }: Props = $props();
+  let { threads, projects, permissions, questions, mood, own, onact, requestsOnly = false }: Props = $props();
 
   // Its own requests stay: an action the companion wants to take waits here for Allow.
   const asks = $derived(permissions);
   const blocking = $derived(questions.filter((question) => !question.async));
   const later = $derived(questions.filter((question) => question.async));
-  const working = $derived(threads.filter((thread) => isWorking(thread.status) && !own.includes(thread.id)));
-  const finished = $derived(threads.filter((thread) => mood.justFinished.includes(thread.id) && !own.includes(thread.id)));
+  const working = $derived(requestsOnly ? [] : threads.filter((thread) => isWorking(thread.status) && !own.includes(thread.id)));
+  const finished = $derived(requestsOnly ? [] : threads.filter((thread) => mood.justFinished.includes(thread.id) && !own.includes(thread.id)));
   const nothing = $derived(asks.length + blocking.length + later.length + working.length + finished.length === 0);
 
   let pending = $state<string[]>([]);

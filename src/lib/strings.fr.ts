@@ -14,7 +14,50 @@ export const fr: Messages = {
     revealUnsupported: 'Cette version de Boite ne sait pas encore l’afficher. Mettez Boite à jour, puis réessayez.',
     settingsTitle: 'Réglages de Bots',
     tray: { tooltip: 'Bots', settings: 'Réglages', quit: 'Quitter' },
-    demo: 'Mode démo : un faux Boite, rien n’est envoyé.'
+    demo: 'Mode démo : un faux Boite, rien n’est envoyé.',
+    demoQuestion: 'Sur quoi travaillent mes agents ?'
+  },
+
+  island: {
+    label: 'Bots',
+    tabs: { home: 'Accueil', chat: 'Discussion', drop: 'Dépôt' },
+    settings: 'Réglages',
+    mute: 'Couper les sons',
+    unmute: 'Remettre les sons',
+    pin: 'Garder l’île ouverte',
+    unpin: 'Laisser l’île se refermer',
+    quiet: 'Tout est calme',
+    busyOne: '{count} agent au travail',
+    busyMany: '{count} agents au travail',
+    waitingOne: 'Un agent a besoin de vous',
+    waitingMany: '{count} demandes vous attendent',
+    finished: 'Terminé',
+    talking: '{name} répond…',
+    robot: '{name}. Cliquez pour le taquiner, faites-le glisser hors de l’île pour le poser sur le bureau.',
+    home: {
+      busy: 'Au travail',
+      none: 'Aucun agent au travail pour l’instant.',
+      quotas: 'Quotas',
+      reminders: 'Rappels et nouvelles',
+      focus: 'Concentration'
+    },
+    chat: {
+      empty: 'Demandez ce que vous voulez à vos bots : ils répondent ici.',
+      to: 'Parler à',
+      history: 'Réponses précédentes',
+      hideHistory: 'Masquer les réponses précédentes'
+    },
+    drop: {
+      title: 'Déposez des fichiers ici',
+      hint: 'Ils partent avec votre prochaine question, avec une capture si vous en prenez une.',
+      capture: 'Capturer l’écran',
+      zone: 'Capturer une zone',
+      captured: 'Écran capturé',
+      removeShot: 'Retirer la capture',
+      ask: 'Poser une question dessus'
+    },
+    attention: { title: 'Vos agents ont besoin de vous' },
+    dock: 'Retour dans l’île'
   },
 
   companion: {
@@ -235,7 +278,15 @@ export const fr: Messages = {
       hotkeyHint: 'Appelle le compagnon depuis n’importe quelle application, prêt à écrire.',
       hotkeyOff: 'Aucun',
       hotkeyTaken: 'Une autre application utilise déjà {hotkey}. Choisissez un autre raccourci.',
-      crew: {
+      robots: 'Robots',
+      robotsHint: 'Dans l’île en haut de l’écran, ou en liberté sur le bureau. Vous pouvez aussi faire glisser un robot hors de l’île, puis le ramener contre le bord du haut pour l’y remettre.',
+      robotsChoice: { island: 'Dans l’île', desktop: 'Sur le bureau' },
+      openOnHover: 'Ouvrir au survol',
+      openOnHoverHint: 'Laisser le pointeur un instant sur l’île l’ouvre. Désactivé, seul un clic l’ouvre.',
+      mascot: 'Mascotte',
+      mascotHint: 'Le personnage de l’île, et celui du premier agent sur le bureau : Boîte, la boîte, ou un Jelly.',
+      mascotReset: 'Reprendre l’allure du premier agent',
+      look: 'Allure',      crew: {
         title: 'Agents',
         hint: 'Les agents qui se tiennent côte à côte sur votre écran, {count} au plus. Cliquez sur l’un d’eux pour lui parler seul à seul : chacun garde sa conversation et sa mémoire, dans Agents. Le premier montre aussi ce qui se passe dans Boite.',
         loading: 'Lecture des agents…',

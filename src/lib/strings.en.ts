@@ -17,7 +17,52 @@ export const strings = {
     revealUnsupported: 'This version of Boite cannot show it. Update Boite, then try again.',
     settingsTitle: 'Bots settings',
     tray: { tooltip: 'Bots', settings: 'Settings', quit: 'Quit' },
-    demo: 'Demo mode: a fake Boite, nothing is sent.'
+    demo: 'Demo mode: a fake Boite, nothing is sent.',
+    /** What the demo asks the lead robot first, for a chat exchange to show. */
+    demoQuestion: 'What are my agents working on?'
+  },
+
+  /** The island hanging from the top of the screen (`components/island/`). */
+  island: {
+    label: 'Bots',
+    tabs: { home: 'Home', chat: 'Chat', drop: 'Drop' },
+    settings: 'Settings',
+    mute: 'Mute the sounds',
+    unmute: 'Turn the sounds on',
+    pin: 'Keep the island open',
+    unpin: 'Let the island close',
+    quiet: 'All quiet',
+    busyOne: '{count} agent at work',
+    busyMany: '{count} agents at work',
+    waitingOne: 'An agent needs you',
+    waitingMany: '{count} requests wait for you',
+    finished: 'Done',
+    talking: '{name} is answering…',
+    robot: '{name}. Click to poke it, drag it out to set it loose on the desktop.',
+    home: {
+      busy: 'At work',
+      none: 'No agent at work right now.',
+      quotas: 'Quotas',
+      reminders: 'Reminders and news',
+      focus: 'Focus'
+    },
+    chat: {
+      empty: 'Ask your bots anything: they answer here.',
+      to: 'Talk to',
+      history: 'Earlier answers',
+      hideHistory: 'Hide earlier answers'
+    },
+    drop: {
+      title: 'Drop files here',
+      hint: 'They go with your next question, along with a capture if you take one.',
+      capture: 'Capture the screen',
+      zone: 'Capture a zone',
+      captured: 'Screen captured',
+      removeShot: 'Remove the capture',
+      ask: 'Ask about them'
+    },
+    attention: { title: 'Your agents need you' },
+    dock: 'Back to the island'
   },
 
   companion: {
@@ -238,7 +283,15 @@ export const strings = {
       hotkeyHint: 'Calls the companion from any app, ready to type.',
       hotkeyOff: 'None',
       hotkeyTaken: 'Another app already uses {hotkey}. Pick another shortcut.',
-      crew: {
+      robots: 'Robots',
+      robotsHint: 'In the island at the top of the screen, or loose on the desktop. You can also drag a robot out of the island, and back to the top edge to return it.',
+      robotsChoice: { island: 'In the island', desktop: 'On the desktop' },
+      openOnHover: 'Open on hover',
+      openOnHoverHint: 'Resting the pointer on the island a moment opens it. Off, only a click does.',
+      mascot: 'Mascot',
+      mascotHint: 'The island’s character, and the first agent’s on the desktop: Boîte, the box, or a Jelly.',
+      mascotReset: 'Use the first agent’s own look',
+      look: 'Look',      crew: {
         title: 'Agents',
         hint: 'The agents standing on your screen side by side, {count} at most. Click one to talk to it alone: each keeps its own conversation and memory, in Agents. The first one also shows what goes on in Boite.',
         loading: 'Reading the agents…',
