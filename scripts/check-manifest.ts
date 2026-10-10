@@ -1,13 +1,7 @@
 /*
  * Checks `boite-plugin.json` with Boite's own reader (`parseManifest`, from
- * the `vendor/boite` submodule), and that its artifacts are the ones
- * `release.yml` uploads.
- *
- * `provides.desktopApp` is the feature Boite adds for Bots. Until the pinned
- * Boite reads it, this check accepts it here only: it must be `{}` and alone,
- * and the rest of the manifest goes through the pinned reader with a stand-in
- * feature in its place. Once the submodule is bumped to a Boite that knows
- * `desktopApp`, the stand-in goes and the manifest is read as it is.
+ * the `vendor/boite` submodule), that Bots provides a desktop app and nothing
+ * else, and that its artifacts are the ones `release.yml` uploads.
  *
  * `bun scripts/check-manifest.ts [path]`, `bun run check:manifest`.
  */
@@ -37,21 +31,15 @@ export function manifestProblems(text: string, file = 'boite-plugin.json'): stri
   } catch (error) {
     return [`${file}: not JSON: ${error instanceof Error ? error.message : String(error)}`];
   }
-  const problems: string[] = [];
-  const provides = raw['provides'];
-  const desktop = provides && typeof provides === 'object' ? (provides as Record<string, unknown>)['desktopApp'] : undefined;
-  if (!desktop || typeof desktop !== 'object' || Array.isArray(desktop) || Object.keys(desktop).length > 0) {
-    problems.push(`${file}: provides.desktopApp must be {}`);
-  }
-  if (provides && typeof provides === 'object' && Object.keys(provides).length !== 1) {
-    problems.push(`${file}: provides must name desktopApp alone`);
-  }
   let manifest: PluginManifest;
   try {
-    manifest = parseManifest({ ...raw, provides: { accountPools: { providers: ['claude'] } } }, file);
+    manifest = parseManifest(raw, file);
   } catch (error) {
-    return [...problems, error instanceof Error ? error.message : String(error)];
+    return [error instanceof Error ? error.message : String(error)];
   }
+  const problems: string[] = [];
+  if (manifest.provides.desktopApp === undefined) problems.push(`${file}: provides.desktopApp must be {}`);
+  if (Object.keys(manifest.provides).length !== 1) problems.push(`${file}: provides must name desktopApp alone`);
   if (manifest.id !== 'bots') problems.push(`${file}: id must be bots`);
   if (manifest.executable !== 'bots') problems.push(`${file}: executable must be bots`);
   for (const target of TARGETS) {

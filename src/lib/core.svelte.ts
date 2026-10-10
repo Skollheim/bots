@@ -67,7 +67,7 @@ export class CoreLink {
     this.waiting = false;
     if (!endpoint) return null;
     this.endpointUrl = endpoint.url;
-    const ws = new WsClient({ url: endpoint.url, token: endpoint.token, clientName: 'shell' });
+    const ws = new WsClient({ url: endpoint.url, token: endpoint.token, clientName: 'plugin' });
     this.#off.push(watchEndpoint(endpoint, () => ws.state === 'ready', () => location.reload()));
     return ws;
   }
