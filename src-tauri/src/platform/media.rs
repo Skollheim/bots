@@ -16,6 +16,19 @@ pub(crate) struct MediaState {
     pub playing: bool,
     /// The cover, [`ART_SIDE`] pixels at most, as a `data:image/jpeg` URL.
     pub art: Option<String>,
+    /// Where the track is, in milliseconds, at the moment of the read; `None`
+    /// when the player tells no timeline.
+    pub position: Option<f64>,
+    /// How long the track lasts, in milliseconds; `None` as for `position`.
+    pub duration: Option<f64>,
+}
+
+/// Where a track is now: the position the player last reported, moved on by
+/// the time since when it plays, never past its end.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) fn position_now(reported: f64, since: f64, playing: bool, duration: f64) -> f64 {
+    let moved = if playing { reported + since.max(0.0) } else { reported };
+    moved.clamp(0.0, duration.max(0.0))
 }
 
 /// The longer side of a cover as the page gets it: the pill shows it at 28 px.
@@ -71,9 +84,9 @@ fn cover_of(track: &str, read: impl FnOnce() -> Option<String>) -> Option<String
     art
 }
 
-/// The three buttons of the media session.
+/// The three buttons of the media session, and bringing the player forward.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) enum MediaAction { Toggle, Next, Previous }
+pub(crate) enum MediaAction { Toggle, Next, Previous, Show }
 
 impl MediaAction {
     pub(crate) fn parse(action: &str) -> Result<Self, String> {
@@ -81,9 +94,17 @@ impl MediaAction {
             "toggle" => Ok(Self::Toggle),
             "next" => Ok(Self::Next),
             "previous" => Ok(Self::Previous),
-            _ => Err(format!("media action must be toggle, next or previous, not {action:?}")),
+            "show" => Ok(Self::Show),
+            _ => Err(format!("media action must be toggle, next, previous or show, not {action:?}")),
         }
     }
+}
+
+/// The address that brings a player forward, for the players that have one:
+/// Spotify answers `spotify:` by showing its window. `None` for the others.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) fn player_uri(app: &str) -> Option<&'static str> {
+    app.to_lowercase().contains("spotify").then_some("spotify:")
 }
 
 #[cfg(windows)]
@@ -113,9 +134,29 @@ mod imp {
             let (title, artist, app) = (properties.Title()?.to_string(), properties.Artist()?.to_string(), session.SourceAppUserModelId()?.to_string());
             // A cover that cannot be read leaves the pill without one, not without the music.
             let art = super::cover_of(&format!("{app}\n{title}\n{artist}"), || cover(&properties).ok().flatten());
-            Ok(Some(MediaState { title, artist, app, playing: session.GetPlaybackInfo()?.PlaybackStatus()? == Status::Playing, art }))
+            let playing = session.GetPlaybackInfo()?.PlaybackStatus()? == Status::Playing;
+            // A timeline that cannot be read leaves the music without its progress.
+            let (position, duration) = timeline(&session, playing).unwrap_or((None, None));
+            Ok(Some(MediaState { title, artist, app, playing, art, position, duration }))
         };
         read().map_err(|error| error.to_string())
+    }
+
+    /// The track's position now and its length, in milliseconds. Players
+    /// report the position when it jumps (a play, a pause, a seek) with the
+    /// time of that report: the position now counts on from it.
+    fn timeline(session: &Session, playing: bool) -> windows::core::Result<(Option<f64>, Option<f64>)> {
+        let timeline = session.GetTimelineProperties()?;
+        // TimeSpan and DateTime count in 100 ns ticks.
+        let ms = |ticks: i64| ticks as f64 / 10_000.0;
+        let duration = ms(timeline.EndTime()?.Duration - timeline.StartTime()?.Duration);
+        if duration <= 0.0 { return Ok((None, None)); }
+        let reported = ms(timeline.Position()?.Duration);
+        // DateTime counts from 1601, the system clock from 1970.
+        const FROM_1601: i64 = 116_444_736_000_000_000;
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |since| (since.as_nanos() / 100) as i64) + FROM_1601;
+        let since = ms(now - timeline.LastUpdatedTime()?.UniversalTime);
+        Ok((Some(super::position_now(reported, since, playing, duration)), Some(duration)))
     }
 
     /// The session's thumbnail, scaled to [`super::ART_SIDE`] and encoded as a
@@ -153,15 +194,33 @@ mod imp {
 
     pub(super) fn control(action: MediaAction) -> Result<(), String> {
         let press = || -> windows::core::Result<()> {
-            let Some(session) = session()? else { return Ok(()) };
+            let session = session()?;
+            if action == MediaAction::Show {
+                // With no session, the player the page offers to open is Spotify.
+                let app = match &session { Some(session) => session.SourceAppUserModelId()?.to_string(), None => "spotify".to_owned() };
+                if let Some(uri) = super::player_uri(&app) { show(uri); }
+                return Ok(());
+            }
+            let Some(session) = session else { return Ok(()) };
             match action {
                 MediaAction::Toggle => session.TryTogglePlayPauseAsync()?.get()?,
                 MediaAction::Next => session.TrySkipNextAsync()?.get()?,
                 MediaAction::Previous => session.TrySkipPreviousAsync()?.get()?,
+                MediaAction::Show => true,
             };
             Ok(())
         };
         press().map_err(|error| error.to_string())
+    }
+
+    /// The shell opens the player's address: the player comes forward, from
+    /// the tray too. The click that asked for it lets the shell take the focus.
+    fn show(uri: &str) {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        if let Err(error) = std::process::Command::new("explorer.exe").arg(uri).creation_flags(CREATE_NO_WINDOW).spawn() {
+            eprintln!("[bots] the player did not come forward: {error}");
+        }
     }
 }
 
@@ -183,11 +242,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_the_three_buttons_are_accepted() {
+    fn only_the_three_buttons_and_show_are_accepted() {
         assert_eq!(MediaAction::parse("toggle"), Ok(MediaAction::Toggle));
         assert_eq!(MediaAction::parse("next"), Ok(MediaAction::Next));
         assert_eq!(MediaAction::parse("previous"), Ok(MediaAction::Previous));
+        assert_eq!(MediaAction::parse("show"), Ok(MediaAction::Show));
         assert!(MediaAction::parse("stop").unwrap_err().contains("\"stop\""));
+    }
+
+    #[test]
+    fn only_spotify_is_brought_forward_by_its_address() {
+        assert_eq!(player_uri("Spotify.exe"), Some("spotify:"));
+        assert_eq!(player_uri("SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify"), Some("spotify:"));
+        assert_eq!(player_uri("MSEdge"), None);
+    }
+
+    #[test]
+    fn the_position_counts_on_while_the_track_plays() {
+        assert_eq!(position_now(10_000.0, 2_500.0, true, 200_000.0), 12_500.0);
+        assert_eq!(position_now(10_000.0, 2_500.0, false, 200_000.0), 10_000.0, "paused, it stays");
+        assert_eq!(position_now(199_000.0, 5_000.0, true, 200_000.0), 200_000.0, "never past the end");
+        assert_eq!(position_now(10_000.0, -400.0, true, 200_000.0), 10_000.0, "a report from the future counts as now");
     }
 
     #[test]

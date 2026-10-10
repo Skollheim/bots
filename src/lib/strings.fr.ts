@@ -135,6 +135,49 @@ export const fr: Messages = {
         keyEnter: 'Entrée',
         keyEscape: 'Échap'
       }
+    },
+    notice: {
+      relaunch: 'Relancer',
+      relaunching: 'Relance…',
+      retryTitle: 'Demander à l’agent de réessayer',
+      continueTitle: 'Demander à l’agent de continuer',
+      archive: 'Archiver',
+      archiving: 'Archivage…',
+      archiveTitle: 'Archiver le fil tant qu’il est au repos',
+      changes: 'Voir les modifications',
+      hideChanges: 'Masquer les modifications',
+      noChanges: 'Aucune modification dans son dossier.',
+      binary: 'Un fichier binaire : rien à afficher.',
+      more: '{count} fichiers de plus',
+      failed: 'Ça n’a pas marché : {reason}',
+      retryPrompt: 'Réessaie.',
+      continuePrompt: 'Continue.'
+    },
+    memory: {
+      title: { thread: '« {title} » approche de sa limite de mémoire', budget: 'Vos agents approchent de leur budget mémoire', machine: 'Votre PC manque de mémoire' },
+      used: { thread: '{used} sur {limit}', budget: '{used} sur {limit} pour tous les agents', machine: '{used} libres, Boite garde {limit} en réserve' },
+      culprit: '« {title} » en prend le plus : {size}',
+      next: 'Si ça continue, Boite arrêtera son plus gros processus.',
+      stop: 'Arrêter l’agent',
+      stopping: 'Arrêt…',
+      stopTitle: 'Arrêter les processus de ce fil, comme le gestionnaire des tâches de Boite',
+      ignore: 'Ignorer',
+      failed: 'L’agent n’a pas pu être arrêté : {reason}',
+      stopped: 'Boite a arrêté {program} dans « {title} » pour libérer {size}',
+      stoppedAlone: 'Boite a arrêté {program} pour libérer {size}',
+      process: 'un processus',
+      agent: 'Un agent',
+      close: 'Fermer',
+      mb: '{value} Mo',
+      gb: '{value} Go',
+      point: ','
+    },
+    update: {
+      title: { nightly: 'Nouvelle nightly disponible', stable: 'Nouvelle version de Boite disponible' },
+      version: 'Version {version}',
+      open: 'Ouvrir Boite',
+      openTitle: 'Boite l’installe depuis ses réglages, dans Mises à jour de l’application',
+      later: 'Plus tard'
     }
   },
 
@@ -187,7 +230,17 @@ export const fr: Messages = {
       search: 'Veut chercher',
       use: 'Veut utiliser {tool}'
     },
-    media: { previous: 'Morceau précédent', next: 'Morceau suivant', play: 'Lecture', pause: 'Pause' },
+    media: {
+      label: 'Musique',
+      previous: 'Morceau précédent',
+      next: 'Morceau suivant',
+      play: 'Lecture',
+      pause: 'Pause',
+      openSpotify: 'Ouvrir Spotify',
+      now: '{title} par {artist}',
+      show: 'Afficher {app}',
+      position: '{position} sur {duration}'
+    },
     hud: {
       label: 'Fils au travail et quotas',
       openThread: 'Ouvrir {title} dans Boite',
@@ -195,7 +248,9 @@ export const fr: Messages = {
       quotas: 'Quotas',
       quotaUnknown: 'inconnu',
       quotaLow: 'bientôt épuisé',
-      quotaOut: 'presque épuisé'
+      quotaOut: 'presque épuisé',
+      helper: '1 sous-agent au travail',
+      helpers: '{count} sous-agents au travail'
     },
     pomodoro: {
       start: 'Pomodoro',

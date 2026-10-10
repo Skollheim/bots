@@ -25,8 +25,8 @@
   import Island from './components/island/Island.svelte';
 
   const HIT_PAD = 6;
-  /** The island's window: the open island (640 × 440 at most, 640 tall for a diff), its glow, and a notice under it. */
-  const ISLAND_WINDOW = { width: 720, open: 500, tall: 700, closed: 150 };
+  /** The island's window: the open island (640 × 440 at most, 640 tall for a diff), its glow, a notice under it, and the drops on its sides (the music player, up to 276 wide). */
+  const ISLAND_WINDOW = { width: 920, open: 500, tall: 700, closed: 150 };
   /** The window shrinks once the island's spring has closed it. */
   const SHRINK_AFTER = 450;
 

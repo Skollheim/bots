@@ -68,6 +68,11 @@ export class Notes {
     this.timer = setInterval(() => this.tick(), 1000);
   }
 
+  /** The core the cards act on: start a thread again, archive it, read its changes. */
+  get client(): Client | null {
+    return this.host.client();
+  }
+
   /** The threads the mood tracker saw finish. */
   finished(ids: string[]): void {
     const now = Date.now();

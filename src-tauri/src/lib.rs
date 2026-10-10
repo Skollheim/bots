@@ -47,6 +47,7 @@ pub fn run() {
             companion_window::companion_hit_rects,
             companion_window::companion_media,
             companion_window::companion_media_control,
+            companion_window::companion_media_levels,
             companion_window::companion_configure,
             companion_window::companion_drag,
             companion_window::companion_capture,

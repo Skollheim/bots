@@ -17,5 +17,6 @@ pub(crate) fn before_webview() {}
 
 pub(crate) mod desktop;
 pub(crate) mod games;
+pub(crate) mod levels;
 pub(crate) mod media;
 pub(crate) mod region;

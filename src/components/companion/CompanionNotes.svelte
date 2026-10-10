@@ -1,8 +1,8 @@
 <!--
   What the companion shows under itself besides its panel: the reminders that
   rang, each agent's reply, named when several stand, the other conversations
-  that finished, which the user may answer from here, and a word when Boite is
-  out of reach. Each block takes clicks (`data-hit`).
+  that finished, which the user may answer, start again or archive from here,
+  and a word when Boite is out of reach. Each block takes clicks (`data-hit`).
 -->
 <script lang="ts">
   import { BellRing, CircleAlert, CornerDownLeft, ExternalLink, Square, X } from '@lucide/svelte';
@@ -11,6 +11,7 @@
   import type { Notes } from '../../lib/companion/notes.svelte';
   import type { CrewMember } from './CompanionCrew.svelte';
   import CompanionReply from './CompanionReply.svelte';
+  import NoticeActions from '../island/sessions/NoticeActions.svelte';
 
   interface Props {
     members: CrewMember[];
@@ -20,9 +21,11 @@
     reachable: boolean;
     /** Threads whose finished card shows elsewhere (the island's session rows): no card here for them. */
     except?: readonly string[];
+    /** The cards may unfold a thread's changes: the island has room for them. */
+    changes?: boolean;
   }
 
-  let { members, notes, open, reachable, except = [] }: Props = $props();
+  let { members, notes, open, reachable, except = [], changes = false }: Props = $props();
 
   const copy = strings.companion;
   const several = $derived(members.length > 1);
@@ -88,6 +91,11 @@
         {/if}
         <button class="ghost icon" aria-label={copy.dismiss} title={copy.dismiss} onclick={() => notes.dismiss(notice.id)}><X size={13} /></button>
       </div>
+      {#if !replying}
+        <div class="tail">
+          <NoticeActions threadId={notice.threadId} failed={notice.failed} client={notes.client} {changes} ongone={() => notes.dismiss(notice.id)} />
+        </div>
+      {/if}
       {#if replying}
         <div class="answering">
           {#if notice.text}<p class="answer">{notice.text}</p>{/if}
@@ -243,6 +251,9 @@
     flex-direction: column;
     gap: 6px;
     padding: 2px 6px 6px 9px;
+  }
+  .tail {
+    padding: 0 6px 5px 9px;
   }
   .answer {
     max-height: 160px;

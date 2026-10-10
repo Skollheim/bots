@@ -1,8 +1,9 @@
 <!--
   The island's Home: the live sessions (`sessions/SessionsList.svelte`), the
-  reminders and what finished, the focus timer and its tools, the music, the
-  threads that waited a while, the tasks launched, and the day's recap
-  (`assistant/RecapCard.svelte`). The quotas show in the tab bar's pill.
+  reminders and what finished, the focus timer and its tools, the threads
+  that waited a while, the tasks launched, and the day's recap
+  (`assistant/RecapCard.svelte`), and a newer Boite when one is out
+  (`UpdateCard.svelte`). The quotas and the music show in the tab bar.
 -->
 <script lang="ts">
   import { useView } from '../../../lib/island/contract';
@@ -13,9 +14,10 @@
   import CompanionTaskCards from '../../companion/CompanionTaskCards.svelte';
   import CompanionTimer from '../../companion/CompanionTimer.svelte';
   import CompanionTools from '../../companion/CompanionTools.svelte';
-  import MediaPill from '../../companion/MediaPill.svelte';
+
   import RecapCard from '../assistant/RecapCard.svelte';
   import SessionsList from '../sessions/SessionsList.svelte';
+  import UpdateCard from './UpdateCard.svelte';
 
   const view = useView();
   const companion = $derived(view.companion);
@@ -31,9 +33,11 @@
 
 <div class="home" data-testid="island-home">
   <!-- A finished thread Sessions still shows carries its card on its row. -->
-  <CompanionNotes members={[]} notes={companion.notes} open={false} reachable={companion.reachable} except={view.sessions.ended} />
+  <CompanionNotes members={[]} notes={companion.notes} open={false} reachable={companion.reachable} except={view.sessions.ended} changes />
 
   <SessionsList />
+
+  <UpdateCard />
 
   <RecapCard />
 
@@ -55,10 +59,6 @@
       onstart={() => companion.startTimer()}
     />
   </section>
-
-  {#if companion.media}
-    <MediaPill media={companion.media} oncontrol={(action) => companion.pressMediaKey(action)} />
-  {/if}
 </div>
 
 <style>

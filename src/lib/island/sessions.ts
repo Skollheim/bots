@@ -6,6 +6,7 @@
  */
 import type { AgentTask, Message, MessagePart, ThreadActivity, ThreadSummary, Turn } from '@boite/contracts';
 import { describeTool, fileName, type ToolFamily } from '@boite/ui/lib/tool-summary';
+import { rootOf } from '../companion/hud';
 
 export type SessionState = 'working' | 'waiting' | 'done' | 'failed';
 export type StepKind = ToolFamily | 'done';
@@ -45,6 +46,10 @@ export interface SessionRow {
   task: string | null;
   /** The core's progress line (`ThreadProgress.detail`), when it has one. */
   detail: string | null;
+  /** How far the agent's task list is, when it keeps one. */
+  progress: { done: number; total: number } | null;
+  /** Sub-agents at work for this conversation: they show through it, never as rows of their own. */
+  helpers: number;
 }
 
 export type SessionEvent =
@@ -120,41 +125,78 @@ function taskOf(tasks: readonly AgentTask[]): string | null {
   return tasks.find((task) => task.status === 'in_progress')?.text ?? null;
 }
 
-/** A thread from the list or an update, merged into the row it already has. */
-function fromThread(row: SessionRow | undefined, thread: ThreadSummary, at: number, listed: boolean): SessionRow | null {
-  if (thread.archived || thread.incognito === true) return null;
-  const state = stateOf(thread);
-  const detail = thread.progress?.detail ?? null;
+function progressOf(tasks: readonly AgentTask[]): SessionRow['progress'] {
+  if (tasks.length === 0) return null;
+  return { done: tasks.filter((task) => task.status === 'completed').length, total: tasks.length };
+}
+
+/** A delegated thread: it works for another conversation and shows through it. */
+export function isHelper(thread: Pick<ThreadSummary, 'parentThreadId'>): boolean {
+  return Boolean(thread.parentThreadId);
+}
+
+interface Helpers {
+  count: number;
+  since: number;
+}
+
+/** The sub-agents at work under each main conversation, and since when the first of them works. */
+export function helpersOf(threads: readonly ThreadSummary[], at: number): Map<string, Helpers> {
+  const byId = new Map(threads.map((thread) => [thread.id, thread]));
+  const helpers = new Map<string, Helpers>();
+  for (const thread of threads) {
+    const state = stateOf(thread);
+    if (!isHelper(thread) || thread.archived || (state !== 'working' && state !== 'waiting')) continue;
+    const root = rootOf(thread, byId);
+    if (root === thread) continue;
+    const since = sinceOf(thread, at);
+    const entry = helpers.get(root.id);
+    helpers.set(root.id, entry ? { count: entry.count + 1, since: Math.min(entry.since, since) } : { count: 1, since });
+  }
+  return helpers;
+}
+
+/** A thread from the list or an update, merged into the row it already has. Sub-agents have none: their main conversation shows them. */
+function fromThread(row: SessionRow | undefined, thread: ThreadSummary, at: number, listed: boolean, helpers: Helpers | undefined): SessionRow | null {
+  if (thread.archived || thread.incognito === true || isHelper(thread)) return null;
+  const own = stateOf(thread);
+  const ownLive = own === 'working' || own === 'waiting';
+  // A conversation whose sub-agents work is at work too, even while its own turn is over.
+  const state = ownLive ? own : helpers ? 'working' : own;
+  const detail = ownLive ? (thread.progress?.detail ?? null) : null;
   if (state === 'working' || state === 'waiting') {
     const restarted = row !== undefined && !isLive(row);
     // A list read before the turn ended still says it runs: the row stays ended.
-    if (restarted && listed && thread.runningSince != null && thread.runningSince <= (row.endedAt ?? 0)) return row;
+    if (ownLive && restarted && listed && thread.runningSince != null && thread.runningSince <= (row.endedAt ?? 0)) return row;
+    const fresh = row && !restarted ? row.since : at;
     return {
       id: thread.id,
       title: thread.title,
       projectId: thread.projectId,
       state,
-      since: sinceOf(thread, row && !restarted ? row.since : at),
+      since: ownLive ? sinceOf(thread, fresh) : Math.min(helpers?.since ?? fresh, fresh),
       endedAt: null,
       steps: restarted ? [] : (row?.steps ?? []),
       task: restarted ? null : (row?.task ?? null),
-      detail
+      detail,
+      progress: restarted ? null : (row?.progress ?? null),
+      helpers: helpers?.count ?? 0
     };
   }
   if (state === 'failed') {
     // A thread the list already shows failed counts from its last update, so an old failure never shows.
     const endedAt = row?.endedAt ?? (listed ? thread.updatedAt : at);
     if (!row && at - endedAt >= LINGER_MS) return null;
-    return { ...(row ?? blank(thread, endedAt)), title: thread.title, state: 'failed', endedAt, detail: null };
+    return { ...(row ?? blank(thread, endedAt)), title: thread.title, state: 'failed', endedAt, detail: null, helpers: 0 };
   }
   // Idle: a live row is done now; a row already over stays as it ended.
   if (!row) return null;
-  if (!isLive(row)) return { ...row, title: thread.title };
-  return { ...row, title: thread.title, state: 'done', endedAt: at, detail: null };
+  if (!isLive(row)) return { ...row, title: thread.title, helpers: 0 };
+  return { ...row, title: thread.title, state: 'done', endedAt: at, detail: null, helpers: 0 };
 }
 
 function blank(thread: ThreadSummary, at: number): SessionRow {
-  return { id: thread.id, title: thread.title, projectId: thread.projectId, state: 'working', since: sinceOf(thread, at), endedAt: null, steps: [], task: null, detail: null };
+  return { id: thread.id, title: thread.title, projectId: thread.projectId, state: 'working', since: sinceOf(thread, at), endedAt: null, steps: [], task: null, detail: null, progress: null, helpers: 0 };
 }
 
 function finish(row: SessionRow, turn: Turn, at: number): SessionRow {
@@ -185,21 +227,25 @@ export function reduceSessions(rows: readonly SessionRow[], event: SessionEvent)
   switch (event.type) {
     case 'threads': {
       const listed = new Set<string>();
+      const helpers = helpersOf(event.threads, event.at);
       for (const thread of event.threads) {
         listed.add(thread.id);
-        put(thread.id, fromThread(byId.get(thread.id), thread, event.at, true));
+        put(thread.id, fromThread(byId.get(thread.id), thread, event.at, true, helpers.get(thread.id)));
       }
       // A live row the list no longer has is gone (removed, archived elsewhere).
       for (const [id, row] of byId) if (!listed.has(id) && isLive(row)) byId.delete(id);
       break;
     }
-    case 'thread':
-      put(event.thread.id, fromThread(byId.get(event.thread.id), event.thread, event.at, false));
+    case 'thread': {
+      const row = byId.get(event.thread.id);
+      const helpers = row && row.helpers > 0 ? { count: row.helpers, since: row.since } : undefined;
+      put(event.thread.id, fromThread(row, event.thread, event.at, false, helpers));
       break;
+    }
     case 'turnStarted': {
       const row = byId.get(event.turn.threadId);
       if (row && !isLive(row)) {
-        byId.set(row.id, { ...row, state: 'working', since: event.turn.startedAt ?? event.at, endedAt: null, steps: [], task: null, detail: null });
+        byId.set(row.id, { ...row, state: 'working', since: event.turn.startedAt ?? event.at, endedAt: null, steps: [], task: null, detail: null, progress: null });
       }
       break;
     }
@@ -227,7 +273,7 @@ export function reduceSessions(rows: readonly SessionRow[], event: SessionEvent)
     }
     case 'activity': {
       const row = byId.get(event.threadId);
-      if (row && isLive(row)) byId.set(row.id, { ...row, task: taskOf(event.activity.tasks) });
+      if (row && isLive(row)) byId.set(row.id, { ...row, task: taskOf(event.activity.tasks), progress: progressOf(event.activity.tasks) });
       break;
     }
     case 'prune': {

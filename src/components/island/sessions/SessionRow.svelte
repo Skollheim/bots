@@ -4,18 +4,21 @@
   last steps, newest at the bottom: the tool, its target and a status mark; an
   Edit or Write step opens the change it made. A finished thread's card folds
   into its row: the reply's first line, and answer or dismiss it from here.
+  An ended row offers to start the thread again, archive it, or show the
+  changes in its folder (`NoticeActions.svelte`).
 -->
 <script lang="ts">
   import { Check, ChevronDown, CornerDownLeft, FileDiff, Minus, X } from '@lucide/svelte';
   import type { Notes, Notice } from '../../../lib/companion/notes.svelte';
   import { elapsed } from '@boite/ui/lib/format';
   import { seededRobot } from '../../../lib/robots';
-  import { currentStep, type SessionRow } from '../../../lib/island/sessions';
+  import { isLive, type SessionRow } from '../../../lib/island/sessions';
   import { unfolding } from '../../../lib/island/sessions.svelte';
-  import { stepText, toolLabel } from '../../../lib/island/session-text';
+  import { rowDoing, toolLabel } from '../../../lib/island/session-text';
   import { strings } from '../../../lib/strings';
   import RobotFace from '../../agents/RobotFace.svelte';
   import CompanionReply from '../../companion/CompanionReply.svelte';
+  import NoticeActions from './NoticeActions.svelte';
   import SessionDiff from './SessionDiff.svelte';
 
   interface Props {
@@ -46,8 +49,7 @@
   const robot = $derived(seededRobot(row.id, 'box'));
   const face = $derived(row.state === 'working' ? 'working' : row.state === 'waiting' ? 'waiting' : 'still');
   const time = $derived(elapsed((row.endedAt ?? now) - row.since));
-  const step = $derived(currentStep(row));
-  const line = $derived(row.state === 'waiting' || row.state === 'working' ? (step ? stepText(step) : (row.task ?? row.detail ?? '')) : (notice?.line ?? ''));
+  const line = $derived(isLive(row) ? (rowDoing(row) ?? '') : (notice?.line ?? ''));
 </script>
 
 <li class="session" data-state={row.state} data-testid="session-row">
@@ -82,6 +84,11 @@
       <ChevronDown size={14} strokeWidth={2} />
     </button>
   </div>
+  {#if !isLive(row) && !replying}
+    <div class="ended">
+      <NoticeActions threadId={row.id} failed={row.state === 'failed'} client={notes.client} changes ongone={() => notice && notes.dismiss(notice.id)} />
+    </div>
+  {/if}
   {#if notice && replying}
     <div class="answering" data-testid="session-answering">
       {#if notice.text}<p class="answer">{notice.text}</p>{/if}
@@ -236,6 +243,9 @@
   .act:focus-visible {
     outline: 2px solid var(--island-talking);
     outline-offset: 1px;
+  }
+  .ended {
+    margin: 0 0 8px 32px;
   }
   .answering {
     display: flex;
