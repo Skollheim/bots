@@ -15,7 +15,7 @@ import type { AgentConversationMessage, AgentProfile, AgentsSnapshot } from '@bo
 import type { Client } from '@boite/ui/lib/client';
 import { fill, strings } from '../strings';
 import { COMPANION_DOMAIN, permissionModeOf, pickBrain, ROLE_START, roleBlock, withoutRole, withRole } from './brain';
-import { CLASSIC_SKIN, companionAgent, FIRST_AGENT_NAME, lastMessageAt, liveMemories, membersOf, memoriesToForget, memoryToKeep, profileWith, repliesAfter, sessionThreadOf } from './crew';
+import { CLASSIC_SKIN, companionAgent, FIRST_AGENT_NAME, lastMessageAt, liveMemories, membersOf, memoriesToForget, memoryToKeep, needsFirstAgent, profileWith, repliesAfter, sessionThreadOf } from './crew';
 import { parseDirectives, type Directives } from './directives';
 import { addReminder, forgetFact, readMemory } from './memory';
 import { writeCompanionPrefs, type CompanionPrefs } from './prefs';
@@ -144,8 +144,7 @@ export class Crew {
    * signed in only once it is done.
    */
   retry(): void {
-    const prefs = this.host.prefs();
-    if (prefs.agents.length > 0 || prefs.crewMade || this.disposed) return;
+    if (this.disposed || (this.snapshot !== null && !needsFirstAgent(this.snapshot, this.host.prefs()))) return;
     this.failedAt = 0;
     this.schedule(SOON_MS);
   }
@@ -246,18 +245,22 @@ export class Crew {
   // -------------------------------------------------------------------------
 
   /**
-   * Bots, the first time the companion runs with agents: on the agent the
-   * brain settings pick, looking like the companion always did. An agent that
-   * already holds the role, made before and forgotten by these preferences,
-   * stands again instead.
+   * Bots, the first time the companion runs with agents on this core: on the
+   * agent the brain settings pick, looking like the companion always did. An
+   * agent that already holds the role, made before and forgotten by these
+   * preferences, stands again instead.
    */
   private async makeFirst(client: Client, snapshot: AgentsSnapshot): Promise<void> {
-    const prefs = this.host.prefs();
     const projects = this.host.projects();
-    if (prefs.agents.length > 0 || prefs.crewMade || this.making || projects === null || Date.now() - this.failedAt < RETRY_MS) return;
+    if (!needsFirstAgent(snapshot, this.host.prefs()) || this.making || projects === null || Date.now() - this.failedAt < RETRY_MS) return;
     this.making = true;
     try {
-      let id = snapshot.profiles.find((profile) => profile.status === 'active' && profile.instructions.includes(ROLE_START))?.id;
+      // A snapshot read just before the last agent was made does not show it
+      // yet: one read now does, so a late load cannot make a second one.
+      const fresh = await client.call('agents.snapshot', {});
+      const prefs = this.host.prefs();
+      if (this.disposed || !needsFirstAgent(fresh, prefs)) return;
+      let id = fresh.profiles.find((profile) => profile.status === 'active' && profile.instructions.includes(ROLE_START))?.id;
       if (!id) {
         const [providers, accounts] = await Promise.all([client.call('providers.list', {}), client.call('accounts.list', {})]);
         const brain = pickBrain(prefs, providers.loaded, accounts);

@@ -52,6 +52,18 @@ export function membersOf(snapshot: AgentsSnapshot | null, ids: string[]): Agent
   return ids.flatMap((id) => snapshot.profiles.filter((profile) => profile.id === id && profile.status !== 'archived'));
 }
 
+/**
+ * Whether this core still needs the companion's first agent: none was made
+ * yet, or the agents the preferences name are none of this core's, because
+ * Bots ran against another Boite before. Boite archives agents and never
+ * deletes them, so an agent the user archived still counts. A row the user
+ * emptied in Settings stays empty.
+ */
+export function needsFirstAgent(snapshot: AgentsSnapshot, prefs: { agents: string[]; crewMade: boolean }): boolean {
+  if (prefs.agents.length === 0) return !prefs.crewMade;
+  return !prefs.agents.some((id) => snapshot.profiles.some((profile) => profile.id === id));
+}
+
 /** The thread the agent works its direct conversation in, once it has worked there. */
 export function sessionThreadOf(snapshot: AgentsSnapshot | null, agentId: string): string | null {
   return snapshot?.sessions.find((session) => session.agentId === agentId && isDirect(session.scope, agentId))?.threadId ?? null;
