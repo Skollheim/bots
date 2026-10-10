@@ -57,6 +57,8 @@
     burst: number;
     /** Bumped per member for a bounce. */
     boings: Record<string, number>;
+    /** Poked too often, by member. */
+    dizzy?: Record<string, boolean>;
     pointer: { x: number; y: number } | null;
     dragging: boolean;
     onpick: (id: string) => void;
@@ -68,7 +70,7 @@
     children: Snippet;
   }
 
-  let { members, active, open, layout, look, mood, busy, alarm, blocking, cheering, burst, boings, pointer, dragging, onpick, onpress, onmove, onrelease, onenter, onleave, children }: Props = $props();
+  let { members, active, open, layout, look, mood, busy, alarm, blocking, cheering, burst, boings, dizzy = {}, pointer, dragging, onpick, onpress, onmove, onrelease, onenter, onleave, children }: Props = $props();
 
   /** The distance at which the eyes reach the side and the bottom of their sockets. */
   const GAZE_REACH = { x: 240, y: 180 };
@@ -119,6 +121,7 @@
           alarm={leader && alarm}
           cheer={leader && cheering}
           boing={boings[member.id] ?? 0}
+          dizzy={dizzy[member.id] ?? false}
           gaze={gazeOf(member.id)}
           skin={member.skin}
           size={64}

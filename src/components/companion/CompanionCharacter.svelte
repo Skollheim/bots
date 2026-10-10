@@ -19,6 +19,7 @@
   import type { Robot } from '../../lib/robots';
   import { strings } from '../../lib/strings';
   import BoxTop from './BoxTop.svelte';
+  import JellyCharacter from './JellyCharacter.svelte';
 
   interface Props {
     mood: Mood;
@@ -53,11 +54,13 @@
     cheer?: boolean;
     /** Files are dragged over it: it opens its eyes wide. */
     startled?: boolean;
+    /** Poked too often, too fast: it wobbles, eyes spinning. */
+    dizzy?: boolean;
     /** The agent's robot: a box (`lib/companion/skin.ts`) colours the box and puts its accessory on the lid; anything else draws the classic companion. */
     skin?: Robot | null;
   }
 
-  let { mood, music = false, busy = false, hover = false, boing = 0, size = 56, lively = true, gaze = null, asleep = false, typing = false, alarm = false, calm = false, rest = false, game = false, coffee = false, cheer = false, startled = false, skin = null }: Props = $props();
+  let { mood, music = false, busy = false, hover = false, boing = 0, size = 56, lively = true, gaze = null, asleep = false, typing = false, alarm = false, calm = false, rest = false, game = false, coffee = false, cheer = false, startled = false, dizzy = false, skin = null }: Props = $props();
 
   type Act = 'look' | 'blink' | 'peek' | 'stretch' | 'yawn';
   const ACT_MS: Record<Act, number> = { look: 2400, blink: 700, peek: 1200, stretch: 1400, yawn: 2400 };
@@ -121,8 +124,12 @@
   const capped = $derived((music && !tea) || headset);
   const clamp = (value: number) => Math.max(-1, Math.min(1, value));
   const look = $derived(face === 'typing' ? { x: 0, y: 1 } : face === 'sleep' || face === 'yawn' || !gaze ? { x: 0, y: 0 } : { x: clamp(gaze.x), y: clamp(gaze.y) });
+  const label = $derived(alarm ? strings.companion.moods.calling : strings.companion.moods[mood]);
 </script>
 
+{#if skin?.family === 'jelly'}
+  <JellyCharacter robot={skin} {face} {tone} {look} {bouncing} {dizzy} {act} {size} {label} />
+{:else}
 <svg
   class="char f-{face} t-{tone} {act ? `a-${act}` : ''}"
   class:quiet={face === 'calm'}
@@ -130,6 +137,7 @@
   class:busy={busy && mood === 'working'}
   class:hover={hover && face === 'awake'}
   class:boing={bouncing}
+  class:dizzy
   class:skinned={paint !== null}
   class:tinted={paint !== null && paint.lid !== 'var(--color-surface)'}
   style="--gx: {look.x.toFixed(2)}; --gy: {look.y.toFixed(2)}"
@@ -141,7 +149,7 @@
   width={size}
   height={size}
   role="img"
-  aria-label={alarm ? strings.companion.moods.calling : strings.companion.moods[mood]}
+  aria-label={label}
 >
   <g class="rig">
     <rect class="body" x="15" y="38" width="70" height="50" rx="9" />
@@ -236,6 +244,7 @@
     </g>
   {/if}
 </svg>
+{/if}
 
 <style>
   .char {
@@ -348,6 +357,8 @@
   .f-game .rig { animation: breathe 3s ease-in-out infinite; }
   .a-stretch .rig { animation: stretch 1.4s ease-in-out; }
   .boing .rig { animation: boing .65s ease-out; }
+  .dizzy .rig { animation: wobble .6s ease-in-out infinite; }
+  .dizzy .scan { animation: swirl .6s linear infinite; }
 
   /* Lid */
   .f-calling .lid, .f-alarm .lid { animation: flap 1.3s ease-in-out infinite; }
@@ -380,6 +391,8 @@
   .coffee .paper, .coffee .sleeve, .coffee .cap { transform-box: view-box; transform-origin: 84px 88px; animation: lift 6s ease-in-out infinite; }
 
   @keyframes fade-in { from { opacity: 0; } }
+  @keyframes wobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg) translateX(-1px); } 75% { transform: rotate(8deg) translateX(1px); } }
+  @keyframes swirl { 0% { translate: 3px 0; } 25% { translate: 0 3px; } 50% { translate: -3px 0; } 75% { translate: 0 -3px; } 100% { translate: 3px 0; } }
   /* Brings the cup up to its lid now and then, and back down. */
   @keyframes lift { 0%, 55%, 100% { transform: rotate(0) translateY(0); } 65%, 82% { transform: rotate(-14deg) translateY(-4px); } }
   /* Jumps for joy, landing with a squash. */
