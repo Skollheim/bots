@@ -1,6 +1,7 @@
 <!--
-  Settings, Companion: where the desktop companion sits and what it runs on.
-  The preferences are this computer's (`lib/companion/prefs.ts`); the
+  Settings, Companion: where the companion sits, in the island at the top of
+  the screen or loose on the desktop, which mascot it wears and what it runs
+  on. The preferences are this computer's (`lib/companion/prefs.ts`); the
   companion's window follows each change as it is made.
 -->
 <script lang="ts">
@@ -16,7 +17,10 @@
   import { fill, strings } from '../lib/strings';
   import type { CoreLink } from '../lib/core.svelte';
   import { hudGauges } from '../lib/companion/hud';
-  import { COMPANION_HOTKEYS, readCompanionPrefs, subscribeCompanionPrefs, writeCompanionPrefs, type CompanionAnchor, type CompanionControl, type CompanionPrefs } from '../lib/companion/prefs';
+  import { COMPANION_HOTKEYS, MASCOT_FAMILIES, readCompanionPrefs, subscribeCompanionPrefs, writeCompanionPrefs, type CompanionAnchor, type CompanionControl, type CompanionPrefs, type CompanionRobots, type Mascot } from '../lib/companion/prefs';
+  import { CLASSIC_SKIN } from '../lib/companion/crew';
+  import { parseRobot } from '../lib/robots';
+  import RobotPicker from './agents/RobotPicker.svelte';
   import { readStatus, subscribeCompanionData } from '../lib/companion/memory';
   import { companionMonitors, inShell, type CompanionMonitor } from '../lib/companion/shell';
   import CompanionReminders from './companion/CompanionReminders.svelte';
@@ -26,6 +30,9 @@
 
   const AUTO = 'auto';
   const PRIMARY = 'primary';
+  const ROBOTS: CompanionRobots[] = ['island', 'desktop'];
+  /** What the mascot picker shows until one is chosen: Boîte, the classic box. */
+  const CLASSIC = parseRobot(CLASSIC_SKIN)!;
   const copy = $derived(strings.companion.settings);
 
   let prefs = $state<CompanionPrefs>(readCompanionPrefs());
@@ -190,10 +197,34 @@
 
   <section class="card">
     <h2>{copy.place}</h2>
+    <div class="switch-row">
+      <span class="text ui-label-box"><span class="ui-label">{copy.robots}</span><InfoTip topic={copy.robots} text={copy.robotsHint} /></span>
+      <div class="segmented" role="radiogroup" aria-label={copy.robots} data-testid="companion-robots">
+        {#each ROBOTS as robots (robots)}
+          <button type="button" role="radio" aria-checked={prefs.robots === robots} class:on={prefs.robots === robots} onclick={() => save({ robots })} data-testid={`companion-robots-${robots}`}>{copy.robotsChoice[robots]}</button>
+        {/each}
+      </div>
+    </div>
+    {#if prefs.robots === 'island'}
+      <label class="switch-row">
+        <span class="text ui-label-box"><span class="ui-label">{copy.openOnHover}</span><InfoTip topic={copy.openOnHover} text={copy.openOnHoverHint} /></span>
+        <input type="checkbox" role="switch" checked={prefs.openOnHover} onchange={(event) => save({ openOnHover: event.currentTarget.checked })} data-testid="companion-open-on-hover" />
+      </label>
+    {/if}
     {@render picker(copy.screen, copy.screenHint, screenItems, prefs.monitor ?? copy.primary, (id) => save({ monitor: id === PRIMARY ? null : id }), 'companion-screen')}
-    {@render picker(copy.position, copy.positionHint, anchorItems, copy.anchors[prefs.anchor], (id) => save({ anchor: id as CompanionAnchor }), 'companion-position')}
+    {#if prefs.robots === 'desktop'}
+      {@render picker(copy.position, copy.positionHint, anchorItems, copy.anchors[prefs.anchor], (id) => save({ anchor: id as CompanionAnchor }), 'companion-position')}
+    {/if}
     {@render picker(copy.hotkey, copy.hotkeyHint, hotkeyItems, prefs.hotkey ?? copy.hotkeyOff, (id) => save({ hotkey: id === OFF ? null : id }), 'companion-hotkey')}
     {#if hotkeyTaken}<p class="hint problem" role="alert">{fill(copy.hotkeyTaken, { hotkey: prefs.hotkey! })}</p>{/if}
+  </section>
+
+  <section class="card" data-testid="companion-mascot">
+    <h2 class="ui-label-box"><span class="ui-label">{copy.mascot}</span><InfoTip topic={copy.mascot} text={copy.mascotHint} /></h2>
+    <RobotPicker robot={prefs.mascot ?? CLASSIC} families={MASCOT_FAMILIES} compact onpick={(robot) => save({ mascot: robot as Mascot })} />
+    {#if prefs.mascot}
+      <button type="button" class="ghost small reset" onclick={() => save({ mascot: null })} data-testid="companion-mascot-reset">{copy.mascotReset}</button>
+    {/if}
   </section>
 
   <CompanionCrewSettings {store} {prefs} />
@@ -305,5 +336,34 @@
   }
   .quotas + .switch-row {
     border-top: 1px solid var(--color-border);
+  }
+  /* Two choices side by side, the chosen one a pill, as in the island's tab bar. */
+  .segmented {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--island-line);
+    border-radius: 999px;
+    background: var(--island-bg);
+  }
+  .segmented button {
+    min-height: 26px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 999px;
+    background: none;
+    color: var(--island-muted);
+    font-size: var(--text-sm);
+  }
+  .segmented button:hover {
+    color: var(--island-text);
+  }
+  .segmented button.on {
+    background: var(--island-card-hover);
+    color: var(--island-text);
+  }
+  .reset {
+    margin-top: 10px;
+    color: var(--color-muted-foreground);
   }
 </style>

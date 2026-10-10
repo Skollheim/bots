@@ -22,11 +22,14 @@
 
   onMount(() => {
     const stopTheme = startTheme();
+    // The island's dark tokens, on the body so menus opened over the page wear them too.
+    document.body.classList.add('island-tokens');
     const demo = import.meta.env.DEV && new URLSearchParams(location.search).get('fake') === '1';
     void link
       .start(demo ? async () => new (await import('./lib/fake-client')).FakeClient() : undefined)
       .then(() => useReveal(link.client, (message) => (notice = message)));
     return () => {
+      document.body.classList.remove('island-tokens');
       stopTheme();
       useReveal(null, null);
       link.stop();
@@ -46,8 +49,18 @@
   .settings {
     height: 100%;
     overflow-y: auto;
-    background: var(--color-background);
+    background: var(--island-bg);
     color: var(--color-foreground);
+  }
+  /* Dark cards, as the island's: hairline edges, no shadow. */
+  .settings :global(.page .card) {
+    border: 1px solid var(--island-line);
+    border-radius: 14px;
+    background: var(--island-card);
+    box-shadow: none;
+  }
+  .settings :global(.page .switch-row) {
+    border-color: var(--island-line);
   }
   .waiting {
     display: flex;

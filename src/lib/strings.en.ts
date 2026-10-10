@@ -291,7 +291,8 @@ export const strings = {
       mascot: 'Mascot',
       mascotHint: 'The island’s character, and the first agent’s on the desktop: Boîte, the box, or a Jelly.',
       mascotReset: 'Use the first agent’s own look',
-      look: 'Look',      crew: {
+      look: 'Look',
+      crew: {
         title: 'Agents',
         hint: 'The agents standing on your screen side by side, {count} at most. Click one to talk to it alone: each keeps its own conversation and memory, in Agents. The first one also shows what goes on in Boite.',
         loading: 'Reading the agents…',

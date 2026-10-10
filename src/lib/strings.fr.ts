@@ -286,7 +286,8 @@ export const fr: Messages = {
       mascot: 'Mascotte',
       mascotHint: 'Le personnage de l’île, et celui du premier agent sur le bureau : Boîte, la boîte, ou un Jelly.',
       mascotReset: 'Reprendre l’allure du premier agent',
-      look: 'Allure',      crew: {
+      look: 'Allure',
+      crew: {
         title: 'Agents',
         hint: 'Les agents qui se tiennent côte à côte sur votre écran, {count} au plus. Cliquez sur l’un d’eux pour lui parler seul à seul : chacun garde sa conversation et sa mémoire, dans Agents. Le premier montre aussi ce qui se passe dans Boite.',
         loading: 'Lecture des agents…',
