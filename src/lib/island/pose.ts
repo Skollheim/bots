@@ -36,4 +36,5 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     companion.pointerOn = true;
   } else if (pose === 'open') frame.show(tab && ISLAND_TABS.includes(tab) ? tab : 'home');
   else if (pose === 'desktop') companion.prefs = { ...companion.prefs, robots: 'desktop' };
+  await (await import('./assistant-pose')).strikeAssistantPose(companion, params);
 }

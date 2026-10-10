@@ -17,6 +17,7 @@
   import CompanionTimer from '../../companion/CompanionTimer.svelte';
   import CompanionTools from '../../companion/CompanionTools.svelte';
   import MediaPill from '../../companion/MediaPill.svelte';
+  import RecapCard from '../assistant/RecapCard.svelte';
 
   const view = useView();
   const companion = $derived(view.companion);
@@ -103,6 +104,7 @@
       </ul>
     </section>
   {/if}
+  <RecapCard />
 </div>
 
 <style>

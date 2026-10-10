@@ -37,7 +37,7 @@
       <button class="small" onclick={() => void companion.capture(false)} data-testid="island-capture"><Monitor size={14} />{copy.capture}</button>
       <button class="small" onclick={() => void companion.capture(true)} data-testid="island-capture-zone"><Crop size={14} />{copy.zone}</button>
     {/if}
-    <button class="small primary" disabled={!ready} onclick={ask} data-testid="island-drop-ask"><MessageCircle size={14} />{copy.ask}</button>
+    <button class="small" class:primary={ready} onclick={ask} data-testid="island-drop-ask"><MessageCircle size={14} />{copy.ask}</button>
   </div>
 </div>
 

@@ -36,7 +36,7 @@
 
   const companion = new Companion({
     pickZone,
-    focusInput: () => document.querySelector<HTMLInputElement>('.askbar input')?.focus(),
+    focusInput: () => document.querySelector<HTMLElement>('.assistant-input, .askbar input')?.focus(),
     summoned: () => frame.show('chat')
   });
   const frame = new IslandFrame({

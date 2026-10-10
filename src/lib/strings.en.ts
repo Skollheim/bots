@@ -62,7 +62,60 @@ export const strings = {
       ask: 'Ask about them'
     },
     attention: { title: 'Your agents need you' },
-    dock: 'Back to the island'
+    dock: 'Back to the island',
+    /** The Chat tab's assistant, its quotas pill and the Home's Today card (`components/island/assistant/`). */
+    assistant: {
+      empty: 'Say hello to {name}. The conversation is the one Boite’s Agents page shows.',
+      noAgent: 'No agent to talk to yet. Make one in Settings, or in Boite’s Agents page.',
+      makeAgent: 'Open Settings',
+      agents: 'Talk to',
+      choose: 'Talk to {name}. Choose another agent.',
+      openAgent: 'Show {name} in Boite',
+      placeholder: 'Message {name}',
+      send: 'Send',
+      stop: 'Stop',
+      working: '{name} is working',
+      older: 'Earlier messages',
+      removeFile: 'Remove {name}',
+      copy: 'Copy the code',
+      copied: 'Copied',
+      failed: 'The answer stopped: {reason}',
+      unreadable: 'The conversation could not be read: {reason}',
+      notSent: 'The message did not go: {reason}',
+      notKept: 'The files could not be passed on outside the app.',
+      notStopped: 'The answer could not be stopped: {reason}',
+      notChanged: 'The model could not be changed: {reason}',
+      picker: 'Model and effort',
+      model: 'Model',
+      effort: 'Effort',
+      efforts: { low: 'Low', medium: 'Medium', high: 'High' },
+      defaultModel: 'Default model',
+      defaultEffort: 'Default effort',
+      everywhere: 'Changes {name} everywhere, in Boite too.',
+      noModels: 'The agent lists no models yet.',
+      quotas: {
+        pill: '{percent}%',
+        label: 'Quotas: {percent}% left on {name}, {window}. Show every account.',
+        title: 'Quotas',
+        left: '{percent}% left',
+        resets: 'resets in {time}',
+        units: { min: '{value} min', h: '{value} h', d: '{value} d' },
+        tokens: '{count} tokens used by your threads',
+        none: 'No subscription reports its limits.'
+      },
+      recap: {
+        title: 'Today',
+        finishedOne: '1 thread finished',
+        finishedMany: '{count} threads finished',
+        filesOne: '1 file changed',
+        filesMany: '{count} files changed',
+        hours: '{hours} h {minutes}',
+        minutes: '{minutes} min',
+        instant: 'under a minute',
+        none: 'Nothing finished yet today.',
+        open: 'Show “{title}” in Boite'
+      }
+    }
   },
 
   companion: {

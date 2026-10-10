@@ -57,7 +57,59 @@ export const fr: Messages = {
       ask: 'Poser une question dessus'
     },
     attention: { title: 'Vos agents ont besoin de vous' },
-    dock: 'Retour dans l’île'
+    dock: 'Retour dans l’île',
+    assistant: {
+      empty: 'Dites bonjour à {name}. C’est la même conversation que sur la page Agents de Boite.',
+      noAgent: 'Aucun agent à qui parler pour l’instant. Créez-en un dans les Réglages ou sur la page Agents de Boite.',
+      makeAgent: 'Ouvrir les Réglages',
+      agents: 'Parler à',
+      choose: 'Vous parlez à {name}. Choisir un autre agent.',
+      openAgent: 'Afficher {name} dans Boite',
+      placeholder: 'Écrire à {name}',
+      send: 'Envoyer',
+      stop: 'Arrêter',
+      working: '{name} travaille',
+      older: 'Messages précédents',
+      removeFile: 'Retirer {name}',
+      copy: 'Copier le code',
+      copied: 'Copié',
+      failed: 'La réponse s’est arrêtée : {reason}',
+      unreadable: 'Impossible de lire la conversation : {reason}',
+      notSent: 'Le message n’est pas parti : {reason}',
+      notKept: 'Les fichiers ne peuvent pas être transmis hors de l’application.',
+      notStopped: 'Impossible d’arrêter la réponse : {reason}',
+      notChanged: 'Impossible de changer de modèle : {reason}',
+      picker: 'Modèle et effort',
+      model: 'Modèle',
+      effort: 'Effort',
+      efforts: { low: 'Faible', medium: 'Moyen', high: 'Élevé' },
+      defaultModel: 'Modèle par défaut',
+      defaultEffort: 'Effort par défaut',
+      everywhere: 'Change {name} partout, dans Boite aussi.',
+      noModels: 'L’agent n’indique encore aucun modèle.',
+      quotas: {
+        pill: '{percent} %',
+        label: 'Quotas : il reste {percent} % sur {name}, {window}. Afficher tous les comptes.',
+        title: 'Quotas',
+        left: '{percent} % restants',
+        resets: 'réinitialisé dans {time}',
+        units: { min: '{value} min', h: '{value} h', d: '{value} j' },
+        tokens: '{count} jetons utilisés par vos fils',
+        none: 'Aucun abonnement n’indique ses limites.'
+      },
+      recap: {
+        title: 'Aujourd’hui',
+        finishedOne: '1 fil terminé',
+        finishedMany: '{count} fils terminés',
+        filesOne: '1 fichier modifié',
+        filesMany: '{count} fichiers modifiés',
+        hours: '{hours} h {minutes}',
+        minutes: '{minutes} min',
+        instant: 'moins d’une minute',
+        none: 'Rien de terminé pour l’instant aujourd’hui.',
+        open: 'Afficher « {title} » dans Boite'
+      }
+    }
   },
 
   companion: {

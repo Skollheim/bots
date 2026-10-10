@@ -27,6 +27,7 @@
   import { fill, strings } from '../../lib/strings';
   import CompanionCharacter, { type Gaze } from '../companion/CompanionCharacter.svelte';
   import AttentionCard from './views/AttentionCard.svelte';
+  import QuotasPill from './assistant/QuotasPill.svelte';
   import ChatView from './views/ChatView.svelte';
   import DropView from './views/DropView.svelte';
   import HomeView from './views/HomeView.svelte';
@@ -153,7 +154,7 @@
   }
 
   function moodOf(talking: boolean, leader: boolean) {
-    return talking ? 'working' : leader ? companion.mood.mood : 'idle';
+    return talking || (leader && companion.assistant.running) ? 'working' : leader ? companion.mood.mood : 'idle';
   }
 
   function barClick() {
@@ -250,6 +251,7 @@
           {/each}
         </div>
         <div class="group">
+          <QuotasPill />
           <button class="tab" class:on={frame.pinned} aria-pressed={frame.pinned} aria-label={frame.pinned ? copy.unpin : copy.pin} title={frame.pinned ? copy.unpin : copy.pin} onclick={() => frame.togglePin()}>
             {#if frame.pinned}<PinOff size={15} strokeWidth={1.9} />{:else}<Pin size={15} strokeWidth={1.9} />{/if}
           </button>
