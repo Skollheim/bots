@@ -16,6 +16,12 @@ export interface MediaState {
 
 export type MediaAction = 'toggle' | 'next' | 'previous';
 
+/** Whether two reads show the same music: a poll that finds nothing new leaves the page alone. */
+export function sameMedia(a: MediaState | null, b: MediaState | null): boolean {
+  if (a === null || b === null) return a === b;
+  return a.title === b.title && a.artist === b.artist && a.app === b.app && a.playing === b.playing && (a.art ?? null) === (b.art ?? null);
+}
+
 export async function readMedia(): Promise<MediaState | null> {
   if (window.__TAURI_INTERNALS__ === undefined) return null;
   const { invoke } = await import('@tauri-apps/api/core');
