@@ -8,6 +8,7 @@ pub(crate) type Bounds = (i32, i32, i32, i32);
 
 /// Whether `window` covers all of `screen`: a game or a video in full screen
 /// does; a maximized window leaves the taskbar out, so it does not.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn covers(window: Bounds, screen: Bounds) -> bool {
     window.0 <= screen.0 && window.1 <= screen.1 && window.2 >= screen.2 && window.3 >= screen.3
 }
