@@ -7,16 +7,11 @@
  * failure, comes back as a short sentence for the window to show, never as a
  * thrown error.
  */
-import { RpcErrorCode } from '@boite/contracts';
+import { RpcErrorCode, type UiRevealTarget } from '@boite/contracts';
 import type { Client } from '@boite/ui/lib/client';
 import { fill, strings } from './strings';
 
-export type RevealTarget = { kind: 'thread'; threadId: string } | { kind: 'agent'; agentId: string };
-
-/** The RPC is newer than the contracts Bots builds against, so it is called by name. */
-interface LooseClient {
-  call(method: string, params: unknown): Promise<unknown>;
-}
+export type RevealTarget = UiRevealTarget;
 
 let client: Client | null = null;
 let onfail: ((message: string) => void) | null = null;
@@ -39,7 +34,7 @@ export function revealProblem(error: unknown): string {
 export async function reveal(target: RevealTarget): Promise<string | null> {
   try {
     if (!client) throw new Error(strings.bots.waiting);
-    await (client as unknown as LooseClient).call('ui.reveal', { target });
+    await client.call('ui.reveal', { target });
     return null;
   } catch (error) {
     const message = revealProblem(error);

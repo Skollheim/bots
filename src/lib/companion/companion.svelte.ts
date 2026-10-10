@@ -672,7 +672,7 @@ export class Companion {
         const endpoint = await waitForCore(() => this.disposed, () => (this.waiting = true));
         if (!endpoint) return;
         this.waiting = false;
-        const ws = new WsClient({ url: endpoint.url, token: endpoint.token, clientName: 'shell' });
+        const ws = new WsClient({ url: endpoint.url, token: endpoint.token, clientName: 'plugin' });
         client = ws;
         off.push(watchEndpoint(endpoint, () => ws.state === 'ready', () => location.reload()));
         off.push(

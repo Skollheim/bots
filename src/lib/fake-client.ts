@@ -415,6 +415,8 @@ export class FakeClient implements ObservableClient {
       ...devicesMethods(ctx),
       ...pullRequestMethods(ctx),
       ...worktreeMethods(ctx),
+      // The core passes it to Boite's windows, never back to a plugin: the demo has none to show it.
+      'ui.reveal': async () => ({ delivered: 1 }),
     };
     return methods;
   }

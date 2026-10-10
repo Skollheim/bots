@@ -6,7 +6,7 @@ import { assetName, TARGETS } from './targets';
 
 const manifest = readFileSync(new URL('../boite-plugin.json', import.meta.url), 'utf8');
 
-test('the manifest in the repository passes Boite\'s reader, desktopApp aside', () => {
+test('the manifest in the repository passes Boite\'s reader', () => {
   expect(manifestProblems(manifest)).toEqual([]);
   expect(unreleased(manifest)).toBe(true);
 });
@@ -16,6 +16,7 @@ test('a manifest that names another feature or a foreign URL is refused', () => 
   expect(manifestProblems(JSON.stringify({ ...raw, provides: { desktopApp: {}, accountPools: { providers: ['claude'] } } }))).toContain(
     'boite-plugin.json: provides must name desktopApp alone',
   );
+  expect(manifestProblems(JSON.stringify({ ...raw, provides: { desktopApp: { window: 'big' } } })).join('\n')).toContain('provides.desktopApp.window');
   const moved = { ...raw, artifacts: { ...raw.artifacts, 'linux-x64': { ...raw.artifacts['linux-x64'], url: 'https://example.com/bots' } } };
   expect(manifestProblems(JSON.stringify(moved)).join('\n')).toContain('artifacts.linux-x64.url');
 });
