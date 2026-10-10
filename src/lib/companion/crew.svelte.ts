@@ -14,7 +14,7 @@
 import type { AgentConversationMessage, AgentProfile, AgentsSnapshot } from '@boite/contracts';
 import type { Client } from '@boite/ui/lib/client';
 import { fill, strings } from '../strings';
-import { COMPANION_DOMAIN, permissionModeOf, pickBrain, ROLE_START, roleBlock, withoutRole, withRole } from './brain';
+import { COMPANION_DOMAIN, permissionModeOf, pickBrain, ROLE_START, roleBlock, settleModel, withoutRole, withRole } from './brain';
 import { CLASSIC_SKIN, companionAgent, FIRST_AGENT_NAME, lastMessageAt, liveMemories, membersOf, memoriesToForget, memoryToKeep, needsFirstAgent, profileWith, repliesAfter, sessionThreadOf } from './crew';
 import { parseDirectives, type Directives } from './directives';
 import { addReminder, forgetFact, readMemory } from './memory';
@@ -263,11 +263,14 @@ export class Crew {
       let id = fresh.profiles.find((profile) => profile.status === 'active' && profile.instructions.includes(ROLE_START))?.id;
       if (!id) {
         const [providers, accounts] = await Promise.all([client.call('providers.list', {}), client.call('accounts.list', {})]);
-        const brain = pickBrain(prefs, providers.loaded, accounts);
-        if (!brain) {
+        const picked = pickBrain(prefs, providers.loaded, accounts);
+        if (!picked) {
           this.failed(prefs.providerId === null ? strings.companion.noBrain : strings.companion.brainOff);
           return;
         }
+        // The models a fresh core has not read yet are read first: the probe starts the agent once, so it takes a moment.
+        const brain = await settleModel(picked, providers.loaded, (providerId, accountId) => client.call('providers.probe', { providerId, accountId }).then((result) => result.models));
+        if (this.disposed || !needsFirstAgent(fresh, this.host.prefs())) return;
         const agent = companionAgent(FIRST_AGENT_NAME, COMPANION_DOMAIN, roleBlock(projects), CLASSIC_SKIN, brain, permissionModeOf(prefs.control));
         id = (await client.call('agents.profile.save', agent)).id;
         await this.carryMemory(client, id);

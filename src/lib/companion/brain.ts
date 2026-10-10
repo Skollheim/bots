@@ -7,7 +7,7 @@
  * carries, the agent a new companion runs on and how it reads an answer.
  * Pure, so it is tested without a core.
  */
-import { defaultTitleModel, providerEnabled, type Account, type Message, type PermissionMode, type ProviderSummary } from '@boite/contracts';
+import { defaultTitleModel, providerEnabled, type Account, type Message, type ModelInfo, type PermissionMode, type ProviderSummary } from '@boite/contracts';
 import type { CompanionControl, CompanionPrefs } from './prefs';
 
 export interface Brain {
@@ -138,9 +138,25 @@ export function permissionModeOf(control: CompanionControl): PermissionMode {
  * The small model titles are written with, when the agent lists it: the core
  * refuses a model it does not list, and null runs the agent's own default.
  */
-function smallModel(provider: ProviderSummary): string | null {
-  const id = defaultTitleModel(provider, provider.models);
-  return id !== null && provider.models.some((model) => model.id === id) ? id : null;
+function smallModel(provider: ProviderSummary, models: ModelInfo[] = provider.models): string | null {
+  const id = defaultTitleModel(provider, models);
+  return id !== null && models.some((model) => model.id === id) ? id : null;
+}
+
+/**
+ * The brain with a model the core takes. Claude, Codex, ACP and pi list their
+ * models through the agent itself, so a core that never read them, a fresh
+ * one, names none and refuses a profile without one. When `pickBrain` found
+ * no model, they are read with `probe`, and the small one taken, else the
+ * default, else the first current one. A probe that fails leaves the model to
+ * the core's own default.
+ */
+export async function settleModel(brain: Brain, providers: ProviderSummary[], probe: (providerId: string, accountId: string) => Promise<ModelInfo[]>): Promise<Brain> {
+  const provider = providers.find((entry) => entry.id === brain.providerId);
+  if (brain.model !== null || !provider) return brain;
+  const models = (await probe(brain.providerId, brain.accountId).catch(() => null)) ?? [];
+  const model = smallModel(provider, models) ?? models.find((entry) => entry.default)?.id ?? models.find((entry) => !entry.legacy)?.id ?? models[0]?.id ?? null;
+  return { ...brain, model };
 }
 
 const signedIn = (accounts: Account[], providerId: string): Account[] =>
