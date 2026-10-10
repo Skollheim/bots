@@ -248,6 +248,38 @@ test('agents remembered from another core do not hold the row: Bots makes its ag
   again.dispose();
 });
 
+test('on a fresh core, whose agent never listed its models, Bots reads them and makes its agent on the small one', async () => {
+  // Claude lists its models through the agent: the provider names none until they are read, and the core refuses a profile without one.
+  const providers = { loaded: [{ id: 'claude', name: 'Claude', shortName: 'Claude', protocol: 'claude', available: true, models: [] } as unknown as ProviderSummary], rejected: [] };
+  const listed = [{ id: 'claude-opus-5-5', name: 'Opus', default: true }, { id: 'claude-haiku-4-5-20251001', name: 'Haiku' }];
+  let probed = false;
+  const made: unknown[] = [];
+  const call = vi.fn(async (method: string, params?: unknown) => {
+    if (method === 'agents.snapshot') return snapshotOf({ profiles: made.map((save) => madeFrom('bots', save)) });
+    if (method === 'providers.list') return providers;
+    if (method === 'accounts.list') return [{ id: 'acc', providerId: 'claude', label: 'acc', status: 'ok' } as Account];
+    if (method === 'providers.probe') {
+      expect(params).toEqual({ providerId: 'claude', accountId: 'acc' });
+      probed = true;
+      return { models: listed, probedAt: 1 };
+    }
+    if (method === 'agents.profile.save') {
+      const { selection } = (params as { value: { selection: { model: string | null } } }).value;
+      if (!probed || selection.model === null) throw new Error('selection.model: choose a default model');
+      made.push(params);
+      return madeFrom('bots', params);
+    }
+    return {};
+  });
+  const client = { call } as unknown as Client;
+  const crew = new Crew({ client: () => client, prefs: readCompanionPrefs, projects: () => ['boite'], waiting: () => false, answered: () => {}, loaded: () => {} });
+  await crew.load();
+  await vi.waitFor(() => expect(readCompanionPrefs()).toMatchObject({ agents: ['bots'], crewMade: true }));
+  expect((made[0] as { value: { selection: { model: string } } }).value.selection.model).toBe('claude-haiku-4-5-20251001');
+  expect(crew.problem).toBeNull();
+  crew.dispose();
+});
+
 test('the facts kept on this computer go to the first agent one by one; one that could not go stays here', async () => {
   writeCompanionPrefs({ providerId: 'claude', accountId: 'acc' });
   remember('likes tea');

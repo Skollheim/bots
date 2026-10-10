@@ -2,7 +2,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { defaultTitleModel, type Account, type ProviderSummary } from '@boite/contracts';
 import { COMPANION_STORAGE_KEY, CREW_MAX, DEFAULT_COMPANION_PREFS, parseCompanionPrefs, readCompanionPrefs, subscribeCompanionPrefs, writeCompanionPrefs } from './prefs';
 import { createMoodTracker, BUSY_THRESHOLD } from './mood';
-import { COMPANION_ROLE, contextLine, localTime, messageFor, permissionModeOf, pickBrain, replyText, ROLE_END, ROLE_START, roleBlock, withoutRole, withRole, type RequestContext } from './brain';
+import { COMPANION_ROLE, contextLine, localTime, messageFor, permissionModeOf, pickBrain, replyText, ROLE_END, ROLE_START, roleBlock, settleModel, withoutRole, withRole, type RequestContext } from './brain';
 import { count, describePermission, shortPath, threadLabel } from './describe';
 import { appName } from './media';
 import { strings } from '../strings';
@@ -80,6 +80,36 @@ test('the brain: the chosen agent while usable, none when it is not, else the fi
   expect(pickBrain(chosen, [claude, codex], [account('a1', 'claude', 'expired'), account('c1', 'codex')])).toBeNull();
   expect(pickBrain(DEFAULT_COMPANION_PREFS, [provider('claude', { available: false }), codex], accounts)?.providerId).toBe('codex');
   expect(pickBrain(DEFAULT_COMPANION_PREFS, [], accounts)).toBeNull();
+});
+
+test('a brain without a model reads the models a fresh core has not listed yet, and takes the small one', async () => {
+  const claude = provider('claude');
+  const brain = { providerId: 'claude', accountId: 'a1', model: null, effort: null };
+  const listed = [{ id: 'claude-opus-5-5', name: 'Opus', default: true }, { id: 'claude-haiku-4-5-20251001', name: 'Haiku' }];
+  const asked: string[] = [];
+  const probe = async (providerId: string, accountId: string) => {
+    asked.push(`${providerId}/${accountId}`);
+    return listed;
+  };
+  expect(await settleModel(brain, [claude], probe)).toEqual({ ...brain, model: 'claude-haiku-4-5-20251001' });
+  expect(asked).toEqual(['claude/a1']);
+  // No small model listed: the default, else the first current one.
+  expect((await settleModel(brain, [claude], async () => [listed[0]!]))?.model).toBe('claude-opus-5-5');
+  expect((await settleModel(brain, [claude], async () => [{ id: 'old', name: 'Old', legacy: true }, { id: 'new', name: 'New' }]))?.model).toBe('new');
+  // A probe refused while the core checks the account at startup is tried again; one refused every time leaves the model to the core.
+  const paused: number[] = [];
+  const pause = async (ms: number) => void paused.push(ms);
+  let refusals = 1;
+  const late = async () => (refusals-- > 0 ? Promise.reject(new Error('the provider or account changed during discovery')) : listed);
+  expect((await settleModel(brain, [claude], late, pause))?.model).toBe('claude-haiku-4-5-20251001');
+  expect(paused).toEqual([2000]);
+  paused.length = 0;
+  expect(await settleModel(brain, [claude], async () => Promise.reject(new Error('no agent')), pause)).toEqual(brain);
+  expect(paused).toEqual([2000, 2000]);
+  expect(await settleModel(brain, [claude], async () => [])).toEqual(brain);
+  // A model already picked is kept, unread.
+  expect(await settleModel({ ...brain, model: 'claude-big' }, [claude], probe)).toEqual({ ...brain, model: 'claude-big' });
+  expect(asked).toHaveLength(1);
 });
 
 test('a request ends with its context line, and auto control skips the permission prompts', () => {

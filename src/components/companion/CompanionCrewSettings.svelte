@@ -14,7 +14,7 @@
   import type { MenuItem } from '@boite/ui/lib/menu';
   import { fill, strings } from '../../lib/strings';
   import { AgentDirectory, type CoreLink } from '../../lib/core.svelte';
-  import { COMPANION_DOMAIN, permissionModeOf, pickBrain, roleBlock } from '../../lib/companion/brain';
+  import { COMPANION_DOMAIN, permissionModeOf, pickBrain, roleBlock, settleModel } from '../../lib/companion/brain';
   import { companionAgent, freshSkin, membersOf, profileWith, skinOf } from '../../lib/companion/crew';
   import { releaseAgent } from '../../lib/companion/crew.svelte';
   import { showAgent } from '../../lib/companion/shell';
@@ -86,8 +86,10 @@
       return;
     }
     const projects = taskProjects(store.projects).map((project) => project.name);
-    const agent = companionAgent(wanted, COMPANION_DOMAIN, roleBlock(projects), freshSkin(crypto.randomUUID(), othersThan(null)), brain, permissionModeOf(prefs.control));
+    const providers = store.providers;
     void run(async (client) => {
+      const settled = await settleModel(brain, providers, (providerId, accountId) => client.call('providers.probe', { providerId, accountId }).then((result) => result.models));
+      const agent = companionAgent(wanted, COMPANION_DOMAIN, roleBlock(projects), freshSkin(crypto.randomUUID(), othersThan(null)), settled, permissionModeOf(prefs.control));
       const { id } = await client.call('agents.profile.save', agent);
       writeCompanionPrefs({ agents: [...readCompanionPrefs().agents, id], crewMade: true });
       name = '';
