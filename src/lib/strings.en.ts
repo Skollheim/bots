@@ -42,7 +42,6 @@ export const strings = {
     home: {
       busy: 'At work',
       none: 'No agent at work right now.',
-      quotas: 'Quotas',
       reminders: 'Reminders and news',
       focus: 'Focus'
     },
@@ -94,7 +93,6 @@ export const strings = {
       everywhere: 'Changes {name} everywhere, in Boite too.',
       noModels: 'The agent lists no models yet.',
       quotas: {
-        pill: '{percent}%',
         label: 'Quotas: {percent}% left on {name}, {window}. Show every account.',
         title: 'Quotas',
         left: '{percent}% left',

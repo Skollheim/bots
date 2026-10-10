@@ -3,29 +3,31 @@
   the least left across the subscriptions as a small pill (amber under a
   quarter, red under a tenth), and on a click every account with a bar per
   window, and when it resets, then the tokens the threads used. The core's
-  `quotas.list`, `quotas.updated` and `usage.get`, and the subscription
-  proxy's gauges (`companion.gauges`, as Settings shows or hides them), which
-  had their own card in Home before: the island keeps one quotas display.
+  `quotas.list`, `quotas.updated` and `usage.get` only: the list carries the
+  subscription proxy's entries too, shown apart and as Settings lets them
+  (its "Show quotas" switch and the entries turned off). Every percent is
+  what is left, and says so.
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
   import { Gauge } from '@lucide/svelte';
   import { useView } from '../../../lib/island/contract';
-  import { compactCount, proxyAccounts, QuotaWatch, resetIn, tightest, tokensOf, type QuotaAccount } from '../../../lib/island/quotas.svelte';
+  import { compactCount, QuotaWatch, resetIn, tokensOf, type QuotaAccount } from '../../../lib/island/quotas.svelte';
   import { fill, strings } from '../../../lib/strings';
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
 
   const view = useView();
   const copy = strings.island.assistant.quotas;
-  const watch = new QuotaWatch();
+  const watch = new QuotaWatch(() => ({ shown: view.companion.prefs.quotas, hidden: view.companion.prefs.hiddenQuotas }));
 
   let trigger = $state<HTMLButtonElement | null>(null);
   let panel = $state<HTMLDivElement | null>(null);
   let now = $state(Date.now());
 
-  const proxy = $derived(proxyAccounts(view.companion.gauges));
-  const top = $derived(tightest(watch.accounts, proxy));
+  const top = $derived(watch.tightest);
+  const own = $derived(watch.accounts.filter((account) => !account.proxy));
+  const proxy = $derived(watch.accounts.filter((account) => account.proxy));
   const tokens = $derived(tokensOf(watch.usage));
 
   $effect(() => {
@@ -75,7 +77,7 @@
         <div class="bar" data-tone={bar.tone} title={said}>
           <span class="window">{bar.label}</span>
           <span class="track" role="img" aria-label="{bar.label}: {said}"><i style:width="{bar.left}%"></i></span>
-          <span class="left" aria-hidden="true">{fill(copy.pill, { percent: String(bar.left) })}</span>
+          <span class="left" aria-hidden="true">{fill(copy.left, { percent: String(bar.left) })}</span>
           <span class="resets" aria-hidden="true">{until(bar.resetsAt)}</span>
         </div>
       {/each}
@@ -96,13 +98,13 @@
       onclick={() => (open = !open)}
     >
       <Gauge size={13} strokeWidth={2} />
-      <span>{fill(copy.pill, { percent: String(top.bar.left) })}</span>
+      <span>{fill(copy.left, { percent: String(top.bar.left) })}</span>
     </button>
 
     {#if open}
       <div bind:this={panel} class="panel" role="dialog" aria-label={copy.title} data-testid="island-quotas-panel">
         <p class="title">{copy.title}</p>
-        {@render accounts(watch.accounts)}
+        {@render accounts(own)}
         {#if proxy.length > 0}
           <p class="title">{copy.proxy}</p>
           {@render accounts(proxy)}
@@ -154,7 +156,7 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    width: 268px;
+    width: 300px;
     max-height: 270px;
     padding: 10px 12px 12px;
     overflow-y: auto;
@@ -188,7 +190,7 @@
   }
   .bar {
     display: grid;
-    grid-template-columns: 52px minmax(0, 1fr) 34px 36px;
+    grid-template-columns: 52px minmax(0, 1fr) auto 32px;
     align-items: center;
     column-gap: 8px;
     font-size: 11.5px;

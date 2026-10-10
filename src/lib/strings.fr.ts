@@ -37,7 +37,6 @@ export const fr: Messages = {
     home: {
       busy: 'Au travail',
       none: 'Aucun agent au travail pour l’instant.',
-      quotas: 'Quotas',
       reminders: 'Rappels et nouvelles',
       focus: 'Concentration'
     },
@@ -88,10 +87,9 @@ export const fr: Messages = {
       everywhere: 'Change {name} partout, dans Boite aussi.',
       noModels: 'L’agent n’indique encore aucun modèle.',
       quotas: {
-        pill: '{percent} %',
         label: 'Quotas : il reste {percent} % sur {name}, {window}. Afficher tous les comptes.',
         title: 'Quotas',
-        left: '{percent} % restants',
+        left: '{percent} % restant',
         resets: 'réinitialisé dans {time}',
         units: { min: '{value} min', h: '{value} h', d: '{value} j' },
         tokens: '{count} jetons utilisés par vos fils',

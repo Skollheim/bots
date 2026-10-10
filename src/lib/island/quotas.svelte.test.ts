@@ -1,7 +1,6 @@
-import type { AccountQuota } from '@boite/contracts';
+import type { AccountQuota, AccountQuotaGateway } from '@boite/contracts';
 import { expect, test, vi } from 'vitest';
-import type { HudGauge } from '../companion/hud';
-import { compactCount, proxyAccounts, QuotaWatch, quotaAccounts, resetIn, tightest, toneOf, tokensOf } from './quotas.svelte';
+import { compactCount, QuotaWatch, quotaAccounts, resetIn, tightest, toneOf, tokensOf } from './quotas.svelte';
 
 const HOUR = 3_600_000;
 
@@ -50,18 +49,20 @@ test('a share used past the limit reads as nothing left, never below zero', () =
   expect(quotaAccounts([row('over', [130])])[0]!.bars[0]!.left).toBe(0);
 });
 
-test('the proxy gauges join as one bar each, and the pill takes the tightest of both', () => {
-  const gauge = (id: string, used: number | null): HudGauge => ({ id, providerId: 'claude', name: id, window: 'Weekly', used, level: 'ok', label: id });
-  const proxy = proxyAccounts([gauge('claude:wide', 30), gauge('claude:unknown', null), gauge('claude:tight', 93)]);
-  expect(proxy.map((account) => [account.id, account.left, account.tone])).toEqual([
-    ['proxy:claude:tight', 7, 'red'],
-    ['proxy:claude:wide', 70, 'ok']
+test('the proxy entries come in the same rows, as left, and Settings can leave them out', () => {
+  const gateway = (entryId: string): AccountQuotaGateway => ({ kind: 'douane', entryId, display: 'accounts', plan: null, accounts: 1, status: 'ready', credits: [] });
+  const rows = [row('core', [30]), row('proxy:claude:max', [64], { gateway: gateway('max') }), row('proxy:claude:pro', [93], { gateway: gateway('pro') })];
+  const all = quotaAccounts(rows);
+  expect(all.map((account) => [account.id, account.left, account.tone, account.proxy])).toEqual([
+    ['proxy:claude:pro', 7, 'red', true],
+    ['proxy:claude:max', 36, 'ok', true],
+    ['core', 70, 'ok', false]
   ]);
-  expect(proxy[0]!.bars[0]).toMatchObject({ label: 'Weekly', resetsAt: null });
-  const core = quotaAccounts([row('core', [80])]);
-  expect(tightest(core, proxy)?.account.id).toBe('proxy:claude:tight');
-  expect(tightest(core, [])?.account.id).toBe('core');
-  expect(tightest([], [])).toBeNull();
+  expect(all[0]!.bars[0]!.resetsAt).toBe(HOUR);
+  const kept = quotaAccounts(rows, { shown: true, hidden: ['claude:pro'] });
+  expect(kept.map((account) => account.id)).toEqual(['proxy:claude:max', 'core']);
+  expect(tightest(kept)?.bar.left).toBe(36);
+  expect(quotaAccounts(rows, { shown: false, hidden: [] })).toEqual([]);
 });
 
 test('the reset time reads in minutes, hours or days, and not at all once past', () => {

@@ -3,15 +3,14 @@
  * and per account, a bar for each window with its reset time. Everything comes
  * from the core: `quotas.list` on open and every few minutes, `quotas.updated`
  * when the core reads them again, and `usage.get` for the tokens the threads used.
- * The subscription proxy's gauges, which Home showed in phase 1, join the same
- * panel (`proxyAccounts`), so the island has one quotas display.
+ * The subscription proxy's entries come in the same rows; Home's phase 1 card,
+ * which read them apart, is gone: the island has one quotas display.
  *
  * Amber under 25 % left, red under 10 %: the pill and the bars say the same.
  */
 import type { AccountQuota, Usage } from '@boite/contracts';
 import type { Client } from '@boite/ui/lib/client';
 import { shownQuotas } from '@boite/ui/lib/quota-reader.svelte';
-import type { HudGauge } from '../companion/hud';
 
 export type QuotaTone = 'ok' | 'amber' | 'red';
 
@@ -35,6 +34,8 @@ export interface QuotaAccount {
   id: string;
   name: string;
   provider: string;
+  /** An entry of the subscription proxy (Douane) rather than a Boite account. */
+  proxy: boolean;
   bars: QuotaBar[];
   /** The tightest of its bars. */
   left: number;
@@ -48,12 +49,31 @@ export function toneOf(left: number): QuotaTone {
 const clamp = (value: number) => Math.min(100, Math.max(0, Math.round(value)));
 
 /**
- * The accounts worth a bar: read, enabled and reporting windows, each with its
- * windows tightest first; the accounts too, tightest first.
+ * What Settings lets through: `shown` is its "Show quotas" switch, `hidden`
+ * the subscription proxy's entries turned off one by one (`providerId:entryId`,
+ * `CompanionPrefs.hiddenQuotas`).
  */
-export function quotaAccounts(rows: AccountQuota[]): QuotaAccount[] {
+export interface QuotaKeep {
+  shown: boolean;
+  hidden: readonly string[];
+}
+
+export const KEEP_ALL: QuotaKeep = { shown: true, hidden: [] };
+
+/**
+ * The accounts worth a bar: read, enabled and reporting windows, each with its
+ * windows tightest first; the accounts too, tightest first. `quotas.list`
+ * carries the subscription proxy's entries too (`gateway`), so they come here
+ * with their reset times and are marked `proxy`. The core's `usedPercent` is
+ * the share used, on Boite's accounts and the proxy's alike; every bar says
+ * what is left, `100 - usedPercent`.
+ */
+export function quotaAccounts(rows: AccountQuota[], keep: QuotaKeep = KEEP_ALL): QuotaAccount[] {
+  if (!keep.shown) return [];
+  const hidden = new Set(keep.hidden);
   return shownQuotas(rows)
     .filter((row) => row.status === 'ready' && row.windows.length > 0)
+    .filter((row) => !row.gateway || !hidden.has(`${row.providerId}:${row.gateway.entryId}`))
     .map((row): QuotaAccount => {
       const bars = row.windows
         .filter((window) => Number.isFinite(window.usedPercent))
@@ -63,32 +83,16 @@ export function quotaAccounts(rows: AccountQuota[]): QuotaAccount[] {
         })
         .sort((a, b) => a.left - b.left);
       const left = bars[0]?.left ?? 100;
-      return { id: row.accountId, name: row.label.trim() || row.providerName, provider: row.providerName, bars, left, tone: toneOf(left) };
+      return { id: row.accountId, name: row.label.trim() || row.providerName, provider: row.providerName, proxy: row.gateway !== undefined, bars, left, tone: toneOf(left) };
     })
     .filter((account) => account.bars.length > 0)
     .sort((a, b) => a.left - b.left);
 }
 
-/**
- * The subscription proxy's gauges (`Companion.gauges`, with the Settings
- * choices already applied) as accounts of one bar, the window nearest its
- * limit; the proxy gives no reset time. Unknown gauges are left out.
- */
-export function proxyAccounts(gauges: HudGauge[]): QuotaAccount[] {
-  return gauges
-    .filter((gauge) => gauge.used !== null)
-    .map((gauge): QuotaAccount => {
-      const left = clamp(100 - (gauge.used ?? 0));
-      const bar: QuotaBar = { id: gauge.window || gauge.id, label: gauge.window, left, tone: toneOf(left), resetsAt: null };
-      return { id: `proxy:${gauge.id}`, name: gauge.name, provider: gauge.providerId, bars: [bar], left, tone: bar.tone };
-    })
-    .sort((a, b) => a.left - b.left);
-}
-
-/** The window with the least left across every account given, what the pill shows. */
-export function tightest(...groups: QuotaAccount[][]): { account: QuotaAccount; bar: QuotaBar } | null {
+/** The window with the least left across every account, what the pill shows. */
+export function tightest(accounts: QuotaAccount[]): { account: QuotaAccount; bar: QuotaBar } | null {
   let found: { account: QuotaAccount; bar: QuotaBar } | null = null;
-  for (const account of groups.flat()) {
+  for (const account of accounts) {
     const bar = account.bars[0];
     if (bar && (found === null || bar.left < found.bar.left)) found = { account, bar };
   }
@@ -123,8 +127,14 @@ export class QuotaWatch {
   rows = $state<AccountQuota[]>([]);
   usage = $state<Usage | null>(null);
   read = $state(false);
-  readonly accounts = $derived(quotaAccounts(this.rows));
-  readonly tightest = $derived(tightest(this.accounts));
+  readonly accounts = $derived.by(() => quotaAccounts(this.rows, this.#keep()));
+  readonly tightest = $derived.by(() => tightest(this.accounts));
+  readonly #keep: () => QuotaKeep;
+
+  /** `keep`: what Settings lets through, read again as it changes. */
+  constructor(keep: () => QuotaKeep = () => KEEP_ALL) {
+    this.#keep = keep;
+  }
 
   /** Reads now and every `QUOTAS_EVERY`, and takes what the core pushes. Returns the stop. */
   follow(client: Client): () => void {

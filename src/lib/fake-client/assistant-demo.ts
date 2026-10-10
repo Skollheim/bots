@@ -5,7 +5,7 @@
  * files their tools changed, and two subscriptions, one of them under a
  * quarter left.
  */
-import type { AccountQuota, AgentConversationMessage, AgentProfile, AgentRecord, Message, MessagePart, Thread } from '@boite/contracts';
+import type { AccountQuota, AgentConversationMessage, AgentProfile, AgentRecord, Message, MessagePart, QuotaWindow, Thread } from '@boite/contracts';
 import type { FakeContext, FakeMethods } from '@boite/ui/lib/fake-client/context';
 import { directScope } from '../companion/crew';
 import { withFiles } from '../island/assistant.svelte';
@@ -162,5 +162,30 @@ export function seedAssistantDemo(ctx: FakeContext, methods: FakeMethods): void 
       ]
     }
   ];
-  methods['quotas.list'] = async () => quotas();
+
+  // The subscription proxy (Douane) as a week in use rather than the seed's
+  // Pro entry, out and cooling down: no entry reads empty, and the tightest
+  // window left is the Claude Max week above, in amber.
+  const CALM: Record<string, number> = { 'five-hour': 46, 'seven-day': 72 };
+  const calm = (windows: QuotaWindow[]) => windows.map((window) => ({ ...window, usedPercent: CALM[window.id] ?? window.usedPercent }));
+  const tense = (entryId: string | undefined) => entryId === 'claude-2';
+  const proxyQuotas = methods['subscriptionProxy.quotas'];
+  methods['subscriptionProxy.quotas'] = async (params) => {
+    const state = await proxyQuotas(params);
+    return {
+      ...state,
+      providers: state.providers.map((provider) => ({
+        ...provider,
+        entries: provider.entries.map((entry) => (tense(entry.id) ? { ...entry, status: 'ready' as const, windows: calm(entry.windows) } : entry))
+      }))
+    };
+  };
+  // Boite's accounts are the two above; the proxy's entries come after them, as the core lists them.
+  const listed = methods['quotas.list'];
+  methods['quotas.list'] = async (params) => [
+    ...quotas(),
+    ...(await listed(params))
+      .filter((row) => row.gateway)
+      .map((row) => (tense(row.gateway?.entryId) && row.gateway ? { ...row, windows: calm(row.windows), gateway: { ...row.gateway, status: 'ready' as const } } : row))
+  ];
 }
