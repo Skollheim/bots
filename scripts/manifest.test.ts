@@ -5,10 +5,23 @@ import { releaseManifest } from './release-manifest';
 import { assetName, TARGETS } from './targets';
 
 const manifest = readFileSync(new URL('../boite-plugin.json', import.meta.url), 'utf8');
+const ZERO = '0'.repeat(64);
 
 test('the manifest in the repository passes Boite\'s reader', () => {
   expect(manifestProblems(manifest)).toEqual([]);
-  expect(unreleased(manifest)).toBe(true);
+});
+
+test('the hashes are all placeholders before a release, or all the release\'s, never a mix', () => {
+  const raw = JSON.parse(manifest);
+  const withHash = (sha256: (platform: string) => string) =>
+    JSON.stringify({ ...raw, artifacts: Object.fromEntries(Object.entries(raw.artifacts as Record<string, { url: string }>).map(([platform, artifact]) => [platform, { ...artifact, sha256: sha256(platform) }])) });
+  const placeholders = withHash(() => ZERO);
+  expect(manifestProblems(placeholders)).toEqual([]);
+  expect(unreleased(placeholders)).toBe(true);
+  const released = withHash(() => 'c'.repeat(64));
+  expect(manifestProblems(released)).toEqual([]);
+  expect(unreleased(released)).toBe(false);
+  expect(manifestProblems(withHash((platform) => (platform === 'win32-x64' ? 'c'.repeat(64) : ZERO))).join('\n')).toContain('sha256 must be all placeholders');
 });
 
 test('a manifest that names another feature or a foreign URL is refused', () => {
