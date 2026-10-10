@@ -9,7 +9,8 @@ import type { Client } from '@boite/ui/lib/client';
 import { BOX_COLORS, encodeRobot, ROBOT_PARTS, robotOf, seededRobot } from '../robots';
 import { strings } from '../strings';
 import type { Brain } from './brain';
-import { AGENT_TOOLS, CLASSIC_SKIN, companionAgent, freshSkin, membersOf, memoriesToForget, memoryToKeep, profileWith, repliesAfter, replyTo, skinOf } from './crew';
+import { ROLE_START } from './brain';
+import { AGENT_TOOLS, CLASSIC_SKIN, companionAgent, freshSkin, membersOf, memoriesToForget, memoryToKeep, needsFirstAgent, profileWith, repliesAfter, replyTo, skinOf } from './crew';
 import { Crew } from './crew.svelte';
 import { addReminder, readMemory, readReminders, remember } from './memory';
 import { Notes } from './notes.svelte';
@@ -39,7 +40,10 @@ const profile = (id: string, extra: Partial<AgentProfile> = {}): AgentProfile =>
   ...extra
 });
 
-const said = (id: string, senderId: string | null, createdAt: number, extra: Partial<AgentConversationMessage> = {}): AgentConversationMessage => ({
+/** The agent a core keeps for a profile save: what was sent, under `id`. */
+const madeFrom = (id: string, save: unknown): AgentProfile => profile(id, (save as { value: Partial<AgentProfile> }).value);
+
+const said =(id: string, senderId: string | null, createdAt: number, extra: Partial<AgentConversationMessage> = {}): AgentConversationMessage => ({
   ...record,
   id,
   scope: direct('bots'),
@@ -100,6 +104,17 @@ test('the row keeps the order the user gave it, an archived or deleted agent lef
   expect(membersOf(null, ['a'])).toEqual([]);
 });
 
+test('a core needs the first agent until one the preferences name is its own, archived or not', () => {
+  const snapshot = snapshotOf({ profiles: [profile('a'), profile('gone', { status: 'archived' })] });
+  expect(needsFirstAgent(snapshot, { agents: [], crewMade: false })).toBe(true);
+  expect(needsFirstAgent(snapshot, { agents: ['a'], crewMade: true })).toBe(false);
+  expect(needsFirstAgent(snapshot, { agents: ['gone'], crewMade: true })).toBe(false);
+  // Made on another core: none of those agents is this one's.
+  expect(needsFirstAgent(snapshot, { agents: ['elsewhere'], crewMade: true })).toBe(true);
+  // A row the user emptied stays empty.
+  expect(needsFirstAgent(snapshot, { agents: [], crewMade: true })).toBe(false);
+});
+
 test('a request gets the reply its agent wrote to it; a note about an entrusted thread is no reply', () => {
   const snapshot = snapshotOf({
     messages: [
@@ -150,7 +165,8 @@ test('a first agent that could not be made is tried again, later on its own and 
   let status = 'checking';
   const saves: unknown[] = [];
   const call = vi.fn(async (method: string, params?: unknown) => {
-    if (method === 'agents.snapshot') return snapshotOf({});
+    // The core shows the agent once it is made.
+    if (method === 'agents.snapshot') return snapshotOf({ profiles: saves.map((save) => madeFrom('bots', save)) });
     if (method === 'providers.list') return { loaded: [{ id: 'claude', name: 'Claude', shortName: 'Claude', protocol: 'acp', available: true, models: [] } as unknown as ProviderSummary], rejected: [] };
     if (method === 'accounts.list') return [{ id: 'acc', providerId: 'claude', label: 'acc', status } as Account];
     if (method === 'agents.profile.save') {
@@ -189,15 +205,62 @@ test('a first agent that could not be made is tried again, later on its own and 
   crew.dispose();
 });
 
+test('agents remembered from another core do not hold the row: Bots makes its agent here, or takes back the one with the role', async () => {
+  const providers = { loaded: [{ id: 'claude', name: 'Claude', shortName: 'Claude', protocol: 'acp', available: true, models: [] } as unknown as ProviderSummary], rejected: [] };
+  let profiles = [profile('helper')];
+  // The agents made; a save naming an id only updates that one.
+  const made: unknown[] = [];
+  const call = vi.fn(async (method: string, params?: unknown) => {
+    if (method === 'agents.snapshot') return snapshotOf({ profiles });
+    if (method === 'providers.list') return providers;
+    if (method === 'accounts.list') return [{ id: 'acc', providerId: 'claude', label: 'acc', status: 'ok' } as Account];
+    if (method === 'agents.profile.save') {
+      const id = (params as { id?: string }).id;
+      if (id === undefined) made.push(params);
+      const saved = madeFrom(id ?? 'bots', params);
+      profiles = [...profiles.filter((kept) => kept.id !== saved.id), saved];
+      return saved;
+    }
+    return {};
+  });
+  const client = { call } as unknown as Client;
+  const host = { client: () => client, prefs: readCompanionPrefs, projects: () => ['boite'], waiting: () => false, answered: () => {}, loaded: () => {} };
+
+  writeCompanionPrefs({ agents: ['elsewhere'], crewMade: true });
+  const crew = new Crew(host);
+  await crew.load();
+  await vi.waitFor(() => expect(crew.members.map((agent) => agent.id)).toEqual(['bots']));
+  expect(readCompanionPrefs()).toMatchObject({ agents: ['bots'], crewMade: true });
+  // Read again, the row holds: no second agent.
+  await crew.load();
+  expect(made).toHaveLength(1);
+  crew.dispose();
+
+  // A core where Bots made its agent before gets that one back.
+  writeCompanionPrefs({ agents: ['elsewhere'], crewMade: true });
+  profiles = [profile('helper'), profile('old', { instructions: `Mine\n\n${ROLE_START}\nRole` })];
+  const again = new Crew(host);
+  await again.load();
+  await vi.waitFor(() => expect(readCompanionPrefs().agents).toEqual(['old']));
+  // Its role is brought up to date, and no agent is made.
+  await vi.waitFor(() => expect(profiles.find((kept) => kept.id === 'old')?.instructions).toContain("Boite's projects: boite."));
+  expect(made).toHaveLength(1);
+  again.dispose();
+});
+
 test('the facts kept on this computer go to the first agent one by one; one that could not go stays here', async () => {
   writeCompanionPrefs({ providerId: 'claude', accountId: 'acc' });
   remember('likes tea');
   remember('works on Boite');
+  let made: unknown = null;
   const call = vi.fn(async (method: string, params?: unknown) => {
-    if (method === 'agents.snapshot') return snapshotOf({});
+    if (method === 'agents.snapshot') return snapshotOf({ profiles: made ? [madeFrom('bots', made)] : [] });
     if (method === 'providers.list') return { loaded: [{ id: 'claude', name: 'Claude', shortName: 'Claude', protocol: 'acp', available: true, models: [] } as unknown as ProviderSummary], rejected: [] };
     if (method === 'accounts.list') return [{ id: 'acc', providerId: 'claude', label: 'acc', status: 'ok' } as Account];
-    if (method === 'agents.profile.save') return profile('bots');
+    if (method === 'agents.profile.save') {
+      made = params;
+      return profile('bots');
+    }
     if (method === 'agents.memory.save' && JSON.stringify(params).includes('tea')) throw new Error('core busy');
     return {};
   });
