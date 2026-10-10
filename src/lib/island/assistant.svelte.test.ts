@@ -110,7 +110,11 @@ test('the tool line names the running call and its target', () => {
   expect(toolTarget({ command: 'bun run test\nmore' })).toBe('bun run test');
   expect(toolTarget(null)).toBeNull();
   const running = streamed('m', 'assistant', [{ type: 'tool', toolId: 'x', name: 'Read', input: { path: 'src/a.ts' }, output: null, status: 'running' }], 'streaming');
-  expect(toolLine([running], null)).toBe('Read · a.ts');
+  expect(toolLine([running], null)).toBe('Read a.ts');
+  const command = streamed('c', 'assistant', [{ type: 'tool', toolId: 'y', name: 'Bash', input: { command: 'bun run test\nmore' }, output: null, status: 'running' }], 'streaming');
+  expect(toolLine([command], null)).toBe('Command bun run test');
+  const unknown = streamed('u', 'assistant', [{ type: 'tool', toolId: 'z', name: 'mcp__notes__list', input: {}, output: null, status: 'running' }], 'streaming');
+  expect(toolLine([unknown], null)).toBe('Tool');
   expect(toolLine([], { progress: { turnId: 'u', phase: 'tool', detail: 'Bash' } } as Pick<ThreadSummary, 'progress'>)).toBe('Bash');
   expect(toolLine([], null)).toBeNull();
 });

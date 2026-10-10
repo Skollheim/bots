@@ -90,7 +90,7 @@ export const strings = {
       efforts: { low: 'Low', medium: 'Medium', high: 'High' },
       defaultModel: 'Default model',
       defaultEffort: 'Default effort',
-      everywhere: 'Changes {name} everywhere, in Boite too.',
+      everywhere: 'This applies to {name} everywhere, in Boite too.',
       noModels: 'The agent lists no models yet.',
       quotas: {
         label: 'Quotas: {percent}% left on {name}, {window}. Show every account.',

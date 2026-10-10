@@ -84,7 +84,7 @@ export const fr: Messages = {
       efforts: { low: 'Faible', medium: 'Moyen', high: 'Élevé' },
       defaultModel: 'Modèle par défaut',
       defaultEffort: 'Effort par défaut',
-      everywhere: 'Change {name} partout, dans Boite aussi.',
+      everywhere: 'Ce choix s’applique à {name} partout, dans Boite aussi.',
       noModels: 'L’agent n’indique encore aucun modèle.',
       quotas: {
         label: 'Quotas : il reste {percent} % sur {name}, {window}. Afficher tous les comptes.',

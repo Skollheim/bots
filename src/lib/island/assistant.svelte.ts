@@ -23,7 +23,9 @@ import type { AgentConversationMessage, AgentProfile, AgentSave, AgentsSnapshot,
 import type { Client } from '@boite/ui/lib/client';
 import { directScope, replyTo, sessionThreadOf, workFor } from '../companion/crew';
 import { visibleReply } from '../companion/directives';
+import { describeTool } from '@boite/ui/lib/tool-summary';
 import { fill, strings } from '../strings';
+import { toolLabel } from './session-text';
 
 export const EFFORTS = ['low', 'medium', 'high'] as const;
 export type Effort = (typeof EFFORTS)[number];
@@ -157,13 +159,18 @@ export function toolTarget(input: unknown): string | null {
   return null;
 }
 
-/** The tool at work right now, on one line: the running call of the answer, else what the thread says it does. */
+/**
+ * The tool at work right now, on one line, in the words Home's session rows
+ * use ("Read night.log", "Command bun run test"): the running call of the
+ * answer, else what the thread says it does.
+ */
 export function toolLine(stream: readonly Message[], thread: Pick<ThreadSummary, 'progress'> | null): string | null {
   const last = stream.findLast((message) => message.role === 'assistant');
   const running = last?.parts.findLast((part): part is Extract<MessagePart, { type: 'tool' }> => part.type === 'tool' && part.status === 'running');
   if (running) {
+    const label = toolLabel({ kind: describeTool(running.name, running.input).family });
     const target = toolTarget(running.input);
-    return target ? `${running.name} · ${target}` : running.name;
+    return target ? `${label} ${target}` : label;
   }
   return thread?.progress?.phase === 'tool' && thread.progress.detail ? thread.progress.detail : null;
 }
