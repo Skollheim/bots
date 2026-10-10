@@ -1,0 +1,4 @@
+[submodule "vendor/boite"]
+	path = vendor/boite
+	url = https://github.com/beboite/boite
+	shallow = true

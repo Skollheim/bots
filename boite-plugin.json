@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "bots",
+  "name": "Bots",
+  "version": "0.1.0",
+  "description": "Little robots on your desktop that follow your Boite agents, answer your questions and keep you company while you work.",
+  "homepage": "https://github.com/beboite/bots",
+  "executable": "bots",
+  "artifacts": {
+    "win32-x64": { "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-x86_64-pc-windows-msvc.exe", "sha256": "0000000000000000000000000000000000000000000000000000000000000000" },
+    "win32-arm64": { "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-aarch64-pc-windows-msvc.exe", "sha256": "0000000000000000000000000000000000000000000000000000000000000000" },
+    "darwin-x64": { "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-x86_64-apple-darwin", "sha256": "0000000000000000000000000000000000000000000000000000000000000000" },
+    "darwin-arm64": { "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-aarch64-apple-darwin", "sha256": "0000000000000000000000000000000000000000000000000000000000000000" },
+    "linux-x64": { "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-x86_64-unknown-linux-gnu", "sha256": "0000000000000000000000000000000000000000000000000000000000000000" },
+    "linux-arm64": { "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-aarch64-unknown-linux-gnu", "sha256": "0000000000000000000000000000000000000000000000000000000000000000" }
+  },
+  "provides": { "desktopApp": {} }
+}
