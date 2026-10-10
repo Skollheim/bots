@@ -109,7 +109,7 @@
     {@const waiting = busy === current.id}
     {#key current.id}
       <div class="request" class:waiting>
-        <p class="origin"><span class="thread">{origin.title}</span>{#if origin.project}<span class="project"> · {origin.project}</span>{/if}</p>
+        <p class="origin"><span class="thread">{origin.title}</span>{#if origin.project}<span class="project">&nbsp;· {origin.project}</span>{/if}</p>
         {#if current.kind === 'permission'}
           {@const request = current.request}
           {@const said = describePermission(request)}
@@ -333,6 +333,9 @@
   .free input:focus-visible {
     outline: 2px solid var(--island-talking);
     outline-offset: 0;
+  }
+  .free input::placeholder {
+    color: var(--island-muted);
   }
   @keyframes arrive {
     from {

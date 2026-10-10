@@ -47,9 +47,9 @@
   <div class="head">
     <span class="avatar" aria-hidden="true"><RobotFace {robot} state={face} /></span>
     <button class="title" title={copy.reveal} onclick={() => onreveal(row.id)}>
-      <span class="name">{row.title}{#if project}<span class="project"> · {project}</span>{/if}</span>
+      <span class="name">{row.title}{#if project}<span class="project">&nbsp;· {project}</span>{/if}</span>
       <span class="sub">
-        <span class="state">{copy.states[row.state]}</span>{#if line}<span class="step"> · {line}</span>{/if}
+        <span class="state">{copy.states[row.state]}</span>{#if line}<span class="step">&nbsp;· {line}</span>{/if}
       </span>
     </button>
     <span class="time">{time}</span>
@@ -127,8 +127,12 @@
   .title {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: 0;
     flex: 1;
     min-width: 0;
+    height: auto;
     padding: 3px 6px;
     margin: 0 -6px;
     border: none;
@@ -136,6 +140,7 @@
     background: none;
     color: inherit;
     font: inherit;
+    font-weight: inherit;
     text-align: left;
     cursor: pointer;
   }

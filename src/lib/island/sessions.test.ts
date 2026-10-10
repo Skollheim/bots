@@ -28,7 +28,7 @@ function thread(id: string, status: ThreadSummary['status'], extra: Partial<Thre
 }
 
 function turn(threadId: string, status: Turn['status'], extra: Partial<Turn> = {}): Turn {
-  return { id: `turn-${threadId}`, threadId, status, queuedAt: 900, startedAt: 1_000, finishedAt: status === 'running' ? null : 5_000, usage: null, error: null, ...extra };
+  return { id: `turn-${threadId}`, threadId, status, queuedAt: 900, startedAt: 1_000, finishedAt: status === 'running' ? null : 4_500, usage: null, error: null, ...extra };
 }
 
 function tool(toolId: string, name: string, input: unknown, status: 'running' | 'done' | 'error' = 'done', extra: Record<string, unknown> = {}): MessagePart {

@@ -162,7 +162,8 @@ function finish(row: SessionRow, turn: Turn, at: number): SessionRow {
   const settled: SessionStep[] = row.steps.map((step) => (step.status === 'running' ? { ...step, status: failed ? 'error' : 'done' } : step));
   const closing: SessionStep = { id: `done:${turn.id}`, kind: 'done', name: '', target: failed ? firstLine(turn.error ?? '') : '', status: failed ? 'error' : 'done', diff: null };
   const steps = settled.some((step) => step.id === closing.id) ? settled : withStep(settled, closing);
-  const ended = isLive(row) ? (turn.finishedAt ?? at) : (row.endedAt ?? at);
+  // The linger counts on this machine's clock: a core on another machine may run ahead or behind.
+  const ended = isLive(row) ? at : (row.endedAt ?? at);
   return { ...row, state: failed ? 'failed' : row.state === 'failed' ? 'failed' : 'done', endedAt: ended, steps, detail: null };
 }
 
