@@ -62,6 +62,12 @@
   .settings :global(.page .switch-row) {
     border-color: var(--island-line);
   }
+  /* Section labels as the island's: sentence case, quiet grey. */
+  .settings :global(.page .card h2) {
+    color: var(--island-muted);
+    font-size: var(--text-sm);
+    font-weight: 500;
+  }
   .waiting {
     display: flex;
     justify-content: center;
