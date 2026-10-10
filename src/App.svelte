@@ -11,7 +11,7 @@
   The shell places the window for either (`island_place`, `companion_place`).
 -->
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { startTheme } from '@boite/ui/lib/theme';
   import { strings } from './lib/strings';
   import BotsNotice from './components/BotsNotice.svelte';
@@ -25,8 +25,8 @@
   import Island from './components/island/Island.svelte';
 
   const HIT_PAD = 6;
-  /** The island's window: the open island (640 × 440 at most), its glow, and a notice under it. */
-  const ISLAND_WINDOW = { width: 720, open: 500, closed: 150 };
+  /** The island's window: the open island (640 × 440 at most, 640 tall for a diff), its glow, and a notice under it. */
+  const ISLAND_WINDOW = { width: 720, open: 500, tall: 700, closed: 150 };
   /** The window shrinks once the island's spring has closed it. */
   const SHRINK_AFTER = 450;
 
@@ -89,13 +89,15 @@
     void tick().then(() => requestAnimationFrame(sendRects));
   });
 
-  // The island's window grows at once to open, and shrinks once it has closed.
+  // The island's window grows at once (open, or taller for a diff), and
+  // shrinks once the island's spring has followed.
   $effect(() => {
-    if (companion.open) {
-      islandHeight = ISLAND_WINDOW.open;
+    const wanted = companion.open ? (frame.tall ? ISLAND_WINDOW.tall : ISLAND_WINDOW.open) : ISLAND_WINDOW.closed;
+    if (wanted >= untrack(() => islandHeight)) {
+      islandHeight = wanted;
       return;
     }
-    const shrink = setTimeout(() => (islandHeight = ISLAND_WINDOW.closed), SHRINK_AFTER);
+    const shrink = setTimeout(() => (islandHeight = wanted), SHRINK_AFTER);
     return () => clearTimeout(shrink);
   });
 

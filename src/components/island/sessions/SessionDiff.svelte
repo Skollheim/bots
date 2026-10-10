@@ -12,9 +12,16 @@
   let { diff }: { diff: SessionDiff } = $props();
 
   const rows = $derived(diffRows(diff.oldText, diff.newText));
+
+  /** Once the island has grown for it (its spring takes about this long), the diff scrolls into view. */
+  const SETTLE_MS = 360;
+  function reveal(node: HTMLElement) {
+    const timer = setTimeout(() => node.scrollIntoView({ block: 'nearest' }), SETTLE_MS);
+    return () => clearTimeout(timer);
+  }
 </script>
 
-<div class="diff" data-testid="session-diff" title={diff.path}>
+<div class="diff" data-testid="session-diff" title={diff.path} {@attach reveal}>
   <p class="file">{fileName(diff.path)}</p>
   <div class="lines">
     {#each rows as row, index (index)}

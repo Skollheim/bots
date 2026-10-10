@@ -47,6 +47,11 @@
   /** The open island's width, and the most its content takes before it scrolls. */
   const OPEN_WIDTH = 640;
   const OPEN_MAX = 440;
+  /** With a diff open in Home: as tall as the window lets it, up to this. The window keeps 60 px under it for the glow and a notice. */
+  const OPEN_TALL = 640;
+  const WINDOW_SPARE = 60;
+  /** The tabs above the view. */
+  const TABS_HEIGHT = 48;
   const SIZES = { collapsed: { w: 200, h: 32 }, peek: { w: 360, h: 40 } };
   const RADIUS = 22;
   const CHEER_MS = 1200;
@@ -54,12 +59,18 @@
   const ICONS = { home: House, chat: MessageCircle, drop: Plus } as const;
 
   let measured = $state(0);
+  let windowHeight = $state(0);
   let cheering = $state(false);
   let robotButton = $state<HTMLButtonElement | null>(null);
   let barFace = $state<HTMLElement | null>(null);
 
   const lead = $derived(companion.members[0]!);
-  const sessions = new Sessions({ client: () => companion.client, threads: () => companion.threads, own: () => companion.ownThreads });
+  const sessions = new Sessions({ client: () => companion.client, threads: () => companion.threads, own: () => companion.ownThreads, held: () => companion.notes.notices.map((notice) => notice.threadId) });
+  // An open diff in Home asks for a taller island; the window grows first (`App.svelte`), within the work area.
+  $effect(() => {
+    frame.tall = frame.size === 'open' && frame.tab === 'home' && sessions.diffShown;
+  });
+  const openMax = $derived(frame.tall ? Math.max(OPEN_MAX, Math.min(OPEN_TALL, windowHeight - WINDOW_SPARE)) : OPEN_MAX);
   $effect(() => sessions.start());
   const leadSession = $derived(sessions.lead);
   const leadStep = $derived(leadSession ? currentStep(leadSession) : null);
@@ -80,7 +91,7 @@
   const dots = $derived([...(companion.blocking > 0 ? ['attention'] : []), ...companion.busy.slice(0, 5).map(() => 'working')]);
   /** The peek fits its line: the status's own width (`measure`) plus the face, the gaps and the padding, and the dots. */
   const peekWidth = $derived(Math.round(Math.min(PEEK.max, Math.max(PEEK.min, statusWidth + PEEK.chrome + Math.max(0, dots.length * 12 - 5)))));
-  const target = $derived(frame.size === 'open' ? { w: OPEN_WIDTH, h: Math.min(Math.max(measured, 120), OPEN_MAX) } : frame.size === 'peek' ? { ...SIZES.peek, w: peekWidth } : SIZES[frame.size]);
+  const target = $derived(frame.size === 'open' ? { w: OPEN_WIDTH, h: Math.min(Math.max(measured, 120), openMax) } : frame.size === 'peek' ? { ...SIZES.peek, w: peekWidth } : SIZES[frame.size]);
 
   provideView({
     get companion() {
@@ -193,6 +204,8 @@
   }
 </script>
 
+<svelte:window bind:innerHeight={windowHeight} />
+
 <div
   class="island island-tokens"
   data-hit
@@ -244,7 +257,7 @@
       </span>
     </button>
   {:else}
-    <div class="open" bind:offsetHeight={measured}>
+    <div class="open" style:max-height="{openMax}px" bind:offsetHeight={measured}>
       <nav class="tabs" aria-label={copy.label}>
         <div class="group" role="tablist">
           {#each ISLAND_TABS as tab (tab)}
@@ -309,7 +322,7 @@
             {#if companion.blocking > 0}<span class="badge" aria-hidden="true">{companion.blocking}</span>{/if}
           </button>
         </div>
-        <div class="view" data-tab={frame.tab}>
+        <div class="view" data-tab={frame.tab} style:max-height="{openMax - TABS_HEIGHT}px">
           {#if companion.blocking > 0}<AttentionCard />{/if}
           {#if frame.tab === 'home'}
             <HomeView />
@@ -406,7 +419,6 @@
     top: 0;
     left: 0;
     width: 640px;
-    max-height: 440px;
     display: flex;
     flex-direction: column;
     animation: appear 260ms ease-out;
@@ -525,7 +537,6 @@
     flex: 1;
     min-width: 0;
     min-height: 0;
-    max-height: 392px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;

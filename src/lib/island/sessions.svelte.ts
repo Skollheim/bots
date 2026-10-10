@@ -18,6 +18,8 @@ export interface SessionsSource {
   threads(): readonly ThreadSummary[];
   /** The companion's own threads: its chat, never a session row. */
   own(): readonly string[];
+  /** Threads whose finished card a row carries: their rows stay while the card does. */
+  held?(): readonly string[];
 }
 
 /** The steps read once when a thread starts being followed. */
@@ -43,6 +45,12 @@ export class Sessions {
   });
   /** The session the peek speaks of. */
   readonly lead = $derived(leadOf(this.rows));
+  /** The threads whose row shows them ended: their finished card folds into the row. */
+  readonly ended = $derived(this.rows.filter((row) => !isLive(row)).map((row) => row.id));
+  /** A step's diff shows: its row unfolded and the step still there. The open island grows for it. */
+  readonly diffShown = $derived(
+    unfolding.diff !== null && this.rows.some((row) => unfolding.rows.includes(row.id) && row.steps.some((step) => step.id === unfolding.diff && step.diff !== null))
+  );
 
   #followed = new Set<string>();
   #client: Client | null = null;
@@ -79,7 +87,7 @@ export class Sessions {
     const clock = setInterval(() => {
       if (page.hidden || this.#rows.length === 0) return;
       this.now = Date.now();
-      this.apply({ type: 'prune', at: this.now });
+      this.apply({ type: 'prune', at: this.now, keep: this.source.held?.() });
     }, TICK_MS);
     return () => {
       clearInterval(clock);

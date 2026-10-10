@@ -2,10 +2,12 @@
   One live session in Home: its robot, its title (a click shows the thread in
   Boite), its project, its state and how long it has been at it. Unfolded, its
   last steps, newest at the bottom: the tool, its target and a status mark; an
-  Edit or Write step opens the change it made.
+  Edit or Write step opens the change it made. A finished thread's card folds
+  into its row: the reply's first line, and answer or dismiss it from here.
 -->
 <script lang="ts">
-  import { Check, ChevronDown, FileDiff, Minus, X } from '@lucide/svelte';
+  import { Check, ChevronDown, CornerDownLeft, FileDiff, Minus, X } from '@lucide/svelte';
+  import type { Notes, Notice } from '../../../lib/companion/notes.svelte';
   import { elapsed } from '@boite/ui/lib/format';
   import { seededRobot } from '../../../lib/robots';
   import { currentStep, type SessionRow } from '../../../lib/island/sessions';
@@ -13,20 +15,25 @@
   import { stepText, toolLabel } from '../../../lib/island/session-text';
   import { strings } from '../../../lib/strings';
   import RobotFace from '../../agents/RobotFace.svelte';
+  import CompanionReply from '../../companion/CompanionReply.svelte';
   import SessionDiff from './SessionDiff.svelte';
 
   interface Props {
     row: SessionRow;
     project: string;
     now: number;
+    /** The finished card of this thread, folded into the row; null when none stands. */
+    notice: Notice | null;
+    notes: Notes;
     onreveal(threadId: string): void;
   }
 
-  let { row, project, now, onreveal }: Props = $props();
+  let { row, project, now, notice, notes, onreveal }: Props = $props();
 
   const copy = strings.island.sessions;
   const unfolded = $derived(unfolding.rows.includes(row.id));
   const opened = $derived(unfolding.diff);
+  const replying = $derived(!!notice && notes.replying === notice.id);
 
   function fold() {
     unfolding.rows = unfolded ? unfolding.rows.filter((id) => id !== row.id) : [...unfolding.rows, row.id];
@@ -40,7 +47,7 @@
   const face = $derived(row.state === 'working' ? 'working' : row.state === 'waiting' ? 'waiting' : 'still');
   const time = $derived(elapsed((row.endedAt ?? now) - row.since));
   const step = $derived(currentStep(row));
-  const line = $derived(row.state === 'waiting' || row.state === 'working' ? (step ? stepText(step) : (row.task ?? row.detail ?? '')) : '');
+  const line = $derived(row.state === 'waiting' || row.state === 'working' ? (step ? stepText(step) : (row.task ?? row.detail ?? '')) : (notice?.line ?? ''));
 </script>
 
 <li class="session" data-state={row.state} data-testid="session-row">
@@ -53,6 +60,16 @@
       </span>
     </button>
     <span class="time">{time}</span>
+    {#if notice && !replying}
+      <button class="act" aria-label={strings.companion.reply.action} title={strings.companion.reply.action} data-testid="session-reply" onclick={() => notes.answer(notice.id)}>
+        <CornerDownLeft size={13} strokeWidth={1.9} />
+      </button>
+    {/if}
+    {#if notice}
+      <button class="act" aria-label={strings.companion.dismiss} title={strings.companion.dismiss} data-testid="session-dismiss" onclick={() => notes.dismiss(notice.id)}>
+        <X size={13} strokeWidth={1.9} />
+      </button>
+    {/if}
     <button
       class="fold"
       class:on={unfolded}
@@ -65,6 +82,12 @@
       <ChevronDown size={14} strokeWidth={2} />
     </button>
   </div>
+  {#if notice && replying}
+    <div class="answering" data-testid="session-answering">
+      {#if notice.text}<p class="answer">{notice.text}</p>{/if}
+      <CompanionReply title={notice.title} problem={notes.replyProblem} onsend={(text) => notes.reply(notice.id, text)} oncancel={() => notes.answer(null)} />
+    </div>
+  {/if}
   {#if unfolded}
     {#if row.steps.length === 0}
       <p class="empty">{copy.noSteps}</p>
@@ -189,7 +212,8 @@
     font-variant-numeric: tabular-nums;
   }
   .fold,
-  .change {
+  .change,
+  .act {
     display: grid;
     place-items: center;
     flex: none;
@@ -204,9 +228,39 @@
   }
   .fold:hover,
   .change:hover,
-  .change.on {
+  .change.on,
+  .act:hover {
     background: var(--island-pill);
     color: var(--island-text);
+  }
+  .act:focus-visible {
+    outline: 2px solid var(--island-talking);
+    outline-offset: 1px;
+  }
+  .answering {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0 0 8px 32px;
+  }
+  /* The reply field in the island's dark: its edge and its hint read. */
+  .answering :global(textarea) {
+    border-color: var(--island-line-strong);
+    background: var(--island-bg);
+    color: var(--island-text);
+  }
+  .answering :global(textarea::placeholder) {
+    color: var(--island-muted);
+  }
+  .answer {
+    max-height: 120px;
+    margin: 0;
+    overflow-y: auto;
+    font-size: 12px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    scrollbar-width: thin;
   }
   .fold :global(svg) {
     transition: transform 160ms ease;

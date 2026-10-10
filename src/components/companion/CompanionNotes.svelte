@@ -18,12 +18,15 @@
     /** The panel is open: the notices wait behind it. */
     open: boolean;
     reachable: boolean;
+    /** Threads whose finished card shows elsewhere (the island's session rows): no card here for them. */
+    except?: readonly string[];
   }
 
-  let { members, notes, open, reachable }: Props = $props();
+  let { members, notes, open, reachable, except = [] }: Props = $props();
 
   const copy = strings.companion;
   const several = $derived(members.length > 1);
+  const shown = $derived(except.length === 0 ? notes.notices : notes.notices.filter((notice) => !except.includes(notice.threadId)));
 
   function openNotice(id: string, thread: string) {
     notes.dismiss(id);
@@ -69,7 +72,7 @@
 {/each}
 
 {#if !open}
-  {#each notes.notices as notice (notice.id)}
+  {#each shown as notice (notice.id)}
     {@const replying = notes.replying === notice.id}
     <div class="card notice" class:failed={notice.failed} class:replying data-hit role="status" data-testid="companion-notice">
       <div class="head">

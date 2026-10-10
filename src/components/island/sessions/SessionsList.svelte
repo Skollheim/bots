@@ -1,7 +1,8 @@
 <!--
   Home's live sessions: one row per thread at work or waiting on the user,
-  waiting ones first, kept two minutes after they end. An empty list says so
-  in one line.
+  waiting ones first, kept two minutes after they end (longer while the
+  thread's finished card stands: it folds into the row). An empty list says
+  so in one line.
 -->
 <script lang="ts">
   import { useView } from '../../../lib/island/contract';
@@ -11,6 +12,9 @@
   const view = useView();
   const sessions = $derived(view.sessions);
   const projects = $derived(view.companion.projects);
+  const notes = $derived(view.companion.notes);
+  const ended = $derived(new Set(sessions.ended));
+  const notices = $derived(new Map(notes.notices.filter((notice) => ended.has(notice.threadId)).map((notice) => [notice.threadId, notice])));
   const copy = strings.island.sessions;
   const reveal = (threadId: string) => void view.reveal(threadId).catch(() => {});
 </script>
@@ -22,7 +26,7 @@
   {:else}
     <ul class="rows">
       {#each sessions.rows as row (row.id)}
-        <SessionRow {row} project={(row.projectId && projects.get(row.projectId)) || ''} now={sessions.now} onreveal={reveal} />
+        <SessionRow {row} project={(row.projectId && projects.get(row.projectId)) || ''} now={sessions.now} notice={notices.get(row.id) ?? null} {notes} onreveal={reveal} />
       {/each}
     </ul>
   {/if}

@@ -30,7 +30,8 @@
 </script>
 
 <div class="home" data-testid="island-home">
-  <CompanionNotes members={[]} notes={companion.notes} open={false} reachable={companion.reachable} />
+  <!-- A finished thread Sessions still shows carries its card on its row. -->
+  <CompanionNotes members={[]} notes={companion.notes} open={false} reachable={companion.reachable} except={view.sessions.ended} />
 
   <SessionsList />
 

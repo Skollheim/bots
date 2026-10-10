@@ -10,7 +10,8 @@
  * - `answer=permissions`: only the permissions are answered first, so the
  *   card shows the question;
  * - `unfold=<threadId>,…` and `diff=<toolId>`: Home's session rows shown
- *   unfolded, and the Edit diff of one step open.
+ *   unfolded, and the Edit diff of one step open;
+ * - `reply=<threadId>`: that finished thread's card answered from its row.
  *
  * A wallpaper goes under the transparent window, so the black island shows.
  */
@@ -40,6 +41,12 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
   const unfold = params.get('unfold');
   if (unfold) unfolding.rows = unfold.split(',').filter(Boolean);
   unfolding.diff = params.get('diff');
+  const reply = params.get('reply');
+  if (reply) {
+    await until(() => companion.notes.notices.some((notice) => notice.threadId === reply));
+    const notice = companion.notes.notices.find((entry) => entry.threadId === reply);
+    if (notice) companion.notes.answer(notice.id);
+  }
   const pose = params.get('pose');
   const tab = params.get('tab') as IslandTab | null;
   if (pose === 'peek') {

@@ -55,7 +55,8 @@ export type SessionEvent =
   | { type: 'part'; threadId: string; part: MessagePart }
   | { type: 'messages'; threadId: string; messages: readonly Message[] }
   | { type: 'activity'; threadId: string; activity: ThreadActivity }
-  | { type: 'prune'; at: number };
+  /** Ended rows leave once they lingered, but for `keep`: threads whose finished card the row carries. */
+  | { type: 'prune'; at: number; keep?: readonly string[] };
 
 /** Steps a row keeps, newest at the bottom. */
 export const STEP_LIMIT = 6;
@@ -229,9 +230,11 @@ export function reduceSessions(rows: readonly SessionRow[], event: SessionEvent)
       if (row && isLive(row)) byId.set(row.id, { ...row, task: taskOf(event.activity.tasks) });
       break;
     }
-    case 'prune':
-      for (const [id, row] of byId) if (!isLive(row) && (row.endedAt ?? 0) + LINGER_MS <= event.at) byId.delete(id);
+    case 'prune': {
+      const keep = new Set(event.keep ?? []);
+      for (const [id, row] of byId) if (!isLive(row) && !keep.has(id) && (row.endedAt ?? 0) + LINGER_MS <= event.at) byId.delete(id);
       break;
+    }
   }
   return sortRows(byId.values());
 }

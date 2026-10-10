@@ -43,6 +43,8 @@ export class IslandFrame {
   hovering = $state(false);
   /** The green peek of a finished turn. */
   flashing = $state(false);
+  /** The open island wants more height (a diff open in Home): its window grows for it, within the work area. */
+  tall = $state(false);
   /** What the views hold the island open for, and the attention they asked for, by key. */
   private holds = $state<Record<string, true>>({});
   private calls = $state<Record<string, true>>({});

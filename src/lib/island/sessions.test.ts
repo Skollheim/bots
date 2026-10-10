@@ -108,6 +108,8 @@ test('a finished turn closes the row with a Done step, once, and it stays two mi
   rows = reduceSessions(rows, { type: 'prune', at: 5_000 + LINGER_MS - 1 });
   expect(rows).toHaveLength(1);
   expect(reduceSessions(rows, { type: 'prune', at: 5_000 + LINGER_MS })).toEqual([]);
+  // A row that carries the thread's finished card stays while the card does.
+  expect(reduceSessions(rows, { type: 'prune', at: 5_000 + LINGER_MS, keep: ['a'] })).toHaveLength(1);
 });
 
 test('the thread going idle first also makes the row done', () => {
