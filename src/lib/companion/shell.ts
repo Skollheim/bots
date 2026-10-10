@@ -131,6 +131,11 @@ export async function showAgent(agentId: string): Promise<void> {
   await reveal({ kind: 'agent', agentId });
 }
 
+/** Opens Boite's app updates, where a newer Boite installs (`ui.reveal`). */
+export async function showUpdates(): Promise<void> {
+  await reveal({ kind: 'update' });
+}
+
 /** Hears one of the shell's `companion://` events. Returns the function that stops. */
 export async function listenShell<T>(event: string, handler: (payload: T) => void): Promise<() => void> {
   if (!inShell()) return () => {};

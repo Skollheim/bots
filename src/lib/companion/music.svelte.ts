@@ -4,7 +4,7 @@
  * the meter's levels while a meter shows, and the cover's colour.
  */
 import { canShow, readLevel, type MediaState } from './media';
-import { accentOf, barOf, clockAfter, fallTo, LEVEL_FLOOR, nextCeiling, positionAt, type MusicBase } from './music';
+import { accentOf, barOf, clockAfter, fallTo, heldClock, LEVEL_FLOOR, nextCeiling, positionAt, SEEK_HOLD_MS, seekTo, type MusicBase } from './music';
 
 /** How often a meter reads the level while it shows: about 15 times a second. */
 export const LEVEL_EVERY = 66;
@@ -30,6 +30,8 @@ export class Music {
   /** Demo poses: the levels are made up, the colour given. */
   demo = false;
 
+  /** Until when a read that disagrees with a seek is taken for one sent before it. */
+  private heldUntil = 0;
   private ceiling = LEVEL_FLOOR;
   private accents = new Map<string, string | null>();
   private reading: string | null = null;
@@ -44,7 +46,7 @@ export class Music {
 
   /** A read of the media session: the clock, the colour, and whether Spotify lives here. */
   sync(state: MediaState | null, now = Date.now()): void {
-    const next = clockAfter(this.base, state, now);
+    const next = now < this.heldUntil ? heldClock(this.base, state, now) : clockAfter(this.base, state, now);
     if (next !== this.base) this.base = next;
     if (!this.demo) this.colour(state?.art ?? null);
     if (state && canShow(state.app) && !this.knowsSpotify) {
@@ -59,6 +61,13 @@ export class Music {
 
   position(now: number): number {
     return positionAt(this.base, now);
+  }
+
+  /** The clock goes `position` milliseconds into the track at once; the reads catch up with the player. */
+  seek(position: number, now = Date.now()): void {
+    if (!this.base) return;
+    this.base = seekTo(this.base, position, now);
+    this.heldUntil = now + SEEK_HOLD_MS;
   }
 
   /**

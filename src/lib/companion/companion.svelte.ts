@@ -24,7 +24,7 @@ import { useReveal } from '../reveal';
 import type { Robot } from '../robots';
 import { readCompanionPrefs, subscribeCompanionPrefs, writeCompanionPrefs, type CompanionPrefs } from './prefs';
 import { createMoodTracker, RESTING, type MoodInput, type MoodState } from './mood';
-import { readMedia, pressMedia, sameMedia, type MediaAction, type MediaState } from './media';
+import { readMedia, pressMedia, sameMedia, seekMedia, type MediaAction, type MediaState } from './media';
 import { Music } from './music.svelte';
 import { addReminder } from './memory';
 import { captureScreens, type ScreenShot } from './screen';
@@ -93,6 +93,8 @@ export class Companion {
   media = $state<MediaState | null>(null);
   /** The music setting alone: another setting saved leaves the reads of the music as they run. */
   private readonly musicOn = $derived(this.prefs.music);
+  /** The quotas setting alone, for the same reason: saving another setting leaves Douane's reads running. */
+  private readonly quotasOn = $derived(this.prefs.quotas);
   /** The music bubble's clock, meter and colour, kept with each read of `media`. */
   readonly music = new Music();
   /** The pointer is on a character, as the page sees it (outside the shell). */
@@ -633,6 +635,12 @@ export class Companion {
       .catch(() => {});
   }
 
+  /** A move along the track from the player's timeline: the time goes there at once, the player follows. */
+  seekMedia(position: number): void {
+    this.music.seek(position);
+    void seekMedia(position).catch(() => {});
+  }
+
   /** A read of the media session: the state when it changed, the music's clock always. */
   private takeMedia(state: MediaState | null): void {
     if (!sameMedia(this.media, state)) this.media = state;
@@ -777,7 +785,7 @@ export class Companion {
       // The proxy's quotas, read now, every minute and on each update, while shown.
       $effect(() => {
         const client = this.client;
-        if (!this.prefs.quotas || !this.connected || !client) return;
+        if (!this.quotasOn || !this.connected || !client) return;
         return followQuotas(client, this.quotas);
       });
 

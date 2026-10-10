@@ -11,7 +11,7 @@ import { namesFact, normalized } from './memory';
 import { toBox, type BoxRobot } from './skin';
 
 /** The name of the agent the companion makes for itself the first time. */
-export const FIRST_AGENT_NAME = 'Bots';
+export const FIRST_AGENT_NAME = 'B.O.T.S';
 /** The classic companion, as an avatar: the first agent keeps the look the companion always had. */
 export const CLASSIC_SKIN = encodeRobot({ family: 'box', shape: 0, color: 0, eyes: 0, top: 0 });
 

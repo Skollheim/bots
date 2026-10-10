@@ -39,7 +39,7 @@ function poseMusic(companion: Companion, playing: boolean): void {
   // The shell's reads stop, kept so a later write of the prefs keeps them off: the posed track stays.
   companion.prefs = writeCompanionPrefs({ music: false });
   setTimeout(() => {
-    const media = { title: 'Midnight Circuit', artist: 'Neon Tides', app: 'Spotify.exe', playing, art: COVER, position: 74_000, duration: 213_000 };
+    const media = { title: 'Midnight Circuit', artist: 'Neon Tides', app: 'Spotify.exe', playing, art: COVER, position: 74_000, duration: 213_000, seekable: true };
     companion.music.demo = true;
     companion.music.accent = 'rgb(255 140 178)';
     companion.media = media;

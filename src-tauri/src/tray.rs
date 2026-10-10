@@ -34,7 +34,7 @@ pub fn open_settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     }
     let title = app.try_state::<Labels<R>>()
         .map(|labels| labels.title.lock().unwrap_or_else(PoisonError::into_inner).clone())
-        .unwrap_or_else(|| "Bots settings".into());
+        .unwrap_or_else(|| "B.O.T.S settings".into());
     let query = crate::companion_window::demo_query();
     let page = if query.is_empty() { "index.html?view=settings".to_string() } else { format!("index.html?view=settings&{query}") };
     let window = tauri::WebviewWindowBuilder::new(app, SETTINGS_LABEL, WebviewUrl::App(page.into()))
@@ -75,7 +75,7 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let leave = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&settings, &leave])?;
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
-        .tooltip("Bots")
+        .tooltip("B.O.T.S")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| {
@@ -94,6 +94,6 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         builder = builder.icon(icon);
     }
     let tray = builder.build(app)?;
-    app.manage(Labels { tray, settings, quit: leave, title: Mutex::new("Bots settings".into()) });
+    app.manage(Labels { tray, settings, quit: leave, title: Mutex::new("B.O.T.S settings".into()) });
     Ok(())
 }

@@ -16,6 +16,8 @@ export interface MediaState {
   position?: number | null;
   /** How long the track lasts, in milliseconds; absent as for `position`. */
   duration?: number | null;
+  /** The player takes a new position (`seekMedia`): absent or false where it does not. */
+  seekable?: boolean;
 }
 
 /** The three buttons, and `show`: the player's window comes forward (Spotify; opened when no music plays). */
@@ -34,6 +36,7 @@ export function sameMedia(a: MediaState | null, b: MediaState | null): boolean {
     a.app === b.app &&
     a.playing === b.playing &&
     (a.art ?? null) === (b.art ?? null) &&
+    (a.seekable ?? false) === (b.seekable ?? false) &&
     Math.round((a.duration ?? 0) / 1000) === Math.round((b.duration ?? 0) / 1000)
   );
 }
@@ -48,6 +51,13 @@ export async function pressMedia(action: MediaAction): Promise<void> {
   if (window.__TAURI_INTERNALS__ === undefined) return;
   const { invoke } = await import('@tauri-apps/api/core');
   await invoke('companion_media_control', { action });
+}
+
+/** Moves the track to `position`, in milliseconds, for a player that is `seekable`. */
+export async function seekMedia(position: number): Promise<void> {
+  if (window.__TAURI_INTERNALS__ === undefined) return;
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('companion_media_control', { action: 'seek', position: Math.max(0, Math.round(position)) });
 }
 
 /** The music's loudest peak since the last read, 0 to 1, for `app`'s player; null where nothing is measured. */
