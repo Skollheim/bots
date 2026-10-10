@@ -84,6 +84,7 @@ pub(crate) fn is_game(path: &str) -> bool {
 }
 
 /// What the page is told about the executable at `path`.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn classify(path: &str) -> FrontApp {
     FrontApp { exe: file_name(path).to_owned(), game: is_game(path) }
 }
