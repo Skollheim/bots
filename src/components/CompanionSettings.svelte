@@ -53,10 +53,16 @@
     })
   );
 
-  // The lists each agent offers with its account, read once: the core keeps them.
+  // Reading an agent's models starts it for a moment: the chosen one is read
+  // to name its model and efforts, the others once the model menu is reached.
   $effect(() => {
-    for (const { provider, accounts } of usable) void store.probeModels(provider.id, accounts[0]!.id).catch(() => {});
+    const chosen = usable.find((entry) => entry.provider.id === prefs.providerId);
+    if (chosen) void store.probeModels(chosen.provider.id, (accountOf(chosen.provider.id) ?? chosen.accounts[0]!).id).catch(() => {});
   });
+
+  function readAllModels() {
+    for (const { provider, accounts } of usable) void store.probeModels(provider.id, accounts[0]!.id).catch(() => {});
+  }
 
   const accountOf = (providerId: string) => {
     const accounts = usable.find((entry) => entry.provider.id === providerId)?.accounts ?? [];
@@ -175,8 +181,9 @@
 
 </script>
 
-{#snippet picker(label: string, hint: string | null, items: MenuItem[], current: string, onpick: (id: string) => void, testid: string)}
-  <div class="switch-row">
+{#snippet picker(label: string, hint: string | null, items: MenuItem[], current: string, onpick: (id: string) => void, testid: string, onreach?: () => void)}
+  <!-- A click focuses the menu's button too, so focus is the one sign a menu is reached. -->
+  <div class="switch-row" onfocusin={onreach}>
     <span class="text ui-label-box">
       <span class="ui-label">{label}</span>{#if hint}<InfoTip topic={label} text={hint} />{/if}
     </span>
@@ -231,7 +238,7 @@
 
   <section class="card">
     <h2 class="ui-label-box"><span class="ui-label">{copy.brain}</span><InfoTip topic={copy.brain} text={copy.brainHint} /></h2>
-    {@render picker(copy.model, copy.modelHint, modelItems, currentModel, pickModel, 'companion-model')}
+    {@render picker(copy.model, copy.modelHint, modelItems, currentModel, pickModel, 'companion-model', readAllModels)}
     {#if accounts.length > 1}
       {@render picker(copy.account, null, accountItems, account?.label ?? '', (id) => save({ accountId: id }), 'companion-account')}
     {/if}

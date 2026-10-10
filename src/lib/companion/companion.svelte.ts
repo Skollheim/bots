@@ -24,7 +24,7 @@ import { useReveal } from '../reveal';
 import type { Robot } from '../robots';
 import { readCompanionPrefs, subscribeCompanionPrefs, writeCompanionPrefs, type CompanionPrefs } from './prefs';
 import { createMoodTracker, RESTING, type MoodInput, type MoodState } from './mood';
-import { readMedia, pressMedia, type MediaAction, type MediaState } from './media';
+import { readMedia, pressMedia, sameMedia, type MediaAction, type MediaState } from './media';
 import { addReminder } from './memory';
 import { captureScreens, type ScreenShot } from './screen';
 import { playCue, unlockSounds, type Cue } from './sounds';
@@ -780,7 +780,13 @@ export class Companion {
           this.media = null;
           return;
         }
-        const read = () => void readMedia().then((state) => (this.media = state)).catch(() => (this.media = null));
+        // Every two seconds, but the state changes only with the music: nothing redraws for nothing.
+        const read = () =>
+          void readMedia()
+            .then((state) => {
+              if (!sameMedia(this.media, state)) this.media = state;
+            })
+            .catch(() => (this.media = null));
         read();
         const timer = setInterval(read, MEDIA_EVERY);
         return () => clearInterval(timer);

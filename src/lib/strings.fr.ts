@@ -10,7 +10,7 @@ export const fr: Messages = {
     waiting: 'Lancez Boite pour réveiller les bots',
     waitingHint: 'Bots cherche Boite sur cet ordinateur toutes les quelques secondes.',
     connecting: 'Connexion à Boite',
-    revealFailed: "Boite n'a pas pu l'afficher : {reason}",
+    revealFailed: 'Boite n’a pas pu l’afficher : {reason}',
     revealUnsupported: 'Cette version de Boite ne sait pas encore l’afficher. Mettez Boite à jour, puis réessayez.',
     settingsTitle: 'Réglages de Bots',
     tray: { tooltip: 'Bots', settings: 'Réglages', quit: 'Quitter' },
@@ -89,7 +89,7 @@ export const fr: Messages = {
       quotas: {
         label: 'Quotas : il reste {percent} % sur {name}, {window}. Afficher tous les comptes.',
         title: 'Quotas',
-        left: '{percent} % restant',
+        left: '{percent} % restants',
         resets: 'réinitialisé dans {time}',
         units: { min: '{value} min', h: '{value} h', d: '{value} j' },
         tokens: '{count} jetons utilisés par vos fils',
@@ -157,7 +157,7 @@ export const fr: Messages = {
     noBrain: 'Aucun agent ne peut répondre. Connectez-en un, ou choisissez-le dans les réglages de Bots.',
     brainOff: 'L’agent choisi pour le compagnon est désactivé ou déconnecté. Choisissez-en un autre dans les réglages de Bots.',
     noAgent: 'Aucun agent ne tient le rôle de compagnon. Ajoutez-en un dans les réglages de Bots.',
-    cannotShow: 'L’écran et les fichiers ne partent avec une demande que dans l’application de bureau Boite.',
+    cannotShow: 'L’écran et les fichiers ne partent avec une demande que dans l’application Bots.',
     failed: 'Ça n’a pas marché : {reason}',
     unreachable: 'Boite est injoignable. Le compagnon réessaie tout seul.',
     finished: 'Terminé : {title}',
@@ -305,8 +305,8 @@ export const fr: Messages = {
     snooze: 'Dans 10 min',
     snoozeLabel: 'Me le rappeler dans 10 minutes',
     settings: {
-      intro: 'Le compagnon vit sur votre écran : un personnage par agent que vous y mettez. Cliquez sur l’un d’eux pour lui demander quelque chose ou pour répondre à vos agents, faites-les glisser pour les déplacer. Chaque agent parle dans sa propre conversation, dans Agents, par les mêmes comptes et le même proxy que toutes les conversations.',
-      desktopOnly: 'Le compagnon tourne dans l’application de bureau de Boite.',
+      intro: 'Bots met vos agents sur votre écran : un robot par agent. Cliquez sur l’un d’eux pour lui demander quelque chose ou pour répondre à vos agents, faites-le glisser pour le déplacer. Chaque robot parle dans sa propre conversation, que vous retrouvez aussi dans la page Agents de Boite.',
+      desktopOnly: 'Les robots tournent dans l’application Bots : ces réglages s’y appliquent.',
       place: 'Emplacement',
       screen: 'Écran',
       screenHint: 'L’écran où se tient le compagnon. S’il est débranché, le compagnon revient sur l’écran principal.',
@@ -344,7 +344,7 @@ export const fr: Messages = {
       focusOnWork: 'Focus pendant le travail',
       focusOnWorkHint: 'Pendant la phase de travail du pomodoro, les fils terminés attendent la fin et les sons se taisent, sauf les agents qui ont besoin de vous et les rappels.',
       closeOutside: 'Fermer en cliquant ailleurs',
-      closeOutsideHint: 'Un clic n\'importe où ailleurs que sur le compagnon ferme son panneau, comme un menu. Échap le ferme aussi.',
+      closeOutsideHint: 'Un clic n’importe où ailleurs que sur le compagnon ferme son panneau, comme un menu. Échap le ferme aussi.',
       hideFullscreen: 'Masquer pendant les applications en plein écran',
       hideFullscreenHint: 'Le compagnon s’efface quand un jeu ou une vidéo occupe tout son écran, puis revient. Le raccourci l’appelle quand même.',
       sounds: 'Sons',
@@ -362,7 +362,7 @@ export const fr: Messages = {
       openOnHover: 'Ouvrir au survol',
       openOnHoverHint: 'Laisser le pointeur un instant sur l’île l’ouvre. Désactivé, seul un clic l’ouvre.',
       mascot: 'Mascotte',
-      mascotHint: 'Le personnage de l’île, et celui du premier agent sur le bureau : Boîte, la boîte, ou un Jelly.',
+      mascotHint: 'Le robot de l’île, et celui du premier agent sur le bureau. Choisissez un style, puis personnalisez-le.',
       mascotReset: 'Reprendre l’allure du premier agent',
       look: 'Allure',
       crew: {
@@ -385,7 +385,7 @@ export const fr: Messages = {
       reminders: 'Rappels',
       remindersEmpty: 'Aucun rappel. Demandez au compagnon, par exemple : rappelle-moi à 18 h d’appeler Paul.',
       removeReminder: 'Annuler ce rappel',
-      warmOff: 'Chaque réponse redémarre l’agent, ce qui prend quelques secondes. Le réglage Minutes de processus gardé chaud, dans Réglages, Avancé de Boite, le garde chargé entre deux réponses.',
+      warmOff: 'Chaque réponse redémarre l’agent, ce qui prend quelques secondes. Pour le garder chargé entre deux réponses, réglez Minutes de processus gardé chaud dans les réglages de Boite, section Avancé.',
       warmOn: 'Les agents restent chargés {minutes} min après une réponse, la suivante arrive donc plus vite.'
     }
   },
@@ -399,15 +399,15 @@ export const fr: Messages = {
   },
 
   chat: {
-    progress: { starting: 'Démarrage de l\'agent', thinking: 'Réflexion en cours', compacting: 'Compaction du contexte', retrying: 'Nouvelle tentative', tool: 'Outil en cours', working: 'Activité reçue', waiting: 'En attente du fournisseur' }
+    progress: { starting: 'Démarrage de l’agent', thinking: 'Réflexion en cours', compacting: 'Compaction du contexte', retrying: 'Nouvelle tentative', tool: 'Outil en cours', working: 'Activité reçue', waiting: 'En attente du fournisseur' }
   },
 
   composer: {
     attachReadError: '{name} est illisible.',
-    attachUnnamed: "l'image collée",
+    attachUnnamed: 'l’image collée',
     attachTooLarge: '{name} est trop lourde : une image pèse {max} au maximum.',
     attachTooMany: 'Un tour porte {max} images au maximum, donc {name} a été laissée de côté.',
-    attachTotalTooLarge: "Les fichiers d'un tour pèsent {max} au maximum à eux tous, donc {name} a été laissé de côté."
+    attachTotalTooLarge: 'Les fichiers d’un tour pèsent {max} au maximum à eux tous, donc {name} a été laissé de côté.'
   },
 
   quotas: {

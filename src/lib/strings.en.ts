@@ -164,7 +164,7 @@ export const strings = {
     noBrain: 'No agent can answer. Sign in to one, or pick one in Bots settings.',
     brainOff: 'The agent picked for the companion is off or signed out. Pick another in Bots settings.',
     noAgent: 'No agent stands as the companion. Add one in Bots settings.',
-    cannotShow: 'The screen and files go with a request in the Boite desktop app only.',
+    cannotShow: 'The screen and files go with a request in the Bots app only.',
     failed: 'That did not work: {reason}',
     unreachable: 'Boite is out of reach. The companion keeps trying.',
     finished: 'Done: {title}',
@@ -312,8 +312,8 @@ export const strings = {
     snooze: 'In 10 min',
     snoozeLabel: 'Remind me again in 10 minutes',
     settings: {
-      intro: 'The companion lives on your screen: one character per agent you put there. Click one to ask it something or to answer your agents, drag them to move them. Each agent talks in its own conversation, in Agents, through the same accounts and proxy as every thread.',
-      desktopOnly: 'The companion runs in the Boite desktop app.',
+      intro: 'Bots puts your agents on your screen: one robot per agent. Click one to ask it something or to answer your agents, drag it to move it. Each robot talks in its own conversation, which you also find in Boite’s Agents page.',
+      desktopOnly: 'The robots run in the Bots app: these settings take effect there.',
       place: 'Place',
       screen: 'Screen',
       screenHint: 'The screen the companion sits on. A screen that is unplugged sends it back to the main one.',
@@ -369,7 +369,7 @@ export const strings = {
       openOnHover: 'Open on hover',
       openOnHoverHint: 'Resting the pointer on the island a moment opens it. Off, only a click does.',
       mascot: 'Mascot',
-      mascotHint: 'The island’s character, and the first agent’s on the desktop: Boîte, the box, or a Jelly.',
+      mascotHint: 'The island’s robot, and the first agent’s on the desktop. Pick a style, then make it yours.',
       mascotReset: 'Use the first agent’s own look',
       look: 'Look',
       crew: {
@@ -392,7 +392,7 @@ export const strings = {
       reminders: 'Reminders',
       remindersEmpty: 'No reminder set. Ask the companion, for example: remind me at 6 pm to call Paul.',
       removeReminder: 'Cancel this reminder',
-      warmOff: 'Each answer starts the agent again, which takes a few seconds. Warm process minutes, in Boite\'s Settings, Advanced, keeps it loaded between answers.',
+      warmOff: 'Each answer starts the agent again, which takes a few seconds. To keep it loaded between answers, set Warm process minutes in Boite’s Settings, Advanced.',
       warmOn: 'Agents stay loaded {minutes} min after an answer, so the next one comes sooner.'
     }
   },

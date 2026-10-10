@@ -28,7 +28,7 @@
   onMount(() => {
     // The companion takes the keyboard only when asked: typing goes to the app in front otherwise.
     if (inShell()) void focusCompanion().catch(() => {});
-    field?.focus();
+    field?.focus({ preventScroll: true });
   });
 
   async function send() {

@@ -11,11 +11,16 @@
    * while it waits on the user. `still` draws it without motion, for pickers.
    * `gaze` turns a jelly's eyes toward a point (each axis -1 to 1), and `bare`
    * leaves out the disc behind it, for the companion standing on its own.
+   *
+   * It is drawn in stacked layers over the same square: what is behind the
+   * eyes, the eyes, what is over them, and the light that pulses. What moves
+   * (the eyes, the light, the whole robot) is a layer of its own, moved by
+   * transform or opacity only, so the compositor plays it without the page
+   * painting again.
    */
   let { robot, state = 'idle', gaze = null, bare = false }: { robot: Robot; state?: 'idle' | 'working' | 'waiting' | 'still'; gaze?: { x: number; y: number } | null; bare?: boolean } = $props();
 
   const INK = 'var(--robot-ink)';
-  const tilt = $derived(robot.family === 'capsule' ? 'rotate(-11 32 36) translate(3 6)' : undefined);
   /** The retro head's box, which the screen, the ears and the antenna follow. */
   const head = $derived([
     { x: 11, y: 16, w: 42, h: 36, r: 11 },
@@ -58,13 +63,46 @@
   const petals = [0, 72, 144, 216, 288].map(a => ({ x: 4.2 * Math.cos(a * Math.PI / 180), y: 4.2 * Math.sin(a * Math.PI / 180) }));
   /** The box's colours, from `lib/companion/skin.ts` like the companion's. */
   const paint = $derived(boxPaint(robot));
+  /** The box is the companion's drawing (100 units) brought into this square. */
+  const BOX = 'translate(7 13) scale(0.5)';
+
+  /** The middle of the eyes' drawing (64 units), which a blink folds toward and a spin turns round. */
+  const eyesAt = $derived.by((): [number, number] => {
+    const eyes = robot.eyes;
+    switch (robot.family) {
+      case 'jelly':
+        return eyes === 5 || eyes === 6 ? [34.4, ey - 0.9] : eyes === 3 ? [32, ey - 0.75] : eyes === 4 ? [32, ey + 1] : eyes > 6 ? [32.4, ey] : [32, ey];
+      case 'bubble':
+        return [32, eyes > 3 ? 41.875 : 41];
+      case 'capsule':
+        return eyes === 2 ? [32.25, 33] : eyes === 3 ? [32, 33.5] : [32, 33];
+      case 'box':
+        return [32, 43.5];
+      default:
+        return [32, eyes === 2 ? sy + 0.5 : eyes > 3 ? sy - 0.34 : sy];
+    }
+  });
+  const pc = (units: number) => `${+(units * 100 / 64).toFixed(4)}%`;
+  /** A jelly's gaze, in hundredths of the square. */
+  const look = $derived(gaze && robot.family === 'jelly' ? `translate(${(gaze.x * 3.75).toFixed(3)}%, ${(gaze.y * 2.8125).toFixed(3)}%)` : undefined);
 </script>
 
-<svg viewBox="0 0 64 64" class="robot" data-family={robot.family} data-state={state} style:--rb={robotColor(robot)} aria-hidden="true">
-  {#if !bare}<rect class={robot.family === 'capsule' ? 'base' : 'soft'} width="64" height="64" />{/if}
-  <g class="whole">
-    <g transform={tilt}>
-      {#if robot.family === 'jelly'}
+<div
+  class="robot"
+  data-family={robot.family}
+  data-state={state}
+  style:--rb={robotColor(robot)}
+  style:--eyes-at="{pc(eyesAt[0])} {pc(eyesAt[1])}"
+  style:--box-body={paint.body}
+  style:--box-lid={paint.lid}
+  style:--box-line={paint.line}
+  style:--box-eye={paint.eye}
+  aria-hidden="true"
+>
+  {#if !bare}<svg class="layer" viewBox="0 0 64 64"><rect class={robot.family === 'capsule' ? 'base' : 'soft'} width="64" height="64" /></svg>{/if}
+  <div class="layer whole">
+    {#if robot.family === 'jelly'}
+      <svg class="layer" viewBox="0 0 64 64">
         <!-- Behind the body: what grows out of its top. -->
         {#if robot.top === 1}
           <path d="M32 {c + 1} C30 {c - 6} 26 {c - 8} 23 {c - 6}" fill="none" class="stroke-deep" stroke-width="2.4" stroke-linecap="round" />
@@ -88,7 +126,9 @@
         <path d={jellyBody[robot.shape] ?? jellyBody[0]} class="base" />
         <ellipse cx={jelly.shine[0]} cy={jelly.shine[1]} rx="6" ry="3.5" class="gloss" transform="rotate(-25 {jelly.shine[0]} {jelly.shine[1]})" />
         <ellipse class="blush" cx="15" cy={ey + 9} rx="3.6" ry="2.2" /><ellipse class="blush" cx="49" cy={ey + 9} rx="3.6" ry="2.2" />
-        <g transform={gaze ? `translate(${(gaze.x * 2.4).toFixed(2)} ${(gaze.y * 1.8).toFixed(2)})` : undefined}><g class="eyes">
+      </svg>
+      <div class="layer" style:transform={look}><div class="layer eyes">
+        <svg class="layer" viewBox="0 0 64 64">
           {#if robot.eyes === 0 || robot.eyes === 1}
             <ellipse cx="26" cy={ey} rx="4.2" ry="6.2" fill={INK} /><ellipse cx="38" cy={ey} rx="4.2" ry="6.2" fill={INK} />
             {#if robot.eyes === 0}<ellipse cx="27.4" cy={ey - 2.6} rx="1.5" ry="2" class="white" /><ellipse cx="39.4" cy={ey - 2.6} rx="1.5" ry="2" class="white" />
@@ -108,7 +148,9 @@
             <ellipse cx="26" cy={ey} rx="4.2" ry="6.2" fill={INK} /><ellipse cx="27.4" cy={ey - 2.6} rx="1.5" ry="2" class="white" />
             <path d="M33 {ey + 1} q5 -6 10 0" fill="none" class="stroke-ink" stroke-width="2.8" stroke-linecap="round" />
           {/if}
-        </g></g>
+        </svg>
+      </div></div>
+      <svg class="layer" viewBox="0 0 64 64">
         {#if robot.eyes === 0}<path d="M22 {ey + 9} Q32 {ey + 19} 42 {ey + 9}" fill="none" class="stroke-ink" stroke-width="2.4" stroke-linecap="round" />
         {:else if robot.eyes === 1 || robot.eyes === 4}<path d="M28 {ey + 11} q4 3 8 0" fill="none" class="stroke-ink" stroke-width="2.2" stroke-linecap="round" />
         {:else if robot.eyes === 2}<ellipse cx="32" cy={ey + 13} rx="3.4" ry="4" fill={INK} />
@@ -120,11 +162,13 @@
         {#if robot.top === 7}
           <path d="M32 {c - 1} L26 {c - 4.6} Q24 {c - 1} 26 {c + 2.6} Z M32 {c - 1} L38 {c - 4.6} Q40 {c - 1} 38 {c + 2.6} Z" class="bow" /><circle cx="32" cy={c - 1} r="2.2" class="bow knot" />
         {/if}
+      </svg>
 
-      {:else if robot.family === 'bubble'}
+    {:else if robot.family === 'bubble'}
+      <svg class="layer" viewBox="0 0 64 64">
         <!-- Behind the body: what grows out of its top. -->
         {#if robot.top === 1}
-          <line x1="32" y1="18" x2="32" y2="8" class="stroke-deep" stroke-width="2.4" stroke-linecap="round" /><circle class="deep led" cx="32" cy="7" r="3.6" />
+          <line x1="32" y1="18" x2="32" y2="8" class="stroke-deep" stroke-width="2.4" stroke-linecap="round" />
         {:else if robot.top === 2}
           <path d="M32 19 C32 13 32 11 32 9" class="stroke-leaf" stroke-width="2.2" fill="none" stroke-linecap="round" />
           <path d="M32 12 C26 5 20 8 21 12 C24 14 29 14 32 12Z" class="leaf" /><path d="M32 10 C37 3 44 5 43 9 C40 12 35 12 32 10Z" class="leaf light" />
@@ -139,7 +183,10 @@
         </g>
         <ellipse class="shine" cx="22" cy="28" rx="7" ry="4.5" transform="rotate(-30 22 28)" />
         <ellipse class="blush" cx="17" cy="48" rx="3.6" ry="2.2" /><ellipse class="blush" cx="47" cy="48" rx="3.6" ry="2.2" />
-        <g class="eyes">
+      </svg>
+      {#if robot.top === 1}<svg class="layer led" viewBox="0 0 64 64"><circle class="deep" cx="32" cy="7" r="3.6" /></svg>{/if}
+      <div class="layer eyes">
+        <svg class="layer" viewBox="0 0 64 64">
           {#if robot.eyes === 0}<circle cx="24.5" cy="41" r="3.3" fill={INK} /><circle cx="39.5" cy="41" r="3.3" fill={INK} />
           {:else if robot.eyes === 1}<rect x="21.8" y="36" width="5.4" height="10" rx="2.7" fill={INK} /><rect x="36.8" y="36" width="5.4" height="10" rx="2.7" fill={INK} />
           {:else if robot.eyes === 2}
@@ -148,70 +195,85 @@
             <circle class="white" cx="26.2" cy="40.4" r="1" /><circle class="white" cx="42.2" cy="40.4" r="1" />
           {:else if robot.eyes === 3}<path d="M20.5 42.5 q4 -6 8 0 M35.5 42.5 q4 -6 8 0" fill="none" class="stroke-ink" stroke-width="2.6" stroke-linecap="round" />
           {:else}<path d="M20.5 41 q4 3.5 8 0 M35.5 41 q4 3.5 8 0" fill="none" class="stroke-ink" stroke-width="2.4" stroke-linecap="round" />{/if}
-        </g>
+        </svg>
+      </div>
+      {#if robot.top >= 3 && robot.top <= 6}
         <!-- Over the body: what it wears. -->
-        {#if robot.top === 3}
-          <path d="M12 30 C12 14 52 14 52 30 Z" class="deep" /><rect x="10" y="27" width="44" height="6" rx="3" class="soft" /><circle cx="32" cy="13" r="4" class="soft" />
-        {:else if robot.top === 4}
-          <rect x="4" y="34" width="9" height="15" rx="4.5" fill={INK} /><rect x="51" y="34" width="9" height="15" rx="4.5" fill={INK} />
-        {:else if robot.top === 5}
-          <circle cx="24.5" cy="41" r="7.2" class="lens" /><circle cx="39.5" cy="41" r="7.2" class="lens" /><path d="M31.7 41 h0.6" class="stroke-ink" stroke-width="2" />
-        {:else if robot.top === 6}
-          <path d="M32 22 L22 16 Q19 22 22 28 Z M32 22 L42 16 Q45 22 42 28 Z" class="bow" /><circle cx="32" cy="22" r="3.2" class="bow knot" />
-        {/if}
-
-      {:else if robot.family === 'capsule'}
-        {#if robot.top === 1}
-          <line x1="32" y1="11" x2="35" y2="2" class="stroke-ink" stroke-width="2.4" stroke-linecap="round" /><circle class="deep led" cx="35.5" cy="2.5" r="3.6" />
-        {:else if robot.top === 2}
-          <rect x="2" y="28" width="8" height="14" rx="4" class="deep" /><rect x="54" y="28" width="8" height="14" rx="4" class="deep" />
-        {:else if robot.top === 3}
-          <path d="M26 12 C26 4 34 3 36 8 C38 3 45 6 41 13" class="deep" />
-        {:else if robot.top === 4}
-          <ellipse cx="32" cy="5" rx="14" ry="3.4" fill="none" class="stroke-halo" stroke-width="2.6" />
-        {:else if robot.top === 5}
-          <path d="M7 36 C7 6 57 6 57 36" fill="none" class="stroke-ink" stroke-width="3" />
-          <rect x="1" y="30" width="9" height="15" rx="4.5" class="deep" /><rect x="54" y="30" width="9" height="15" rx="4.5" class="deep" />
-        {/if}
-        <g class="face">
-          {#if robot.shape === 0}<circle cx="32" cy="36" r="26" />
-          {:else if robot.shape === 1}<ellipse cx="32" cy="37" rx="23" ry="27" />
-          {:else if robot.shape === 2}<rect x="7" y="12" width="50" height="50" rx="18" />
-          {:else}<path d="M10 34 C10 14 54 12 56 32 C58 50 48 62 32 62 C16 62 10 52 10 34Z" />{/if}
-        </g>
-        <ellipse class="blush" cx="16" cy="43" rx="4.4" ry="2.6" /><ellipse class="blush" cx="48" cy="43" rx="4.4" ry="2.6" />
-        <g class="eyes">
-          {#if robot.eyes === 0}<rect x="21" y="26.5" width="6" height="13" rx="3" fill={INK} /><rect x="37" y="26.5" width="6" height="13" rx="3" fill={INK} />
-          {:else if robot.eyes === 1}<circle cx="24" cy="33" r="3.6" fill={INK} /><circle cx="40" cy="33" r="3.6" fill={INK} />
-          {:else if robot.eyes === 2}<rect x="21" y="26.5" width="6" height="13" rx="3" fill={INK} /><path d="M36.5 34 q3.5 -5 7 0" fill="none" class="stroke-ink" stroke-width="2.8" stroke-linecap="round" />
-          {:else if robot.eyes === 3}<path d="M20.5 35 q3.5 -6 7 0 M36.5 35 q3.5 -6 7 0" fill="none" class="stroke-ink" stroke-width="2.8" stroke-linecap="round" />
+        <svg class="layer" viewBox="0 0 64 64">
+          {#if robot.top === 3}
+            <path d="M12 30 C12 14 52 14 52 30 Z" class="deep" /><rect x="10" y="27" width="44" height="6" rx="3" class="soft" /><circle cx="32" cy="13" r="4" class="soft" />
+          {:else if robot.top === 4}
+            <rect x="4" y="34" width="9" height="15" rx="4.5" fill={INK} /><rect x="51" y="34" width="9" height="15" rx="4.5" fill={INK} />
+          {:else if robot.top === 5}
+            <circle cx="24.5" cy="41" r="7.2" class="lens" /><circle cx="39.5" cy="41" r="7.2" class="lens" /><path d="M31.7 41 h0.6" class="stroke-ink" stroke-width="2" />
           {:else}
-            <path d="M24 27 l1.9 4.1 4.4 .5 -3.3 3 .9 4.4 -3.9 -2.2 -3.9 2.2 .9 -4.4 -3.3 -3 4.4 -.5Z" fill={INK} />
-            <path d="M40 27 l1.9 4.1 4.4 .5 -3.3 3 .9 4.4 -3.9 -2.2 -3.9 2.2 .9 -4.4 -3.3 -3 4.4 -.5Z" fill={INK} />
+            <path d="M32 22 L22 16 Q19 22 22 28 Z M32 22 L42 16 Q45 22 42 28 Z" class="bow" /><circle cx="32" cy="22" r="3.2" class="bow knot" />
           {/if}
-        </g>
+        </svg>
+      {/if}
 
-      {:else if robot.family === 'box'}
-        <!-- Box: the desktop companion in the agent's colours (companion units, scaled), its accessory half as big again so it reads at 32px. -->
-        <g transform="translate(7 13) scale(0.5)" style:--box-body={paint.body} style:--box-lid={paint.lid} style:--box-line={paint.line} style:--box-eye={paint.eye}>
-          <rect class="box-body" x="15" y="38" width="70" height="50" rx="9" />
-          <g class="eyes">
-            <rect class="box-eye" class:lit={paint.lit} x="34.5" y="54" width="9" height="14" rx="4.5" />
-            <rect class="box-eye" class:lit={paint.lit} x="56.5" y="54" width="9" height="14" rx="4.5" />
+    {:else if robot.family === 'capsule'}
+      <!-- Leaning to one side; the eyes lean with it. -->
+      <div class="layer tilt">
+        <svg class="layer" viewBox="0 0 64 64">
+          {#if robot.top === 1}
+            <line x1="32" y1="11" x2="35" y2="2" class="stroke-ink" stroke-width="2.4" stroke-linecap="round" />
+          {:else if robot.top === 2}
+            <rect x="2" y="28" width="8" height="14" rx="4" class="deep" /><rect x="54" y="28" width="8" height="14" rx="4" class="deep" />
+          {:else if robot.top === 3}
+            <path d="M26 12 C26 4 34 3 36 8 C38 3 45 6 41 13" class="deep" />
+          {:else if robot.top === 4}
+            <ellipse cx="32" cy="5" rx="14" ry="3.4" fill="none" class="stroke-halo" stroke-width="2.6" />
+          {:else if robot.top === 5}
+            <path d="M7 36 C7 6 57 6 57 36" fill="none" class="stroke-ink" stroke-width="3" />
+            <rect x="1" y="30" width="9" height="15" rx="4.5" class="deep" /><rect x="54" y="30" width="9" height="15" rx="4.5" class="deep" />
+          {/if}
+          <g class="face">
+            {#if robot.shape === 0}<circle cx="32" cy="36" r="26" />
+            {:else if robot.shape === 1}<ellipse cx="32" cy="37" rx="23" ry="27" />
+            {:else if robot.shape === 2}<rect x="7" y="12" width="50" height="50" rx="18" />
+            {:else}<path d="M10 34 C10 14 54 12 56 32 C58 50 48 62 32 62 C16 62 10 52 10 34Z" />{/if}
           </g>
-          <rect class="box-rim" x="15" y="38" width="70" height="50" rx="9" />
-          <rect class="box-lid" x="10" y="26" width="80" height="13" rx="5" />
-          <rect class="box-led led" x="43" y="30.25" width="14" height="4.5" rx="2.25" />
-          <BoxTop top={paint.top} x={50} y={26} scale={1.5} />
-        </g>
+          <ellipse class="blush" cx="16" cy="43" rx="4.4" ry="2.6" /><ellipse class="blush" cx="48" cy="43" rx="4.4" ry="2.6" />
+        </svg>
+        {#if robot.top === 1}<svg class="layer led" viewBox="0 0 64 64"><circle class="deep" cx="35.5" cy="2.5" r="3.6" /></svg>{/if}
+        <div class="layer eyes">
+          <svg class="layer" viewBox="0 0 64 64">
+            {#if robot.eyes === 0}<rect x="21" y="26.5" width="6" height="13" rx="3" fill={INK} /><rect x="37" y="26.5" width="6" height="13" rx="3" fill={INK} />
+            {:else if robot.eyes === 1}<circle cx="24" cy="33" r="3.6" fill={INK} /><circle cx="40" cy="33" r="3.6" fill={INK} />
+            {:else if robot.eyes === 2}<rect x="21" y="26.5" width="6" height="13" rx="3" fill={INK} /><path d="M36.5 34 q3.5 -5 7 0" fill="none" class="stroke-ink" stroke-width="2.8" stroke-linecap="round" />
+            {:else if robot.eyes === 3}<path d="M20.5 35 q3.5 -6 7 0 M36.5 35 q3.5 -6 7 0" fill="none" class="stroke-ink" stroke-width="2.8" stroke-linecap="round" />
+            {:else}
+              <path d="M24 27 l1.9 4.1 4.4 .5 -3.3 3 .9 4.4 -3.9 -2.2 -3.9 2.2 .9 -4.4 -3.3 -3 4.4 -.5Z" fill={INK} />
+              <path d="M40 27 l1.9 4.1 4.4 .5 -3.3 3 .9 4.4 -3.9 -2.2 -3.9 2.2 .9 -4.4 -3.3 -3 4.4 -.5Z" fill={INK} />
+            {/if}
+          </svg>
+        </div>
+      </div>
 
-      {:else}
-        <!-- Retro: a head with a dark screen, the eyes lit on it. -->
+    {:else if robot.family === 'box'}
+      <!-- Box: the desktop companion in the agent's colours, its accessory half as big again so it reads at 32px. -->
+      <svg class="layer" viewBox="0 0 64 64"><g transform={BOX}><rect class="box-body" x="15" y="38" width="70" height="50" rx="9" /></g></svg>
+      <div class="layer eyes">
+        <svg class="layer" viewBox="0 0 64 64"><g transform={BOX}>
+          <rect class="box-eye" class:lit={paint.lit} x="34.5" y="54" width="9" height="14" rx="4.5" />
+          <rect class="box-eye" class:lit={paint.lit} x="56.5" y="54" width="9" height="14" rx="4.5" />
+        </g></svg>
+      </div>
+      <svg class="layer" viewBox="0 0 64 64"><g transform={BOX}>
+        <rect class="box-rim" x="15" y="38" width="70" height="50" rx="9" />
+        <rect class="box-lid" x="10" y="26" width="80" height="13" rx="5" />
+      </g></svg>
+      <svg class="layer led" viewBox="0 0 64 64"><g transform={BOX}><rect class="box-led" x="43" y="30.25" width="14" height="4.5" rx="2.25" /></g></svg>
+      <svg class="layer" viewBox="0 0 64 64"><g transform={BOX}><BoxTop top={paint.top} x={50} y={26} scale={1.5} /></g></svg>
+
+    {:else}
+      <!-- Retro: a head with a dark screen, the eyes lit on it. -->
+      <svg class="layer" viewBox="0 0 64 64">
         {#if robot.top === 0}
-          <line x1="32" y1={head.y} x2="32" y2={head.y - 8} class="stroke-deep" stroke-width="2.4" /><circle class="bulb led" cx="32" cy={head.y - 9} r="3.4" />
+          <line x1="32" y1={head.y} x2="32" y2={head.y - 8} class="stroke-deep" stroke-width="2.4" />
         {:else if robot.top === 1}
           <line x1="24" y1={head.y} x2="20" y2={head.y - 8} class="stroke-deep" stroke-width="2.2" /><line x1="40" y1={head.y} x2="44" y2={head.y - 8} class="stroke-deep" stroke-width="2.2" />
-          <circle class="halo led" cx="19.5" cy={head.y - 9} r="2.8" /><circle class="halo led" cx="44.5" cy={head.y - 9} r="2.8" />
         {:else if robot.top === 2}
           <line x1="32" y1={head.y} x2="32" y2={head.y - 6} class="stroke-deep" stroke-width="2.4" />
           <ellipse cx="24.5" cy={head.y - 7} rx="7.5" ry="2.2" class="deep" /><ellipse cx="39.5" cy={head.y - 7} rx="7.5" ry="2.2" class="deep" /><circle cx="32" cy={head.y - 7} r="2.2" fill={INK} />
@@ -223,7 +285,14 @@
         <rect x={screen.x} y={screen.y} width={screen.w} height={screen.h} rx="6" class="screen" />
         {#if head.h - (screen.y - head.y) - screen.h > 8}<path d="M27 {screen.y + screen.h + 4.5} h10" class="stroke-deep" stroke-width="2" stroke-linecap="round" />{/if}
         <ellipse cx={head.x + 9} cy={head.y + 4} rx="5" ry="2" class="shine" />
-        <g class="eyes lit">
+      </svg>
+      {#if robot.top === 0}
+        <svg class="layer led" viewBox="0 0 64 64"><circle class="bulb" cx="32" cy={head.y - 9} r="3.4" /></svg>
+      {:else if robot.top === 1}
+        <svg class="layer led" viewBox="0 0 64 64"><circle class="halo" cx="19.5" cy={head.y - 9} r="2.8" /><circle class="halo" cx="44.5" cy={head.y - 9} r="2.8" /></svg>
+      {/if}
+      <div class="layer eyes">
+        <svg class="layer" viewBox="0 0 64 64"><g class="lit">
           {#if robot.eyes === 0}<circle cx={lx} cy={sy} r="3.2" /><circle cx={rx} cy={sy} r="3.2" />
           {:else if robot.eyes === 1}<rect x={lx - 2.5} y={sy - 5} width="5" height="10" rx="2.5" /><rect x={rx - 2.5} y={sy - 5} width="5" height="10" rx="2.5" />
           {:else if robot.eyes === 2}<path d="M{lx - 3.5} {sy + 2} q3.5 -6 7 0 M{rx - 3.5} {sy + 2} q3.5 -6 7 0" fill="none" class="stroke-led" stroke-width="2.6" stroke-linecap="round" />
@@ -232,14 +301,17 @@
             <path d="M{lx} {sy + 3.5} l-4 -4 a2.3 2.3 0 0 1 4 -2.6 a2.3 2.3 0 0 1 4 2.6Z" class="heart" />
             <path d="M{rx} {sy + 3.5} l-4 -4 a2.3 2.3 0 0 1 4 -2.6 a2.3 2.3 0 0 1 4 2.6Z" class="heart" />
           {/if}
-        </g>
-      {/if}
-    </g>
-  </g>
-</svg>
+        </g></svg>
+      </div>
+    {/if}
+  </div>
+</div>
 
 <style>
-  .robot { display: block; width: 100%; height: 100%; }
+  /* The square clips what moves out of it, as the drawing's own frame did. */
+  .robot { position: relative; display: block; width: 100%; height: 100%; overflow: hidden; }
+  /* Every layer is the same square. */
+  .layer { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
   .base { fill: var(--rb); }
   .soft { fill: color-mix(in srgb, var(--rb) 30%, var(--robot-shine)); }
   .deep { fill: color-mix(in srgb, var(--rb) 72%, var(--robot-ink)); }
@@ -272,19 +344,21 @@
   .box-eye { fill: var(--box-eye); }
   .box-eye.lit { stroke: var(--robot-ink); stroke-width: 2; }
   .box-led { fill: var(--robot-led); stroke: var(--box-line); stroke-width: 1.5; }
+  /* The capsule leans round the middle of its face. */
+  .tilt { transform: rotate(-11deg) translate(4.6875%, 9.375%); transform-origin: 50% 56.25%; }
 
-  /* A blink at rest, a glance while working, a hop while it waits on the user. */
-  .eyes { transform-box: fill-box; transform-origin: center; }
+  /* A blink at rest, a glance while working, a hop while it waits on the user; moves in hundredths of the square. */
+  .eyes { transform-origin: var(--eyes-at); }
   [data-state='idle'] .eyes { animation: robot-blink 4.6s infinite; }
   [data-state='working'] .eyes { animation: robot-glance 2.4s ease-in-out infinite; }
   [data-state='working'] .led { animation: robot-pulse 1.2s ease-in-out infinite; }
   [data-state='waiting'] .whole { animation: robot-hop 1.8s ease-in-out infinite; }
   /* A jelly at work squishes on the spot. */
-  [data-family='jelly'][data-state='working'] .whole { transform-origin: 32px 62px; animation: robot-squish 0.9s ease-in-out infinite; }
+  [data-family='jelly'][data-state='working'] .whole { transform-origin: 50% 96.875%; animation: robot-squish 0.9s ease-in-out infinite; }
   @keyframes robot-squish { 0%, 100% { transform: scale(1, 1); } 40% { transform: scale(1.07, 0.93); } 70% { transform: scale(0.96, 1.04); } }
   @keyframes robot-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.12); } }
-  @keyframes robot-glance { 0%, 20% { transform: translateX(0); } 30%, 50% { transform: translateX(-2.2px); } 60%, 80% { transform: translateX(2.2px); } 90%, 100% { transform: translateX(0); } }
-  @keyframes robot-hop { 0%, 70%, 100% { transform: translateY(0); } 80% { transform: translateY(-3px); } 90% { transform: translateY(0.5px); } }
+  @keyframes robot-glance { 0%, 20% { transform: translateX(0); } 30%, 50% { transform: translateX(-3.4375%); } 60%, 80% { transform: translateX(3.4375%); } 90%, 100% { transform: translateX(0); } }
+  @keyframes robot-hop { 0%, 70%, 100% { transform: translateY(0); } 80% { transform: translateY(-4.6875%); } 90% { transform: translateY(0.78125%); } }
   @keyframes robot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
   @media (prefers-reduced-motion: reduce) {
     .eyes, .led, .whole { animation: none !important; }

@@ -50,11 +50,19 @@
     return installExternalLinks(list);
   });
 
-  // New content keeps the end in view while the reader is there.
+  // New content keeps the end in view while the reader is there. Scrolled in
+  // the frame, before it is drawn: read any earlier, the height would lay the
+  // chat out a first time at the island's old size.
+  let follow = 0;
   $effect(() => {
     void [assistant.bubbles.length, last?.text, assistant.tool, waiting, notice];
-    if (pinned && list) void tick().then(() => list && (list.scrollTop = list.scrollHeight));
+    if (!pinned || !list || follow) return;
+    follow = requestAnimationFrame(() => {
+      follow = 0;
+      if (list) list.scrollTop = list.scrollHeight;
+    });
   });
+  $effect(() => () => cancelAnimationFrame(follow));
 
   async function scrolled() {
     if (!list) return;
@@ -84,8 +92,14 @@
     }
   }
 
-  /** The field grows with its text, up to five lines. */
+  /**
+   * The field grows with its text, up to five lines. Where the engine sizes
+   * a field to its text (`field-sizing`), the style does it; measuring it here
+   * would lay the whole page out twice as the chat opens.
+   */
+  const sizesItself = typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('field-sizing', 'content');
   function grow(element: HTMLTextAreaElement) {
+    if (sizesItself) return;
     $effect(() => {
       void assistant.draft;
       element.style.height = 'auto';
@@ -259,6 +273,8 @@
   textarea {
     flex: 1;
     min-height: 28px;
+    max-height: 110px;
+    field-sizing: content;
     padding: 5px 0;
     border: 0;
     background: none;
