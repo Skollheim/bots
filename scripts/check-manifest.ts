@@ -52,6 +52,8 @@ export function manifestProblems(text: string, file = 'boite-plugin.json'): stri
     if (!TARGETS.some((target) => target.platform === platform)) problems.push(`${file}: artifacts.${platform} is not a release target`);
   }
   if (!manifest.artifacts['win32-x64']) problems.push(`${file}: artifacts.win32-x64 is missing`);
+  const hashes = Object.values(manifest.artifacts).map((artifact) => artifact?.sha256);
+  if (hashes.includes(ZERO) && hashes.some((hash) => hash !== ZERO)) problems.push(`${file}: sha256 must be all placeholders before a release, or all the release's hashes`);
   return problems;
 }
 
