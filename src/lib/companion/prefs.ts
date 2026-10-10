@@ -73,6 +73,8 @@ export interface CompanionPrefs {
   agents: string[];
   /** The first agent was made for the companion: from then on the row is the user's to change. */
   crewMade: boolean;
+  /** The Boite agent the island's Chat talks to; null: the row's leader (`island/assistant.svelte.ts`). */
+  assistantAgent: string | null;
 }
 
 export const COMPANION_STORAGE_KEY = 'bots.prefs';
@@ -102,7 +104,8 @@ export const DEFAULT_COMPANION_PREFS: CompanionPrefs = {
   radarMinutes: 10,
   screenScope: 'all',
   agents: [],
-  crewMade: false
+  crewMade: false,
+  assistantAgent: null
 };
 
 /** How many agents stand side by side: the window is 440 px wide. */
@@ -164,7 +167,8 @@ export function parseCompanionPrefs(raw: unknown): CompanionPrefs {
     radarMinutes: value.radarMinutes === 0 ? 0 : minutes(value.radarMinutes, 240, DEFAULT_COMPANION_PREFS.radarMinutes),
     screenScope: value.screenScope === 'here' || value.screenScope === 'zone' ? value.screenScope : 'all',
     agents: Array.isArray(value.agents) ? [...new Set(value.agents.filter((id): id is string => typeof id === 'string' && id !== ''))].slice(0, CREW_MAX) : [],
-    crewMade: value.crewMade === true
+    crewMade: value.crewMade === true,
+    assistantAgent: text(value.assistantAgent)
   };
 }
 

@@ -21,6 +21,21 @@
   --island-talking: #8b7cf6;
   --island-working: #7aa2ff;
   --island-danger: #f87171;
+
+  /*
+   * The island's assistant, quotas and Today card: a placeholder grey that
+   * reads on black (6.3:1, AA), the chat's bubble, links, code and menus, and
+   * the quota tones (amber under a quarter left, red under a tenth).
+   */
+  --island-subtle: #8e8e96;
+  --island-bubble: #1c1c23;
+  --island-link: #a5b8ff;
+  --island-code: #08080b;
+  --island-menu: #121217;
+  --island-quota-ok: var(--island-done);
+  --island-quota-amber: var(--island-attention);
+  --island-quota-red: var(--island-danger);
+  --island-quota-track: var(--island-pill);
 }
 
 /*
@@ -33,7 +48,8 @@
   --color-surface: var(--island-card);
   --color-control-surface: var(--island-card-hover);
   --color-hover: rgb(255 255 255 / 0.06);
-  --color-subtle: rgb(255 255 255 / 0.04);
+  /* Boite's placeholder and quiet text grey: readable on the island's black. */
+  --color-subtle: var(--island-subtle);
   --color-border: var(--island-line-strong);
   --color-edge: var(--island-line);
   --color-foreground: var(--island-text);

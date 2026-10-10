@@ -28,7 +28,7 @@ import { readMedia, pressMedia, type MediaAction, type MediaState } from './medi
 import { addReminder } from './memory';
 import { captureScreens, type ScreenShot } from './screen';
 import { playCue, unlockSounds, type Cue } from './sounds';
-import { companionMonitors, dragCompanion, focusCompanion, inShell, showMain } from './shell';
+import { bytesOf, companionMonitors, dragCompanion, focusCompanion, inShell, keepFile, showMain } from './shell';
 import { Talk } from './talk.svelte';
 import { Crew } from './crew.svelte';
 import { sessionThreadOf, skinOf } from './crew';
@@ -43,6 +43,7 @@ import { Dropped, joinScreen } from './drop.svelte';
 import { Tasks } from './tasks.svelte';
 import { digestFor, Finder, Radar, replyInThread, ThreadReader } from './watch.svelte';
 import { fold, type WatchInput } from './watch';
+import { Assistant } from '../island/assistant.svelte';
 
 const CELEBRATE_MS = 6000;
 const REFRESH_EVERY = 15_000;
@@ -122,6 +123,30 @@ export class Companion {
   readonly quotas = new GatewayReader();
   readonly gauges = $derived(this.prefs.quotas ? shownGauges(hudGauges(this.quotas.state), this.prefs.hiddenQuotas) : []);
   readonly attached = new Dropped();
+  /** The island's Chat: one of the user's Boite agents, the tray's files going with the next message. */
+  readonly assistant: Assistant = new Assistant({
+    client: () => this.client,
+    snapshot: () => this.crew.snapshot,
+    reload: () => void this.crew.load(),
+    remembered: () => this.prefs.assistantAgent,
+    remember: (agentId) => void (this.prefs = writeCompanionPrefs({ assistantAgent: agentId })),
+    fallback: () => this.crew.members[0]?.id ?? null,
+    outgoing: () => joinScreen(this.attached.held, this.shot),
+    keep: async (files) => {
+      const paths: string[] = [];
+      for (const file of files) {
+        const path = await keepFile(bytesOf(file.data), file.name ?? 'file');
+        if (path === null) return null;
+        paths.push(path);
+      }
+      return paths;
+    },
+    sent: () => {
+      this.attached.clear();
+      this.shot = null;
+    },
+    giveBack: (files) => void (this.attached.held.length === 0 && (this.attached.held = files))
+  });
 
   private disposed = false;
   private seen: Set<string> | null = null;
@@ -161,9 +186,9 @@ export class Companion {
   readonly active = $derived(this.members.find((member) => member.id === this.activeId) ?? this.members[0]!);
   readonly thinking = $derived(this.talks.some((talk) => talk.thinking));
   /** A reply is on its way: the island glows as the assistant talks. */
-  readonly talking = $derived(this.talks.some((talk) => talk.phase === 'thinking' || talk.phase === 'streaming'));
+  readonly talking = $derived(this.talks.some((talk) => talk.phase === 'thinking' || talk.phase === 'streaming') || this.assistant.running);
   /** The agents' own conversations, which the quotas and the notices leave out. */
-  readonly ownThreads = $derived.by(() => this.crew.members.flatMap((agent) => sessionThreadOf(this.crew.snapshot, agent.id) ?? []));
+  readonly ownThreads = $derived.by(() => [...this.crew.members.flatMap((agent) => sessionThreadOf(this.crew.snapshot, agent.id) ?? []), ...(this.assistant.threadId ? [this.assistant.threadId] : [])]);
   /** The other threads at work, newest first. */
   readonly busy = $derived(hudThreads(this.threads, this.projects, this.ownThreads));
   /** Permissions and the questions that stop an agent. */
@@ -203,14 +228,17 @@ export class Companion {
       client: () => this.client,
       prefs: () => this.prefs,
       projects: () => this.projectNames,
-      waiting: () => this.talks.some((talk) => talk.waiting),
+      waiting: () => this.talks.some((talk) => talk.waiting) || this.assistant.running,
       answered: (agentId, message, directives, fresh) => {
         this.talkCache.get(agentId)?.answered(message);
         if (!fresh) return;
         this.answerer = agentId;
         this.obey(directives);
       },
-      loaded: () => this.talks.forEach((talk) => talk.follow())
+      loaded: () => {
+        this.talks.forEach((talk) => talk.follow());
+        this.assistant.follow();
+      }
     });
     this.tasks = new Tasks({
       client: () => this.client,
@@ -626,15 +654,19 @@ export class Companion {
       this.connected = true;
       await this.readProjects().catch(() => {});
       await this.refresh();
+      this.assistant.open(assistantAgent);
       await this.crew.load();
     };
     // The fake core (`bun run dev`, `?fake=1`, `BOTS_DEMO=1`) is in the dev bundle only.
     const fake = import.meta.env.DEV && new URLSearchParams(location.search).get('fake') === '1';
+    /** The demo's assistant opens on its seeded agent, not on the one the settings keep. */
+    let assistantAgent: string | undefined;
     const initialize = async () => {
       let client: Client;
       if (fake) {
         const { FakeClient } = await import('../fake-client');
-        client = new FakeClient({ hudDemo: true, sessionsDemo: true });
+        assistantAgent = (await import('../fake-client/assistant-demo')).ASSISTANT_DEMO_AGENT;
+        client = new FakeClient({ hudDemo: true, sessionsDemo: true, assistantDemo: true });
         this.notice = strings.bots.demo;
       } else {
         const endpoint = await waitForCore(() => this.disposed, () => (this.waiting = true));
@@ -650,6 +682,7 @@ export class Companion {
             if (state !== 'ready') return;
             if (!started) return void begin().catch(unreachable);
             this.crew.resubscribe();
+            this.assistant.resume();
             this.soon(0);
           })
         );
@@ -671,6 +704,7 @@ export class Companion {
       off.push(client.on('agents.changed', () => this.crew.changed()));
       off.push(client.on('accounts.updated', () => this.crew.retry()));
       off.push(client.on('providers.updated', () => this.crew.retry()));
+      off.push(this.assistant.attach(client));
       await client.connect();
       if (this.disposed) return client.close();
       await begin();
