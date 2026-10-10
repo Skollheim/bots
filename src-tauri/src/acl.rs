@@ -4,8 +4,8 @@
 mod tests {
     use tauri::ipc::Origin;
 
-    const COMPANION: [&str; 17] = ["core_endpoint", "companion_monitors", "companion_place", "companion_hit_rects", "companion_media",
-        "companion_media_control", "companion_configure", "companion_drag", "companion_capture", "companion_cover", "companion_focus",
+    const COMPANION: [&str; 18] = ["core_endpoint", "companion_monitors", "companion_place", "companion_hit_rects", "companion_media",
+        "companion_media_control", "companion_media_levels", "companion_configure", "companion_drag", "companion_capture", "companion_cover", "companion_focus",
         "companion_keep", "island_place", "bots_settings", "bots_tray_labels", "plugin:event|listen", "plugin:event|unlisten"];
 
     fn handlers() -> Vec<&'static str> {

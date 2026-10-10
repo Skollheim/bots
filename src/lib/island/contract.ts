@@ -18,12 +18,17 @@
  * - `reveal(threadId)`: shows a thread in Boite's window.
  * - `show(tab)`: turns the island to another tab.
  * - `sessions`: the live sessions Home lists and the peek speaks of, read-only.
+ * - `memory`: how near Boite's memory guard is to stopping an agent, and the
+ *   stop that comes first (`pressure.svelte.ts`).
+ * - `update`: a newer Boite out on its track (`update.svelte.ts`).
  */
 import { getContext, setContext } from 'svelte';
 import type { Client } from '@boite/ui/lib/client';
 import type { Companion } from '../companion/companion.svelte';
 import type { IslandGlow, IslandSize, IslandTab } from './frame.svelte';
+import type { MemoryWatch } from './pressure.svelte';
 import type { Sessions } from './sessions.svelte';
+import type { UpdateWatch } from './update.svelte';
 
 export interface IslandCore {
   readonly client: Client | null;
@@ -47,6 +52,8 @@ export interface ViewContext {
   show(tab: IslandTab): void;
   /** The live sessions (`lib/island/sessions.svelte.ts`): one row per thread at work or waiting, its last steps, the lead one. */
   readonly sessions: Sessions;
+  readonly memory: MemoryWatch;
+  readonly update: UpdateWatch;
 }
 
 const KEY = Symbol('island-view');

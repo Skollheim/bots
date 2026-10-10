@@ -9,6 +9,7 @@ commands.allow = [
   "companion_hit_rects",
   "companion_media",
   "companion_media_control",
+  "companion_media_levels",
   "companion_configure",
   "companion_drag",
   "companion_capture",

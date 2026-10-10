@@ -3,11 +3,17 @@
   bottom only, in three sizes that one spring moves between
   (`lib/island/frame.svelte.ts`):
 
-  - collapsed, a pill with the lead robot and a dot per agent at work;
+  - collapsed, a pill with the lead robot and a dot per agent at work, and,
+    while a conversation works, its project and step with its task list's
+    progress under it (the wheel goes through the ones at work);
   - peek, on hover or when a turn finished, one line of status;
   - open, the tab bar (Home, Chat, Drop; pin, Settings, sound), the robot the
     view talks about on the left, and the view, with the requests waiting
     laid over it.
+
+  Beside the pill and the peek hang two drops: the timer on the left while
+  one runs, the music on the right (`music/MusicBubble.svelte`). Open, the
+  music moves into the tab bar.
 
   It glows amber while the user is waited on, green when a turn finished,
   blue-violet while a reply comes. The views read what they need from the
@@ -23,17 +29,25 @@
   import { openSettings, showMain } from '../../lib/companion/shell';
   import { provideView } from '../../lib/island/contract';
   import { ISLAND_TABS, type IslandFrame, type IslandTab } from '../../lib/island/frame.svelte';
-  import { currentStep } from '../../lib/island/sessions';
+  import { threadLabel } from '../../lib/companion/describe';
+  import { posed } from '../../lib/island/posed.svelte';
+  import { MemoryWatch } from '../../lib/island/pressure.svelte';
+  import { isLive } from '../../lib/island/sessions';
   import { Sessions } from '../../lib/island/sessions.svelte';
-  import { stepText } from '../../lib/island/session-text';
+  import { UpdateWatch } from '../../lib/island/update.svelte';
+  import { liveLine, rowDoing } from '../../lib/island/session-text';
   import { islandStatus } from '../../lib/island/status';
   import { fill, strings } from '../../lib/strings';
   import CompanionCharacter, { type Gaze } from '../companion/CompanionCharacter.svelte';
+  import MusicBubble from './music/MusicBubble.svelte';
+  import MusicStrip from './music/MusicStrip.svelte';
+  import TimerBubble from './TimerBubble.svelte';
   import AttentionCard from './views/AttentionCard.svelte';
   import QuotasPill from './assistant/QuotasPill.svelte';
   import ChatView from './views/ChatView.svelte';
   import DropView from './views/DropView.svelte';
   import HomeView from './views/HomeView.svelte';
+  import MemoryCard from './views/MemoryCard.svelte';
 
   interface Props {
     companion: Companion;
@@ -61,6 +75,9 @@
 
   let measured = $state(0);
   let windowHeight = $state(0);
+  let windowWidth = $state(0);
+  /** The pointer is on a drop beside the island: the island itself does not peek for it. */
+  let onSide = $state(false);
   let cheering = $state(false);
   let robotButton = $state<HTMLButtonElement | null>(null);
   let barFace = $state<HTMLElement | null>(null);
@@ -73,10 +90,43 @@
   });
   const openMax = $derived(frame.tall ? Math.max(OPEN_MAX, Math.min(OPEN_TALL, windowHeight - WINDOW_SPARE)) : OPEN_MAX);
   $effect(() => sessions.start());
-  const leadSession = $derived(sessions.lead);
-  const leadStep = $derived(leadSession ? currentStep(leadSession) : null);
+  /** How near Boite's memory guard is to stopping an agent, and a newer Boite out. */
+  const memory = new MemoryWatch();
+  const update = new UpdateWatch();
+  // GitHub is not asked from the demo (`?fake=1`); a capture pose (`pose.ts`) lays its own warning and release.
+  const demo = import.meta.env.DEV && new URLSearchParams(location.search).get('fake') === '1';
+  const posing = import.meta.env.DEV && new URLSearchParams(location.search).has('pose');
+  $effect(() => {
+    const client = companion.client;
+    if (!client || posing) return;
+    return untrack(() => memory.follow(client, (threadId) => threadLabel(companion.threads, companion.projects, threadId).title));
+  });
+  if (posing) {
+    $effect(() => {
+      memory.pose(posed.pressure, posed.stopped);
+      update.pose(posed.release);
+    });
+  }
+  $effect(() => {
+    const client = companion.client;
+    if (!client || demo) return;
+    return untrack(() => update.follow(client));
+  });
+  /** The warning's cause, not its numbers: a warning calls the island once, not on every read. */
+  const memoryCause = $derived(memory.warning ? `${memory.warning.reason}:${memory.warning.threadId ?? ''}` : null);
+  /** The conversations at work, and the one the wheel picked among them. */
+  const liveRows = $derived(sessions.rows.filter(isLive));
+  let picked = $state<string | null>(null);
+  const leadSession = $derived(liveRows.find((row) => row.id === picked) ?? sessions.lead);
+  const live = $derived(leadSession ? liveLine(leadSession, (leadSession.projectId && companion.projects.get(leadSession.projectId)) || '') : null);
   const PEEK = { min: 240, max: 420, chrome: 82 };
+  /** The collapsed pill with a conversation at work: its line, the face, the gaps and the padding, and the dots. */
+  const LIVE = { min: 200, max: 360, chrome: 74 };
+  const WHEEL_REST_MS = 220;
+  /** The room between a drop and the island. */
+  const SIDE_GAP = 8;
   let statusWidth = $state(0);
+  let liveWidth = $state(0);
   // Settles within a quarter pixel: the last frames of a smaller step would move nothing one can see.
   const box = new Spring({ ...SIZES.collapsed }, { stiffness: 0.18, damping: 0.72, precision: 0.25 });
   const radius = $derived(Math.min(RADIUS, box.current.h / 2));
@@ -86,14 +136,20 @@
       finished: frame.flashing,
       talking: companion.talking ? (companion.members.find((member) => member.talk.thinking)?.name ?? '') : null,
       busy: companion.busy.length,
-      lead: leadSession ? { title: leadSession.title, step: leadStep ? stepText(leadStep) : (leadSession.task ?? leadSession.detail) } : null
+      lead: leadSession ? { title: leadSession.title, step: rowDoing(leadSession) } : null
     })
   );
   /** One dot per agent at work, amber first while one waits on the user. */
   const dots = $derived([...(companion.blocking > 0 ? ['attention'] : []), ...companion.busy.slice(0, 5).map(() => 'working')]);
   /** The peek fits its line: the status's own width (`measure`) plus the face, the gaps and the padding, and the dots. */
   const peekWidth = $derived(Math.round(Math.min(PEEK.max, Math.max(PEEK.min, statusWidth + PEEK.chrome + Math.max(0, dots.length * 12 - 5)))));
-  const target = $derived(frame.size === 'open' ? { w: OPEN_WIDTH, h: Math.min(Math.max(measured, 120), openMax) } : frame.size === 'peek' ? { ...SIZES.peek, w: peekWidth } : SIZES[frame.size]);
+  const collapsedWidth = $derived(live ? Math.round(Math.min(LIVE.max, Math.max(LIVE.min, liveWidth + LIVE.chrome + Math.max(0, dots.length * 12 - 5)))) : SIZES.collapsed.w);
+  const target = $derived(
+    frame.size === 'open' ? { w: OPEN_WIDTH, h: Math.min(Math.max(measured, 120), openMax) } : frame.size === 'peek' ? { ...SIZES.peek, w: peekWidth } : { ...SIZES.collapsed, w: collapsedWidth }
+  );
+  /** What the drops beside the island have, up to the window's edge. */
+  const sideRoom = $derived(Math.max(0, (windowWidth - box.current.w) / 2 - SIDE_GAP));
+  const sides = $derived(frame.size !== 'open');
 
   provideView({
     get companion() {
@@ -128,7 +184,9 @@
     hold: (key, on) => frame.hold(key, on),
     reveal: (threadId) => showMain(threadId),
     show: (tab) => frame.show(tab),
-    sessions
+    sessions,
+    memory,
+    update
   });
 
   $effect(() => {
@@ -144,9 +202,26 @@
   });
 
   $effect(() => {
-    const over = companion.hover;
+    const over = companion.hover && !onSide;
     untrack(() => frame.hover(over));
   });
+
+  // The pick lasts while its conversation works.
+  $effect(() => {
+    if (picked !== null && !liveRows.some((row) => row.id === picked)) picked = null;
+  });
+
+  let wheelAt = 0;
+  /** The wheel on the pill goes through the conversations at work. */
+  function wheel(event: WheelEvent) {
+    if (liveRows.length < 2 || event.deltaY === 0) return;
+    const at = performance.now();
+    if (at - wheelAt < WHEEL_REST_MS) return;
+    wheelAt = at;
+    const index = Math.max(0, liveRows.findIndex((row) => row.id === leadSession?.id));
+    const next = (index + (event.deltaY > 0 ? 1 : -1) + liveRows.length) % liveRows.length;
+    picked = liveRows[next]!.id;
+  }
 
   // A turn finished: the lead jumps for joy and the island peeks green.
   let seenDone = -1;
@@ -170,6 +245,13 @@
     if (companion.notes.alarms.length === 0) return;
     untrack(() => (frame.tab = 'home'));
     return untrack(() => frame.call('alarm'));
+  });
+
+  // The memory guard comes near: the island opens on its card, amber, until it is stopped or set aside.
+  $effect(() => {
+    if (!memoryCause) return;
+    untrack(() => companion.cue('call'));
+    return untrack(() => frame.call('memory'));
   });
 
   function gazeOf(element: HTMLElement | null): Gaze | null {
@@ -208,10 +290,16 @@
   }
 </script>
 
-<svelte:window bind:innerHeight={windowHeight} />
+<svelte:window bind:innerHeight={windowHeight} bind:innerWidth={windowWidth} />
 
+<div class="cluster island-tokens">
+{#if sides && companion.timer.current}
+  <div class="side left" role="presentation" onpointerenter={() => (onSide = true)} onpointerleave={() => (onSide = false)}>
+    <TimerBubble timer={companion.timer} hover={companion.hover} {onresize} />
+  </div>
+{/if}
 <div
-  class="island island-tokens"
+  class="island"
   data-hit
   data-testid="island"
   data-size={frame.size}
@@ -221,13 +309,17 @@
   style:width="{box.current.w}px"
   style:height="{box.current.h}px"
   style:border-radius="0 0 {radius}px {radius}px"
-  onpointerenter={() => (companion.pointerOn = true)}
+  onpointerenter={() => {
+    companion.pointerOn = true;
+    onSide = false;
+  }}
   onpointerleave={() => (companion.pointerOn = false)}
   ondragenter={(event) => companion.attached.dragover(event)}
   ondragover={(event) => companion.attached.dragover(event)}
   ondrop={drop}
 >
   <span class="measure" aria-hidden="true" bind:offsetWidth={statusWidth}>{status.text}</span>
+  {#if live}<span class="measure live-measure" aria-hidden="true" bind:offsetWidth={liveWidth}><b>{live.name}</b> {live.doing}</span>{/if}
   {#if frame.size !== 'open'}
     <button
       class="bar"
@@ -238,6 +330,7 @@
       onpointerdown={(event) => companion.onpress(event, true)}
       onpointermove={companion.onmove}
       onpointerup={companion.onrelease}
+      onwheel={wheel}
     >
       <span class="face" bind:this={barFace}>
         <CompanionCharacter
@@ -255,10 +348,15 @@
       </span>
       {#if frame.size === 'peek'}
         <span class="status" data-tone={status.tone} data-testid="island-status">{status.text}</span>
+      {:else if live}
+        <span class="live" data-state={leadSession?.state} data-testid="island-live"><b>{live.name}</b> {live.doing}</span>
       {/if}
       <span class="dots" aria-hidden="true">
         {#each dots as tone, index (index)}<i data-tone={tone}></i>{/each}
       </span>
+      {#if frame.size === 'collapsed' && live?.progress}
+        <span class="progress" aria-hidden="true"><i style:transform="scaleX({live.progress.toFixed(3)})"></i></span>
+      {/if}
     </button>
   {:else}
     <div class="open" style:max-height="{openMax}px" bind:offsetHeight={measured}>
@@ -286,6 +384,7 @@
             </span>
           {/if}
         </div>
+        <div class="middle"><MusicStrip {companion} /></div>
         <div class="group">
           <QuotasPill />
           <button class="tab" class:on={frame.pinned} aria-pressed={frame.pinned} aria-label={frame.pinned ? copy.unpin : copy.pin} title={frame.pinned ? copy.unpin : copy.pin} onclick={() => frame.togglePin()}>
@@ -328,6 +427,7 @@
           </button>
         </div>
         <div class="view" data-tab={frame.tab} style:max-height="{openMax - TABS_HEIGHT}px">
+          <MemoryCard />
           {#if companion.blocking > 0}<AttentionCard />{/if}
           {#if frame.tab === 'home'}
             <HomeView />
@@ -341,18 +441,38 @@
     </div>
   {/if}
 </div>
+{#if sides}
+  <div class="side right" role="presentation" onpointerenter={() => (onSide = true)} onpointerleave={() => (onSide = false)}>
+    <MusicBubble {companion} {onresize} room={sideRoom} />
+  </div>
+{/if}
+</div>
 
 <style>
+  .cluster {
+    position: relative;
+    flex: none;
+    font: 13px/1.4 var(--island-font);
+    /* Air for the glow under it, which the window leaves room for. */
+    margin-bottom: 28px;
+  }
+  .side {
+    position: absolute;
+    top: 0;
+  }
+  .side.left {
+    right: calc(100% + 8px);
+  }
+  .side.right {
+    left: calc(100% + 8px);
+  }
   .island {
     position: relative;
     flex: none;
     overflow: hidden;
     background: var(--island-bg);
     color: var(--island-text);
-    font: 13px/1.4 var(--island-font);
     transition: box-shadow 360ms ease;
-    /* Air for the glow under it, which the window leaves room for. */
-    margin-bottom: 28px;
   }
   .island[data-glow='attention'] {
     box-shadow: 0 0 0 1px rgb(245 165 36 / 0.45), 0 8px 28px rgb(245 165 36 / 0.32);
@@ -403,6 +523,42 @@
   .status[data-tone='done'] { color: var(--island-done); }
   .status[data-tone='talking'] { color: #b9aefb; }
   .status[data-tone='idle'] { color: var(--island-muted); }
+  /* Collapsed, the conversation at work: its project, then what it does. */
+  .live {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--island-muted);
+    font-size: 12px;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .live b {
+    color: var(--island-text);
+    font-weight: 600;
+  }
+  .live[data-state='waiting'] b {
+    color: var(--island-attention);
+  }
+  .progress {
+    position: absolute;
+    right: 16px;
+    bottom: 3px;
+    left: 16px;
+    height: 2px;
+    overflow: hidden;
+    border-radius: 1px;
+    background: rgb(255 255 255 / 0.1);
+  }
+  .progress i {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--island-working);
+    transform-origin: left;
+    transition: transform 400ms ease;
+  }
   .dots {
     display: flex;
     gap: 5px;
@@ -432,7 +588,14 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 10px;
     padding: 8px 12px 6px;
+  }
+  .middle {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
   }
   .group {
     display: flex;
@@ -487,6 +650,13 @@
     white-space: nowrap;
     font-weight: 500;
     pointer-events: none;
+  }
+  .live-measure {
+    font-size: 12px;
+    font-weight: 400;
+  }
+  .live-measure b {
+    font-weight: 600;
   }
   .sr {
     position: absolute;

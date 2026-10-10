@@ -25,6 +25,7 @@ import type { Robot } from '../robots';
 import { readCompanionPrefs, subscribeCompanionPrefs, writeCompanionPrefs, type CompanionPrefs } from './prefs';
 import { createMoodTracker, RESTING, type MoodInput, type MoodState } from './mood';
 import { readMedia, pressMedia, sameMedia, type MediaAction, type MediaState } from './media';
+import { Music } from './music.svelte';
 import { addReminder } from './memory';
 import { captureScreens, type ScreenShot } from './screen';
 import { playCue, unlockSounds, type Cue } from './sounds';
@@ -90,6 +91,10 @@ export class Companion {
   questions = $state.raw<QuestionRequest[]>([]);
   mood = $state<MoodState>(RESTING);
   media = $state<MediaState | null>(null);
+  /** The music setting alone: another setting saved leaves the reads of the music as they run. */
+  private readonly musicOn = $derived(this.prefs.music);
+  /** The music bubble's clock, meter and colour, kept with each read of `media`. */
+  readonly music = new Music();
   /** The pointer is on a character, as the page sees it (outside the shell). */
   pointerOn = $state(false);
   /** The panel is open: the island's open size, the sheet under a loose robot. */
@@ -624,8 +629,14 @@ export class Companion {
   pressMediaKey(action: MediaAction): void {
     void pressMedia(action)
       .then(readMedia)
-      .then((state) => (this.media = state))
+      .then((state) => this.takeMedia(state))
       .catch(() => {});
+  }
+
+  /** A read of the media session: the state when it changed, the music's clock always. */
+  private takeMedia(state: MediaState | null): void {
+    if (!sameMedia(this.media, state)) this.media = state;
+    this.music.sync(state);
   }
 
   // ---------------------------------------------------------------------
@@ -752,8 +763,11 @@ export class Companion {
         const finished = this.mood.justFinished;
         if (finished.length === 0) return;
         untrack(() => {
-          this.notes.finished(finished);
           this.tasks.finished(finished);
+          // A sub-agent's end is its main conversation's business: no notice, no cheer.
+          const main = finished.filter((id) => !this.threads.find((thread) => thread.id === id)?.parentThreadId);
+          if (main.length === 0) return;
+          this.notes.finished(main);
           this.done += 1;
         });
         clearTimeout(this.celebrateTimer);
@@ -776,20 +790,27 @@ export class Companion {
       });
 
       $effect(() => {
-        if (!this.prefs.music) {
-          this.media = null;
+        if (!this.musicOn) {
+          // Untracked: the clock's state `sync` reads would run this again at each change.
+          untrack(() => {
+            this.media = null;
+            this.music.sync(null);
+          });
           return;
         }
         // Every two seconds, but the state changes only with the music: nothing redraws for nothing.
+        // A read still running when the music is turned off is dropped.
+        let live = true;
         const read = () =>
           void readMedia()
-            .then((state) => {
-              if (!sameMedia(this.media, state)) this.media = state;
-            })
-            .catch(() => (this.media = null));
+            .then((state) => live && this.takeMedia(state))
+            .catch(() => live && this.takeMedia(null));
         read();
         const timer = setInterval(read, MEDIA_EVERY);
-        return () => clearInterval(timer);
+        return () => {
+          live = false;
+          clearInterval(timer);
+        };
       });
     });
   }

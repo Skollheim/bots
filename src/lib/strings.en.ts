@@ -142,6 +142,52 @@ export const strings = {
         keyEnter: 'Enter',
         keyEscape: 'Esc'
       }
+    },
+    /** A finished thread's actions, on its card and its session row (`sessions/NoticeActions.svelte`). */
+    notice: {
+      relaunch: 'Run again',
+      relaunching: 'Starting…',
+      retryTitle: 'Ask the agent to try again',
+      continueTitle: 'Ask the agent to carry on',
+      archive: 'Archive',
+      archiving: 'Archiving…',
+      archiveTitle: 'Archive the thread while it rests',
+      changes: 'Show the changes',
+      hideChanges: 'Hide the changes',
+      noChanges: 'No change in its folder.',
+      binary: 'A binary file: nothing to show.',
+      more: '{count} more files',
+      failed: 'That did not work: {reason}',
+      retryPrompt: 'Try again.',
+      continuePrompt: 'Continue.'
+    },
+    /** The warning before Boite's memory guard stops an agent (`views/MemoryCard.svelte`). */
+    memory: {
+      title: { thread: '“{title}” is near its memory cap', budget: 'Your agents are near their memory budget', machine: 'Your PC is running low on memory' },
+      used: { thread: '{used} of {limit}', budget: '{used} of {limit} for all agents', machine: '{used} free, Boite keeps {limit} in reserve' },
+      culprit: '“{title}” uses the most: {size}',
+      next: 'If it keeps growing, Boite stops its largest process.',
+      stop: 'Stop the agent',
+      stopping: 'Stopping…',
+      stopTitle: 'Stop this thread’s processes, as Boite’s task manager does',
+      ignore: 'Ignore',
+      failed: 'The agent could not be stopped: {reason}',
+      stopped: 'Boite stopped {program} in “{title}” to free {size}',
+      stoppedAlone: 'Boite stopped {program} to free {size}',
+      process: 'a process',
+      agent: 'An agent',
+      close: 'Close',
+      mb: '{value} MB',
+      gb: '{value} GB',
+      point: '.'
+    },
+    /** A newer Boite on its track (`views/UpdateCard.svelte`). */
+    update: {
+      title: { nightly: 'New nightly available', stable: 'New Boite version available' },
+      version: 'Version {version}',
+      open: 'Open Boite',
+      openTitle: 'Boite installs it from its settings, under App updates',
+      later: 'Later'
     }
   },
 
@@ -194,7 +240,17 @@ export const strings = {
       search: 'Wants to search',
       use: 'Wants to use {tool}'
     },
-    media: { previous: 'Previous track', next: 'Next track', play: 'Play', pause: 'Pause' },
+    media: {
+      label: 'Music',
+      previous: 'Previous track',
+      next: 'Next track',
+      play: 'Play',
+      pause: 'Pause',
+      openSpotify: 'Open Spotify',
+      now: '{title} by {artist}',
+      show: 'Show {app}',
+      position: '{position} of {duration}'
+    },
     hud: {
       label: 'Threads at work and quotas',
       openThread: 'Open {title} in Boite',
@@ -202,7 +258,9 @@ export const strings = {
       quotas: 'Quotas',
       quotaUnknown: 'unknown',
       quotaLow: 'running low',
-      quotaOut: 'nearly out'
+      quotaOut: 'nearly out',
+      helper: '1 sub-agent at work',
+      helpers: '{count} sub-agents at work'
     },
     pomodoro: {
       start: 'Pomodoro',

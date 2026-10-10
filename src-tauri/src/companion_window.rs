@@ -711,6 +711,15 @@ pub async fn companion_media_control(webview: Webview, action: String) -> Result
     tauri::async_runtime::spawn_blocking(move || crate::platform::media::media_control(action)).await.map_err(|error| error.to_string())?
 }
 
+/// The music's loudest peak since the last call, 0 to 1, for the meter: the
+/// first call starts the sampling, which stops once the calls do. `None`
+/// where nothing is measured.
+#[tauri::command]
+pub async fn companion_media_levels(webview: Webview, app: String) -> Result<Option<f32>, String> {
+    only_companion(&webview)?;
+    Ok(crate::platform::levels::read(&app))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

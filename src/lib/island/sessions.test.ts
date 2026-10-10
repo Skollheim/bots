@@ -186,3 +186,28 @@ test('the reducer never edits the rows it is given', () => {
   reduceSessions(before, { type: 'part', threadId: 'a', part: tool('t1', 'Read', { file_path: 'x' }) });
   expect(before).toEqual(frozen);
 });
+
+test('a sub-agent has no row: its main thread shows at work, counting it, from the first one to start', () => {
+  const rows = run(listed(5_000, thread('main', 'idle'), thread('kid-1', 'running', { parentThreadId: 'main', runningSince: 3_000 }), thread('kid-2', 'running', { parentThreadId: 'kid-1', runningSince: 2_000 })));
+  expect(rows.map((row) => [row.id, row.state, row.helpers])).toEqual([['main', 'working', 2]]);
+  expect(rows[0]?.since).toBe(2_000);
+});
+
+test('a main thread keeps its own state beside its sub-agents; finished ones count no more', () => {
+  const rows = run(listed(5_000, thread('main', 'waiting'), thread('kid', 'running', { parentThreadId: 'main' }), thread('old', 'idle', { parentThreadId: 'main' })));
+  expect(rows.map((row) => [row.id, row.state, row.helpers])).toEqual([['main', 'waiting', 1]]);
+});
+
+test('once its sub-agents are done, a main thread that rested is done too', () => {
+  const rows = run(listed(5_000, thread('main', 'idle'), thread('kid', 'running', { parentThreadId: 'main' })), listed(6_000, thread('main', 'idle'), thread('kid', 'idle', { parentThreadId: 'main' })));
+  expect(rows.map((row) => [row.id, row.state, row.helpers])).toEqual([['main', 'done', 0]]);
+});
+
+test('the progress counts the finished tasks of the list', () => {
+  const rows = run(listed(2_000, thread('a', 'running')), {
+    type: 'activity',
+    threadId: 'a',
+    activity: { goal: null, loop: null, tasks: [{ id: '1', text: 'Build', status: 'completed' }, { id: '2', text: 'Test', status: 'in_progress' }, { id: '3', text: 'Ship', status: 'pending' }] }
+  });
+  expect(rows[0]?.progress).toEqual({ done: 1, total: 3 });
+});
