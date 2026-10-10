@@ -96,8 +96,16 @@ test('a brain without a model reads the models a fresh core has not listed yet, 
   // No small model listed: the default, else the first current one.
   expect((await settleModel(brain, [claude], async () => [listed[0]!]))?.model).toBe('claude-opus-5-5');
   expect((await settleModel(brain, [claude], async () => [{ id: 'old', name: 'Old', legacy: true }, { id: 'new', name: 'New' }]))?.model).toBe('new');
-  // A probe that fails, or lists nothing, leaves the model to the core.
-  expect(await settleModel(brain, [claude], async () => Promise.reject(new Error('no agent')))).toEqual(brain);
+  // A probe refused while the core checks the account at startup is tried again; one refused every time leaves the model to the core.
+  const paused: number[] = [];
+  const pause = async (ms: number) => void paused.push(ms);
+  let refusals = 1;
+  const late = async () => (refusals-- > 0 ? Promise.reject(new Error('the provider or account changed during discovery')) : listed);
+  expect((await settleModel(brain, [claude], late, pause))?.model).toBe('claude-haiku-4-5-20251001');
+  expect(paused).toEqual([2000]);
+  paused.length = 0;
+  expect(await settleModel(brain, [claude], async () => Promise.reject(new Error('no agent')), pause)).toEqual(brain);
+  expect(paused).toEqual([2000, 2000]);
   expect(await settleModel(brain, [claude], async () => [])).toEqual(brain);
   // A model already picked is kept, unread.
   expect(await settleModel({ ...brain, model: 'claude-big' }, [claude], probe)).toEqual({ ...brain, model: 'claude-big' });

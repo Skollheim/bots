@@ -143,18 +143,38 @@ function smallModel(provider: ProviderSummary, models: ModelInfo[] = provider.mo
   return id !== null && models.some((model) => model.id === id) ? id : null;
 }
 
+/** At startup the core may still be checking the account: a probe that ran meanwhile is refused, and the next one answers. */
+const PROBE_TRIES = 3;
+const PROBE_PAUSE_MS = 2000;
+
 /**
  * The brain with a model the core takes. Claude, Codex, ACP and pi list their
  * models through the agent itself, so a core that never read them, a fresh
  * one, names none and refuses a profile without one. When `pickBrain` found
  * no model, they are read with `probe`, and the small one taken, else the
- * default, else the first current one. A probe that fails leaves the model to
- * the core's own default.
+ * default, else the first current one. A probe refused every time leaves the
+ * model to the core's own default.
  */
-export async function settleModel(brain: Brain, providers: ProviderSummary[], probe: (providerId: string, accountId: string) => Promise<ModelInfo[]>): Promise<Brain> {
+export async function settleModel(
+  brain: Brain,
+  providers: ProviderSummary[],
+  probe: (providerId: string, accountId: string) => Promise<ModelInfo[]>,
+  pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+): Promise<Brain> {
   const provider = providers.find((entry) => entry.id === brain.providerId);
   if (brain.model !== null || !provider) return brain;
-  const models = (await probe(brain.providerId, brain.accountId).catch(() => null)) ?? [];
+  let models: ModelInfo[] = [];
+  for (let tried = 1; tried <= PROBE_TRIES; tried += 1) {
+    const read = await probe(brain.providerId, brain.accountId).then(
+      (list) => list ?? [],
+      () => null
+    );
+    if (read !== null) {
+      models = read;
+      break;
+    }
+    if (tried < PROBE_TRIES) await pause(PROBE_PAUSE_MS);
+  }
   const model = smallModel(provider, models) ?? models.find((entry) => entry.default)?.id ?? models.find((entry) => !entry.legacy)?.id ?? models[0]?.id ?? null;
   return { ...brain, model };
 }
