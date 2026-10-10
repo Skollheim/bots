@@ -37,6 +37,8 @@ export class CoreLink {
   probedModels = $state.raw<Record<string, ModelInfo[]>>({});
   #off: (() => void)[] = [];
   #stopped = false;
+  /** The model reads asked of the core, by agent and account, answered or not. */
+  #probes = new Map<string, Promise<void>>();
 
   /** A paired phone is refused the owner's controls; Bots speaks with the owner's token. */
   get owner(): boolean {
@@ -105,11 +107,23 @@ export class CoreLink {
     return provider?.protocol === 'claude-sdk' ? [] : provider?.models ?? [];
   }
 
-  async probeModels(providerId: ProviderId, accountId: string): Promise<void> {
+  /**
+   * Reads the models an agent lists with this account. Each read starts the
+   * agent's executable for a moment, so it runs once per window, a failed one
+   * included: account updates come with every quota change and must not start
+   * it again.
+   */
+  probeModels(providerId: ProviderId, accountId: string): Promise<void> {
     const client = this.client;
-    if (!client || this.probedModels[probeKey(providerId, accountId)]) return;
-    const { models } = await client.call('providers.probe', { providerId, accountId });
-    if (client === this.client) this.probedModels = { ...this.probedModels, [probeKey(providerId, accountId)]: models };
+    const key = probeKey(providerId, accountId);
+    if (!client || this.probedModels[key]) return Promise.resolve();
+    const known = this.#probes.get(key);
+    if (known) return known;
+    const read = client.call('providers.probe', { providerId, accountId }).then(({ models }) => {
+      if (client === this.client) this.probedModels = { ...this.probedModels, [key]: models };
+    });
+    this.#probes.set(key, read);
+    return read;
   }
 
   stop(): void {
