@@ -7,12 +7,32 @@
   "homepage": "https://github.com/beboite/bots",
   "executable": "bots",
   "artifacts": {
-    "win32-x64": { "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-x86_64-pc-windows-msvc.exe", "sha256": "0000000000000000000000000000000000000000000000000000000000000000" },
-    "win32-arm64": { "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-aarch64-pc-windows-msvc.exe", "sha256": "0000000000000000000000000000000000000000000000000000000000000000" },
-    "darwin-x64": { "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-x86_64-apple-darwin", "sha256": "0000000000000000000000000000000000000000000000000000000000000000" },
-    "darwin-arm64": { "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-aarch64-apple-darwin", "sha256": "0000000000000000000000000000000000000000000000000000000000000000" },
-    "linux-x64": { "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-x86_64-unknown-linux-gnu", "sha256": "0000000000000000000000000000000000000000000000000000000000000000" },
-    "linux-arm64": { "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-aarch64-unknown-linux-gnu", "sha256": "0000000000000000000000000000000000000000000000000000000000000000" }
+    "win32-x64": {
+      "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-x86_64-pc-windows-msvc.exe",
+      "sha256": "c289a0e88aa590a7ef5cee5a0aca8dff6be178567eab507609f9cd22b37d65c4"
+    },
+    "win32-arm64": {
+      "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-aarch64-pc-windows-msvc.exe",
+      "sha256": "94a85097c64e7d4baeaaf43ead11d51a780ecff639c37dcb394d02792930a75c"
+    },
+    "darwin-x64": {
+      "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-x86_64-apple-darwin",
+      "sha256": "19b990219ab1dd3d1a9cef57ce18cfe27fe623ed65bce0a23a116d723617ff1e"
+    },
+    "darwin-arm64": {
+      "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-aarch64-apple-darwin",
+      "sha256": "8a2c7dd4c6e60b9459e742b2ce3e96054118ffed922d649f04c9e6899012319b"
+    },
+    "linux-x64": {
+      "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-x86_64-unknown-linux-gnu",
+      "sha256": "f93cb3b5fd85de6ff8919c05a8bd6f557a53bf48b4040f07cc46956d292a01df"
+    },
+    "linux-arm64": {
+      "url": "https://github.com/beboite/bots/releases/download/v0.1.0/bots-aarch64-unknown-linux-gnu",
+      "sha256": "5579ab9684566c41c17e52e4ae96ca2fb3f73a16db218ad6af3aa864f5f22273"
+    }
   },
-  "provides": { "desktopApp": {} }
+  "provides": {
+    "desktopApp": {}
+  }
 }
