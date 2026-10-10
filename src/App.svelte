@@ -36,7 +36,9 @@
 
   const companion = new Companion({
     pickZone,
-    focusInput: () => document.querySelector<HTMLElement>('.assistant-input, .askbar input')?.focus(),
+    // Once the frame is drawn, and without scrolling: focusing a field lays the page out, which earlier would come twice.
+    focusInput: () =>
+      requestAnimationFrame(() => setTimeout(() => document.querySelector<HTMLElement>('.assistant-input, .askbar input')?.focus({ preventScroll: true }))),
     summoned: () => frame.show('chat')
   });
   const frame = new IslandFrame({
@@ -86,7 +88,8 @@
 
   $effect(() => {
     void [island, companion.open, picking, frame.size, frame.tab, companion.notice, companion.waiting, companion.blocking];
-    void tick().then(() => requestAnimationFrame(sendRects));
+    // Measured once the frame is drawn, when its layout is done: measuring before would lay it out twice.
+    void tick().then(() => requestAnimationFrame(() => setTimeout(sendRects)));
   });
 
   // The island's window grows at once (open, or taller for a diff), and

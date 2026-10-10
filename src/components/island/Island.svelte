@@ -77,7 +77,8 @@
   const leadStep = $derived(leadSession ? currentStep(leadSession) : null);
   const PEEK = { min: 240, max: 420, chrome: 82 };
   let statusWidth = $state(0);
-  const box = new Spring({ ...SIZES.collapsed }, { stiffness: 0.18, damping: 0.72 });
+  // Settles within a quarter pixel: the last frames of a smaller step would move nothing one can see.
+  const box = new Spring({ ...SIZES.collapsed }, { stiffness: 0.18, damping: 0.72, precision: 0.25 });
   const radius = $derived(Math.min(RADIUS, box.current.h / 2));
   const status = $derived(
     islandStatus({
@@ -134,10 +135,12 @@
     void box.set(target, { instant: prefersReducedMotion.current });
   });
 
-  // Each step of the spring moves the hit area; the page sends only what changed.
+  // Each step of the spring moves the hit area; the page sends only what changed,
+  // read once the step is drawn: reading it within the step lays the island out twice.
   $effect(() => {
     void [box.current.w, box.current.h];
-    untrack(onresize);
+    const read = setTimeout(onresize);
+    return () => clearTimeout(read);
   });
 
   $effect(() => {
