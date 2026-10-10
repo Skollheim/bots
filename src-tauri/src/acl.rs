@@ -1,0 +1,43 @@
+//! Check the packaged permissions against the same resolver Tauri uses for IPC.
+
+#[cfg(test)]
+mod tests {
+    use tauri::ipc::Origin;
+
+    const COMPANION: [&str; 16] = ["core_endpoint", "companion_monitors", "companion_place", "companion_hit_rects", "companion_media",
+        "companion_media_control", "companion_configure", "companion_drag", "companion_capture", "companion_cover", "companion_focus",
+        "companion_keep", "bots_settings", "bots_tray_labels", "plugin:event|listen", "plugin:event|unlisten"];
+
+    fn handlers() -> Vec<&'static str> {
+        let list = include_str!("lib.rs").split("tauri::generate_handler![").nth(1).unwrap().split("])").next().unwrap();
+        list.split(',').map(str::trim).filter(|s| !s.is_empty()).map(|handler| handler.rsplit("::").next().unwrap()).collect()
+    }
+
+    #[test]
+    fn every_command_is_granted_to_the_companion_and_none_to_a_remote_page() {
+        let mut context: tauri::Context<tauri::test::MockRuntime> = crate::bots_context();
+        let authority = context.runtime_authority_mut();
+        let remote = Origin::Remote { url: "https://example.test/".parse().unwrap() };
+        for command in handlers() {
+            assert!(COMPANION.contains(&command), "{command} is not in the companion's list");
+            assert!(authority.resolve_access(command, "companion", "companion", &Origin::Local).is_some(), "{command} not allowed by ACL");
+            assert!(authority.resolve_access(command, "companion", "companion", &remote).is_none(), "{command} granted to a remote origin");
+            assert!(authority.resolve_access(command, "other", "other", &Origin::Local).is_none(), "{command} granted to another webview");
+        }
+        for command in COMPANION {
+            assert!(authority.resolve_access(command, "companion", "companion", &Origin::Local).is_some(), "companion cannot invoke {command}");
+        }
+    }
+
+    #[test]
+    fn the_settings_window_connects_and_lists_screens_but_does_not_drive_the_companion() {
+        let mut context: tauri::Context<tauri::test::MockRuntime> = crate::bots_context();
+        let authority = context.runtime_authority_mut();
+        for command in ["core_endpoint", "companion_monitors", "plugin:event|listen", "plugin:event|unlisten"] {
+            assert!(authority.resolve_access(command, "settings", "settings", &Origin::Local).is_some(), "settings cannot invoke {command}");
+        }
+        for command in ["companion_place", "companion_capture", "companion_keep", "companion_configure", "bots_tray_labels", "bots_settings"] {
+            assert!(authority.resolve_access(command, "settings", "settings", &Origin::Local).is_none(), "settings can invoke {command}");
+        }
+    }
+}

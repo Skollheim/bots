@@ -1,0 +1,50 @@
+[package]
+name = "bots"
+version = "0.1.0"
+description = "Bots: the desktop companion for Boite"
+edition = "2021"
+rust-version = "1.82"
+publish = false
+license = "MIT"
+repository = "https://github.com/beboite/bots"
+
+[lib]
+name = "bots_lib"
+crate-type = ["lib"]
+
+[[bin]]
+name = "bots"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "unstable"] }
+# A second launch focuses the first instead of opening a second companion.
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }
+
+[target.'cfg(unix)'.dependencies]
+dirs = "6"
+
+[target.'cfg(windows)'.dependencies]
+# `Media_Control`: the music playing, and `Graphics_Imaging` with
+# `Storage_Streams` to shrink the track's cover (platform/media.rs).
+windows = { version = "0.61", features = ["Foundation", "Foundation_Collections", "Graphics_Imaging", "Media_Control", "Storage_Streams"] }
+# The track's cover reaches the page as a base64 data URL.
+base64 = "0.22"
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Gdi",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }

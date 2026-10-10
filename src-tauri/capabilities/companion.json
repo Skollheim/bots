@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "companion",
+  "description": "The companion may connect to the core, place itself, read the desktop it reacts to, open its settings and name the tray. Remote origins receive nothing.",
+  "webviews": ["companion"],
+  "permissions": ["allow-companion-ui", "core:event:default"]
+}

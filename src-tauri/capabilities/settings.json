@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "settings",
+  "description": "The settings window may connect to the core and list the screens. Remote origins receive nothing.",
+  "webviews": ["settings"],
+  "permissions": ["allow-settings-ui", "core:event:default"]
+}
