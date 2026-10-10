@@ -2,4 +2,95 @@
 :root {
   /* The soft shadow under a robot, the same on light and dark desktops. */
   --bots-shadow: drop-shadow(0 1.5px 2px rgb(0 0 0 / 0.35));
+
+  /* The island and the settings window: pure black, dark cards, hairlines. */
+  --island-bg: #000;
+  --island-card: #0e0e12;
+  --island-card-hover: #16161c;
+  --island-line: rgb(255 255 255 / 0.06);
+  --island-line-strong: rgb(255 255 255 / 0.12);
+  --island-text: #f2f2f5;
+  --island-muted: rgb(242 242 245 / 0.56);
+  --island-faint: rgb(242 242 245 / 0.32);
+  --island-pill: rgb(255 255 255 / 0.09);
+  --island-radius: 22px;
+  --island-font: system-ui, -apple-system, 'Segoe UI Variable Text', 'Segoe UI', Roboto, sans-serif;
+  /* The glows, in Bots's hues: amber waits on the user, green is done, blue-violet talks. */
+  --island-attention: #f5a524;
+  --island-done: #34d399;
+  --island-talking: #8b7cf6;
+  --island-working: #7aa2ff;
+  --island-danger: #f87171;
+
+  /*
+   * The island's assistant, quotas and Today card: a placeholder grey that
+   * reads on black (6.3:1, AA), the chat's bubble, links, code and menus, and
+   * the quota tones (amber under a quarter left, red under a tenth).
+   */
+  --island-subtle: #8e8e96;
+  --island-bubble: #1c1c23;
+  --island-link: #a5b8ff;
+  --island-code: #08080b;
+  --island-menu: #121217;
+  --island-quota-ok: var(--island-done);
+  --island-quota-amber: var(--island-attention);
+  --island-quota-red: var(--island-danger);
+  --island-quota-track: var(--island-pill);
+}
+
+/*
+ * Boite's components (fields, buttons, menus) drawn on the island's black:
+ * its tokens, given the island's values inside an island surface.
+ */
+.island-tokens {
+  color-scheme: dark;
+  --color-background: var(--island-bg);
+  --color-surface: var(--island-card);
+  --color-control-surface: var(--island-card-hover);
+  --color-hover: rgb(255 255 255 / 0.06);
+  /* Boite's placeholder and quiet text grey: readable on the island's black. */
+  --color-subtle: var(--island-subtle);
+  --color-border: var(--island-line-strong);
+  --color-edge: var(--island-line);
+  --color-foreground: var(--island-text);
+  --color-muted-foreground: var(--island-muted);
+  --color-accent: var(--island-talking);
+  --color-accent-soft: rgb(139 124 246 / 0.16);
+  --color-accent-ink: #fff;
+  --color-surface-2: var(--island-card-hover);
+  --color-success: var(--island-done);
+  --color-live: var(--island-attention);
+  --color-danger: var(--island-danger);
+  --font-sans: var(--island-font);
+  color: var(--island-text);
+  font-family: var(--island-font);
+}
+
+/* A card of the island's views and of Settings, and the small heading over it. */
+.island-card {
+  padding: 10px 12px;
+  border: 1px solid var(--island-line);
+  border-radius: 14px;
+  background: var(--island-card);
+}
+.island-heading {
+  margin: 0 0 6px;
+  color: var(--island-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+/* Boite's cards inside the island's views lose their own frame and shadow. */
+.island-tokens :is(.card, .panel) {
+  box-shadow: none;
+}
+
+/* Sessions: Home's live sessions and the request card. The diff's added and removed lines, its type, the key hints. */
+:root {
+  --island-diff-add: rgb(52 211 153 / 0.13);
+  --island-diff-add-ink: #86efac;
+  --island-diff-remove: rgb(248 113 113 / 0.13);
+  --island-diff-remove-ink: #fca5a5;
+  --island-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --island-key: rgb(255 255 255 / 0.12);
+  --island-attention-ink: #000;
 }

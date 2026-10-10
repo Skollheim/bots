@@ -95,9 +95,10 @@ pub struct Layout { align: Anchor, edge: Edge }
 #[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq)]
 pub struct Spot { x: f64, y: f64 }
 
-/// The screen and the spot a drag ended on, for the page to keep.
+/// The screen and the spot a drag ended on, for the page to keep, and
+/// whether it ended against the top edge, back into the island (`island::docks`).
 #[derive(Serialize, Debug, PartialEq)]
-pub struct Dropped { monitor: String, spot: Spot }
+pub struct Dropped { monitor: String, spot: Spot, docked: bool }
 
 /// The pointer, in CSS pixels from the window's top left.
 #[derive(Serialize, Clone, Copy)]
@@ -108,7 +109,7 @@ struct Pointer { x: f64, y: f64 }
 pub struct MonitorInfo { name: String, primary: bool, width: u32, height: u32 }
 
 /// `(x, y, width, height)` in physical pixels.
-type Area = (i32, i32, u32, u32);
+pub(crate) type Area = (i32, i32, u32, u32);
 
 pub fn only_companion(webview: &Webview) -> Result<(), String> {
     if webview.label() == LABEL { return Ok(()); }
@@ -167,12 +168,12 @@ fn holds(monitor: &Monitor, point: (i32, i32)) -> bool {
     point.0 >= position.x && point.1 >= position.y && point.0 < position.x + size.width as i32 && point.1 < position.y + size.height as i32
 }
 
-fn work_area(monitor: &Monitor) -> Area {
+pub(crate) fn work_area(monitor: &Monitor) -> Area {
     let work = monitor.work_area();
     (work.position.x, work.position.y, work.size.width, work.size.height)
 }
 
-fn monitor_name(monitor: &Monitor) -> String { monitor.name().cloned().unwrap_or_default() }
+pub(crate) fn monitor_name(monitor: &Monitor) -> String { monitor.name().cloned().unwrap_or_default() }
 
 /// A whole screen, `(x, y, width, height)` in physical pixels.
 fn bounds(monitor: &Monitor) -> (i32, i32, i32, i32) {
@@ -220,7 +221,7 @@ fn follow_cover<R: Runtime>(window: &WebviewWindow<R>, shared: &Shared) {
 }
 
 /// The screen named `name`, the primary one when it is gone or none is named.
-fn pick_monitor<R: Runtime>(window: &WebviewWindow<R>, name: Option<&str>) -> tauri::Result<Option<Monitor>> {
+pub(crate) fn pick_monitor<R: Runtime>(window: &WebviewWindow<R>, name: Option<&str>) -> tauri::Result<Option<Monitor>> {
     if let Some(name) = name {
         if let Some(found) = window.available_monitors()?.into_iter().find(|monitor| monitor_name(monitor) == name) {
             return Ok(Some(found));
@@ -414,6 +415,9 @@ fn watch<R: Runtime>(app: AppHandle<R>, shared: Shared, mine: u64) {
                 senses.presence(&window);
             }
             follow_cover(&window, &shared);
+            if tick % SCREEN_EVERY_TICKS == 0 && shared.covering.lock().unwrap_or_else(PoisonError::into_inner).is_none() {
+                crate::island::follow(&app, &window);
+            }
             let (Ok(cursor), Ok(origin), Ok(scale)) = (window.cursor_position(), window.inner_position(), window.scale_factor()) else { continue };
             let point = ((cursor.x - f64::from(origin.x)) / scale, (cursor.y - f64::from(origin.y)) / scale);
             senses.pointer(&window, &shared, point, tick);
@@ -475,6 +479,7 @@ pub async fn companion_monitors(app: AppHandle, webview: Webview) -> Result<Vec<
 #[tauri::command]
 pub async fn companion_place(app: AppHandle, webview: Webview, monitor: Option<String>, anchor: Anchor, spot: Option<Spot>) -> Result<Layout, String> {
     only_companion(&webview)?;
+    crate::island::forget(&app);
     let layout = place(&window_of(&app)?, monitor.as_deref(), anchor, spot).map_err(|error| error.to_string())?;
     *app.state::<CompanionState>().layout.lock().unwrap_or_else(PoisonError::into_inner) = layout;
     Ok(layout)
@@ -482,10 +487,15 @@ pub async fn companion_place(app: AppHandle, webview: Webview, monitor: Option<S
 
 /// Carries the window with the button the user is holding on the character,
 /// then answers where the character was dropped, or nothing when it did not move.
+/// With `detach`, the robot is being pulled out of the island: the window takes
+/// the desktop size first, the character under the pointer, and the drop is
+/// answered even where it began.
 #[tauri::command]
-pub async fn companion_drag(app: AppHandle, webview: Webview) -> Result<Option<Dropped>, String> {
+pub async fn companion_drag(app: AppHandle, webview: Webview, detach: Option<bool>) -> Result<Option<Dropped>, String> {
     only_companion(&webview)?;
     let window = window_of(&app)?;
+    let detach = detach.unwrap_or(false);
+    if detach { lift_out(&app, &window).map_err(|error| error.to_string())?; }
     let before = window.outer_position().map_err(|error| error.to_string())?;
     window.start_dragging().map_err(|error| error.to_string())?;
     tauri::async_runtime::spawn_blocking(|| {
@@ -495,7 +505,7 @@ pub async fn companion_drag(app: AppHandle, webview: Webview) -> Result<Option<D
         while crate::platform::mouse_down() && Instant::now() < deadline { std::thread::sleep(Duration::from_millis(16)); }
     }).await.map_err(|error| error.to_string())?;
     let after = window.outer_position().map_err(|error| error.to_string())?;
-    if after == before { return Ok(None); }
+    if after == before && !detach { return Ok(None); }
     let layout = *app.state::<CompanionState>().layout.lock().unwrap_or_else(PoisonError::into_inner);
     let scale = window.scale_factor().map_err(|error| error.to_string())?;
     let (x, y) = character_in_window(layout);
@@ -505,7 +515,26 @@ pub async fn companion_drag(app: AppHandle, webview: Webview) -> Result<Option<D
         Some(monitor) => monitor,
         None => window.current_monitor().map_err(|error| error.to_string())?.ok_or("the companion is on no screen")?,
     };
-    Ok(Some(Dropped { monitor: monitor_name(&monitor), spot: spot_at(work_area(&monitor), centre) }))
+    let area = work_area(&monitor);
+    let docked = crate::island::docks(area, monitor.scale_factor(), centre);
+    Ok(Some(Dropped { monitor: monitor_name(&monitor), spot: spot_at(area, centre), docked }))
+}
+
+/// The island becomes the desktop window, its character centred under the
+/// pointer, ready for the system to carry it.
+fn lift_out(app: &AppHandle, window: &WebviewWindow) -> tauri::Result<()> {
+    crate::island::forget(app);
+    let layout = Layout { align: Anchor::Center, edge: Edge::Top };
+    *app.state::<CompanionState>().layout.lock().unwrap_or_else(PoisonError::into_inner) = layout;
+    let cursor = window.cursor_position()?;
+    let (x, y) = character_in_window(layout);
+    let scale = match monitor_under_pointer(window)? { Some(monitor) => monitor.scale_factor(), None => window.scale_factor()? };
+    let at = |pointer: f64, inset: f64| (pointer - inset * scale).round() as i32;
+    let origin = PhysicalPosition::new(at(cursor.x, x), at(cursor.y, y));
+    // Onto the pointer's screen first: a screen of another scale resizes the window as it arrives.
+    window.set_position(origin)?;
+    window.set_size(LogicalSize::new(WIDTH, HEIGHT))?;
+    window.set_position(origin)
 }
 
 /// Settings the page follows: hiding for a full-screen app, and the global

@@ -31,6 +31,8 @@ import { coordinationMethods, registerCore, unregisterCore } from '@boite/ui/lib
 import { seedStewardDemo, stewardMethods } from '@boite/ui/lib/fake-client/stewards';
 import { delegationMethods, seedDelegationDemo } from '@boite/ui/lib/fake-client/delegation';
 import { seedHudDemo } from './fake-client/hud-demo';
+import { seedAssistantDemo } from './fake-client/assistant-demo';
+import { seedSessionsDemo } from './fake-client/sessions-demo';
 import { groupMethods } from '@boite/ui/lib/fake-client/group';
 import { pairingMethods } from '@boite/ui/lib/fake-client/pairing';
 import { projectMethods } from '@boite/ui/lib/fake-client/projects';
@@ -64,8 +66,13 @@ import { forkReturnMethods } from '@boite/ui/lib/fake-client/fork-return';
 
 export type { FakeClientOptions } from '@boite/ui/lib/fake-client/context';
 
-/** A Douane as the subscription proxy and threads at work for the HUD, on `?hud=1`. */
-export type BotsFakeOptions = FakeClientOptions & { hudDemo?: boolean };
+/**
+ * A Douane as the subscription proxy and threads at work for the HUD, on
+ * `?hud=1`; with `sessionsDemo`, those threads also stream their steps and one
+ * of them finishes, for Home's live sessions; with `assistantDemo`, the island
+ * assistant's conversation, quotas and day.
+ */
+export type BotsFakeOptions = FakeClientOptions & { hudDemo?: boolean; sessionsDemo?: boolean; assistantDemo?: boolean };
 
 /**
  * What the core's chunk frames would have told `onProgress` about `result`:
@@ -101,6 +108,8 @@ export class FakeClient implements ObservableClient {
     if (options.delegationDemo) seedDelegationDemo(ctx);
     if (options.stewardDemo) seedStewardDemo(ctx);
     if (options.hudDemo ?? (typeof location !== 'undefined' && new URLSearchParams(location.search).get('hud') === '1')) seedHudDemo(ctx);
+    if (options.assistantDemo) seedAssistantDemo(ctx, this.#methods);
+    if (options.sessionsDemo) seedSessionsDemo(ctx);
     if (options.uninstalled) {
       ctx.providers = ctx.providers.filter(provider => provider.id !== 'echo').map(provider => ({
         ...provider, available: false, executable: null,

@@ -17,7 +17,132 @@ export const strings = {
     revealUnsupported: 'This version of Boite cannot show it. Update Boite, then try again.',
     settingsTitle: 'Bots settings',
     tray: { tooltip: 'Bots', settings: 'Settings', quit: 'Quit' },
-    demo: 'Demo mode: a fake Boite, nothing is sent.'
+    demo: 'Demo mode: a fake Boite, nothing is sent.',
+    /** What the demo asks the lead robot first, for a chat exchange to show. */
+    demoQuestion: 'What are my agents working on?'
+  },
+
+  /** The island hanging from the top of the screen (`components/island/`). */
+  island: {
+    label: 'Bots',
+    tabs: { home: 'Home', chat: 'Chat', drop: 'Drop' },
+    settings: 'Settings',
+    mute: 'Mute the sounds',
+    unmute: 'Turn the sounds on',
+    pin: 'Keep the island open',
+    unpin: 'Let the island close',
+    quiet: 'All quiet',
+    busyOne: '{count} agent at work',
+    busyMany: '{count} agents at work',
+    waitingOne: 'An agent needs you',
+    waitingMany: '{count} requests wait for you',
+    finished: 'Done',
+    talking: '{name} is answering…',
+    robot: '{name}. Click to poke it, drag it out to set it loose on the desktop.',
+    home: {
+      busy: 'At work',
+      none: 'No agent at work right now.',
+      reminders: 'Reminders and news',
+      focus: 'Focus'
+    },
+    chat: {
+      empty: 'Ask your bots anything: they answer here.',
+      to: 'Talk to',
+      history: 'Earlier answers',
+      hideHistory: 'Hide earlier answers'
+    },
+    drop: {
+      title: 'Drop files here',
+      hint: 'They go with your next question, along with a capture if you take one.',
+      capture: 'Capture the screen',
+      zone: 'Capture a zone',
+      captured: 'Screen captured',
+      removeShot: 'Remove the capture',
+      ask: 'Ask about them'
+    },
+    attention: { title: 'Your agents need you' },
+    dock: 'Back to the island',
+    /** The Chat tab's assistant, its quotas pill and the Home's Today card (`components/island/assistant/`). */
+    assistant: {
+      empty: 'Say hello to {name}. The conversation is the one Boite’s Agents page shows.',
+      noAgent: 'No agent to talk to yet. Make one in Settings, or in Boite’s Agents page.',
+      makeAgent: 'Open Settings',
+      agents: 'Talk to',
+      choose: 'Talk to {name}. Choose another agent.',
+      openAgent: 'Show {name} in Boite',
+      placeholder: 'Message {name}',
+      send: 'Send',
+      stop: 'Stop',
+      working: '{name} is working',
+      older: 'Earlier messages',
+      removeFile: 'Remove {name}',
+      copy: 'Copy the code',
+      copied: 'Copied',
+      failed: 'The answer stopped: {reason}',
+      unreadable: 'The conversation could not be read: {reason}',
+      notSent: 'The message did not go: {reason}',
+      notKept: 'The files could not be passed on outside the app.',
+      notStopped: 'The answer could not be stopped: {reason}',
+      notChanged: 'The model could not be changed: {reason}',
+      picker: 'Model and effort',
+      model: 'Model',
+      effort: 'Effort',
+      efforts: { low: 'Low', medium: 'Medium', high: 'High' },
+      defaultModel: 'Default model',
+      defaultEffort: 'Default effort',
+      everywhere: 'This applies to {name} everywhere, in Boite too.',
+      noModels: 'The agent lists no models yet.',
+      quotas: {
+        label: 'Quotas: {percent}% left on {name}, {window}. Show every account.',
+        title: 'Quotas',
+        left: '{percent}% left',
+        resets: 'resets in {time}',
+        units: { min: '{value} min', h: '{value} h', d: '{value} d' },
+        tokens: '{count} tokens used by your threads',
+        proxy: 'Subscription proxy'
+      },
+      recap: {
+        title: 'Today',
+        finishedOne: '1 thread finished',
+        finishedMany: '{count} threads finished',
+        filesOne: '1 file changed',
+        filesMany: '{count} files changed',
+        hours: '{hours} h {minutes}',
+        minutes: '{minutes} min',
+        instant: 'under a minute',
+        none: 'Nothing finished yet today.',
+        open: 'Show “{title}” in Boite'
+      }
+    },
+    /** Home's live sessions, the request card and the tab bar's count (`lib/island/sessions.ts`). */
+    sessions: {
+      title: 'Sessions',
+      none: 'No session at work right now.',
+      states: { working: 'Working', waiting: 'Waiting for you', done: 'Done a moment ago', failed: 'Failed' },
+      tools: { command: 'Command', edit: 'Edit', write: 'Write', read: 'Read', search: 'Search', fetch: 'Fetch', web: 'Web', agent: 'Agent', other: 'Tool', done: 'Done' },
+      stepStatus: { running: 'Running', done: 'Done', error: 'Failed', denied: 'Denied' },
+      showSteps: 'Show the last steps',
+      hideSteps: 'Hide the steps',
+      noSteps: 'No step yet.',
+      reveal: 'Open in Boite',
+      showDiff: 'Show the change',
+      hideDiff: 'Hide the change',
+      folded: '{count} unchanged lines',
+      lead: '{title}: {step}',
+      waitingCount: '{count} requests wait for you',
+      card: {
+        of: '{index} of {count}',
+        previous: 'Previous request',
+        next: 'Next request',
+        deny: 'Deny',
+        allowOnce: 'Allow once',
+        send: 'Send',
+        skip: 'Skip',
+        answer: 'Your answer…',
+        keyEnter: 'Enter',
+        keyEscape: 'Esc'
+      }
+    }
   },
 
   companion: {
@@ -238,6 +363,15 @@ export const strings = {
       hotkeyHint: 'Calls the companion from any app, ready to type.',
       hotkeyOff: 'None',
       hotkeyTaken: 'Another app already uses {hotkey}. Pick another shortcut.',
+      robots: 'Robots',
+      robotsHint: 'In the island at the top of the screen, or loose on the desktop. You can also drag a robot out of the island, and back to the top edge to return it.',
+      robotsChoice: { island: 'In the island', desktop: 'On the desktop' },
+      openOnHover: 'Open on hover',
+      openOnHoverHint: 'Resting the pointer on the island a moment opens it. Off, only a click does.',
+      mascot: 'Mascot',
+      mascotHint: 'The island’s character, and the first agent’s on the desktop: Boîte, the box, or a Jelly.',
+      mascotReset: 'Use the first agent’s own look',
+      look: 'Look',
       crew: {
         title: 'Agents',
         hint: 'The agents standing on your screen side by side, {count} at most. Click one to talk to it alone: each keeps its own conversation and memory, in Agents. The first one also shows what goes on in Boite.',

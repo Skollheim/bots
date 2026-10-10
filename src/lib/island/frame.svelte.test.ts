@@ -1,0 +1,95 @@
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { FLASH_MS, HOVER_OPEN_MS, IslandFrame, LEAVE_MS, type FrameSource } from './frame.svelte';
+
+function source(over: Partial<{ open: boolean; hover: boolean; waiting: boolean; talking: boolean }> = {}) {
+  const state = $state({ open: false, hover: true, waiting: false, talking: false, ...over });
+  const link: FrameSource = {
+    isOpen: () => state.open,
+    setOpen: (open) => (state.open = open),
+    openOnHover: () => state.hover,
+    waiting: () => state.waiting,
+    talking: () => state.talking
+  };
+  return { state, frame: new IslandFrame(link) };
+}
+
+beforeEach(() => vi.useFakeTimers());
+afterEach(() => vi.useRealTimers());
+
+test('a hover peeks, a longer one opens, and the island collapses a moment after the pointer leaves', () => {
+  const { state, frame } = source();
+  expect(frame.size).toBe('collapsed');
+  frame.hover(true);
+  expect(frame.size).toBe('peek');
+  vi.advanceTimersByTime(HOVER_OPEN_MS);
+  expect(state.open).toBe(true);
+  frame.hover(false);
+  vi.advanceTimersByTime(LEAVE_MS - 1);
+  expect(state.open).toBe(true);
+  vi.advanceTimersByTime(1);
+  expect(state.open).toBe(false);
+});
+
+test('without open on hover, only a click opens', () => {
+  const { state, frame } = source({ hover: false });
+  frame.hover(true);
+  vi.advanceTimersByTime(HOVER_OPEN_MS * 3);
+  expect(state.open).toBe(false);
+  frame.click();
+  expect(state.open).toBe(true);
+});
+
+test('a pin, a waiting agent or a view holding it keeps the island open', () => {
+  const { state, frame } = source({ open: true });
+  frame.hover(true);
+  frame.hold('chat', true);
+  frame.hover(false);
+  vi.advanceTimersByTime(LEAVE_MS * 2);
+  expect(state.open).toBe(true);
+  frame.hold('chat', false);
+  vi.advanceTimersByTime(LEAVE_MS);
+  expect(state.open).toBe(false);
+
+  state.open = true;
+  state.waiting = true;
+  frame.settle();
+  vi.advanceTimersByTime(LEAVE_MS * 2);
+  expect(state.open).toBe(true);
+  expect(frame.glow).toBe('attention');
+
+  state.waiting = false;
+  frame.togglePin();
+  frame.settle();
+  vi.advanceTimersByTime(LEAVE_MS * 2);
+  expect(state.open).toBe(true);
+  frame.togglePin();
+  vi.advanceTimersByTime(LEAVE_MS);
+  expect(state.open).toBe(false);
+});
+
+test('a view calling for attention opens the island amber until it lets go', () => {
+  const { state, frame } = source({ hover: false });
+  const release = frame.call('timer');
+  expect(state.open).toBe(true);
+  expect(frame.glow).toBe('attention');
+  release();
+  expect(frame.glow).toBe('none');
+  vi.advanceTimersByTime(LEAVE_MS);
+  expect(state.open).toBe(false);
+});
+
+test('a finished turn peeks green for a few seconds; a reply on its way glows blue', () => {
+  const { state, frame } = source();
+  frame.flash();
+  expect([frame.size, frame.glow]).toEqual(['peek', 'done']);
+  vi.advanceTimersByTime(FLASH_MS);
+  expect([frame.size, frame.glow]).toEqual(['collapsed', 'none']);
+  state.talking = true;
+  expect(frame.glow).toBe('talking');
+});
+
+test('the shortcut opens on a tab', () => {
+  const { state, frame } = source();
+  frame.show('chat');
+  expect([state.open, frame.tab]).toEqual([true, 'chat']);
+});

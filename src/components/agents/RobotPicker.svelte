@@ -2,7 +2,7 @@
   import { secureId } from '@boite/ui/lib/secure-id';
   import { Dices } from '@lucide/svelte';
   import { boxEye, boxLid, boxLine } from '../../lib/companion/skin';
-  import { choices, robotColor, ROBOT_FAMILIES, seededRobot, withPart, type Robot, type RobotPart } from '../../lib/robots';
+  import { choices, robotColor, ROBOT_FAMILIES, seededRobot, withPart, type Robot, type RobotFamily, type RobotPart } from '../../lib/robots';
   import { fill, strings } from '../../lib/strings';
   import RobotFace from './RobotFace.svelte';
 
@@ -10,9 +10,10 @@
    * Picks a robot the way one dresses a character: the robot as it stands,
    * Shuffle for a new one, and one row per part where every choice is drawn
    * on the robot itself, so nothing has to be read. A box's lid, body and
-   * eyes are colours, so those rows are swatches.
+   * eyes are colours, so those rows are swatches. `families` narrows the styles
+   * offered: the island's mascot is a box or a jelly.
    */
-  let { robot, onpick, compact = false }: { robot: Robot; onpick: (robot: Robot) => void; compact?: boolean } = $props();
+  let { robot, onpick, compact = false, families = ROBOT_FAMILIES }: { robot: Robot; onpick: (robot: Robot) => void; compact?: boolean; families?: readonly RobotFamily[] } = $props();
   const labels = $derived(strings.agents.robot);
   const rows: Exclude<RobotPart, 'family'>[] = ['shape', 'color', 'eyes', 'top'];
   const box = $derived(robot.family === 'box');
@@ -44,7 +45,7 @@
     <div class="part" role="radiogroup" aria-label={labels.family}>
       <span class="part-label">{labels.family}</span>
       <div class="options">
-        {#each ROBOT_FAMILIES as family (family)}
+        {#each families as family (family)}
           {@const option = withPart(robot, 'family', family)}
           <button type="button" class="option family" class:on={robot.family === family} role="radio" aria-checked={robot.family === family} title={labels.families[family]} aria-label={labels.families[family]} onclick={() => onpick(option)}>
             <span class="thumb"><RobotFace robot={option} state="still" /></span><span>{labels.families[family]}</span>

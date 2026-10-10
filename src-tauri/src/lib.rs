@@ -8,6 +8,7 @@
 mod acl;
 mod companion_window;
 mod endpoint;
+mod island;
 mod platform;
 mod tray;
 
@@ -38,6 +39,7 @@ pub fn run() {
         // First: a second launch hands over to this one before anything opens.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| companion_window::summon(app)))
         .manage(companion_window::CompanionState::default())
+        .manage(island::IslandState::default())
         .invoke_handler(tauri::generate_handler![
             endpoint::core_endpoint,
             companion_window::companion_monitors,
@@ -51,6 +53,7 @@ pub fn run() {
             companion_window::companion_cover,
             companion_window::companion_focus,
             companion_window::companion_keep,
+            island::island_place,
             tray::bots_settings,
             tray::bots_tray_labels,
         ])

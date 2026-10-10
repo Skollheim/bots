@@ -9,8 +9,10 @@
    * that color washed out, the trim that color darkened. `state` moves the
    * face: a blink at rest, a glance from side to side while it works, a hop
    * while it waits on the user. `still` draws it without motion, for pickers.
+   * `gaze` turns a jelly's eyes toward a point (each axis -1 to 1), and `bare`
+   * leaves out the disc behind it, for the companion standing on its own.
    */
-  let { robot, state = 'idle' }: { robot: Robot; state?: 'idle' | 'working' | 'waiting' | 'still' } = $props();
+  let { robot, state = 'idle', gaze = null, bare = false }: { robot: Robot; state?: 'idle' | 'working' | 'waiting' | 'still'; gaze?: { x: number; y: number } | null; bare?: boolean } = $props();
 
   const INK = 'var(--robot-ink)';
   const tilt = $derived(robot.family === 'capsule' ? 'rotate(-11 32 36) translate(3 6)' : undefined);
@@ -59,7 +61,7 @@
 </script>
 
 <svg viewBox="0 0 64 64" class="robot" data-family={robot.family} data-state={state} style:--rb={robotColor(robot)} aria-hidden="true">
-  <rect class={robot.family === 'capsule' ? 'base' : 'soft'} width="64" height="64" />
+  {#if !bare}<rect class={robot.family === 'capsule' ? 'base' : 'soft'} width="64" height="64" />{/if}
   <g class="whole">
     <g transform={tilt}>
       {#if robot.family === 'jelly'}
@@ -86,7 +88,7 @@
         <path d={jellyBody[robot.shape] ?? jellyBody[0]} class="base" />
         <ellipse cx={jelly.shine[0]} cy={jelly.shine[1]} rx="6" ry="3.5" class="gloss" transform="rotate(-25 {jelly.shine[0]} {jelly.shine[1]})" />
         <ellipse class="blush" cx="15" cy={ey + 9} rx="3.6" ry="2.2" /><ellipse class="blush" cx="49" cy={ey + 9} rx="3.6" ry="2.2" />
-        <g class="eyes">
+        <g transform={gaze ? `translate(${(gaze.x * 2.4).toFixed(2)} ${(gaze.y * 1.8).toFixed(2)})` : undefined}><g class="eyes">
           {#if robot.eyes === 0 || robot.eyes === 1}
             <ellipse cx="26" cy={ey} rx="4.2" ry="6.2" fill={INK} /><ellipse cx="38" cy={ey} rx="4.2" ry="6.2" fill={INK} />
             {#if robot.eyes === 0}<ellipse cx="27.4" cy={ey - 2.6} rx="1.5" ry="2" class="white" /><ellipse cx="39.4" cy={ey - 2.6} rx="1.5" ry="2" class="white" />
@@ -106,7 +108,7 @@
             <ellipse cx="26" cy={ey} rx="4.2" ry="6.2" fill={INK} /><ellipse cx="27.4" cy={ey - 2.6} rx="1.5" ry="2" class="white" />
             <path d="M33 {ey + 1} q5 -6 10 0" fill="none" class="stroke-ink" stroke-width="2.8" stroke-linecap="round" />
           {/if}
-        </g>
+        </g></g>
         {#if robot.eyes === 0}<path d="M22 {ey + 9} Q32 {ey + 19} 42 {ey + 9}" fill="none" class="stroke-ink" stroke-width="2.4" stroke-linecap="round" />
         {:else if robot.eyes === 1 || robot.eyes === 4}<path d="M28 {ey + 11} q4 3 8 0" fill="none" class="stroke-ink" stroke-width="2.2" stroke-linecap="round" />
         {:else if robot.eyes === 2}<ellipse cx="32" cy={ey + 13} rx="3.4" ry="4" fill={INK} />

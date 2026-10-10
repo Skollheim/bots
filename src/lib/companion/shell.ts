@@ -18,8 +18,11 @@ export interface HitRect { x: number; y: number; w: number; h: number }
 /** The side the character is aligned on and the edge it sits on; the rest opens away from it. */
 export interface CompanionLayout { align: 'left' | 'center' | 'right'; edge: 'top' | 'bottom' }
 
-/** Where a drag left the character. */
-export interface CompanionDrop { monitor: string; spot: CompanionSpot }
+/** Where a drag left the character, and whether that was against the top edge, back into the island. */
+export interface CompanionDrop { monitor: string; spot: CompanionSpot; docked: boolean }
+
+/** The screen the island went to, and its scale. */
+export interface IslandPlaced { monitor: string; scale: number }
 
 export const inShell = (): boolean => window.__TAURI_INTERNALS__ !== undefined;
 
@@ -48,14 +51,23 @@ export async function placeCompanion(monitor: string | null, anchor: CompanionAn
   return placed ?? layoutOf(anchor, spot);
 }
 
+/** The island: the window hanging from the top centre of `monitor`, `width` × `height` CSS pixels (`island.rs`). */
+export async function placeIsland(monitor: string | null, width: number, height: number): Promise<IslandPlaced | null> {
+  return (await invoke<IslandPlaced | null>('island_place', { monitor, width: Math.ceil(width), height: Math.ceil(height) })) ?? null;
+}
+
 /** Hiding for a full-screen app, and the shortcut; rejects when the shortcut is taken. */
 export async function configureCompanion(hideFullscreen: boolean, hotkey: string | null): Promise<void> {
   await invoke('companion_configure', { hideFullscreen, hotkey });
 }
 
-/** Carries the window while the button stays down; null when it did not move. */
-export async function dragCompanion(): Promise<CompanionDrop | null> {
-  return (await invoke<CompanionDrop | null>('companion_drag')) ?? null;
+/**
+ * Carries the window while the button stays down; null when it did not move.
+ * `detach` pulls the robot out of the island: the window first takes the
+ * desktop size, the character under the pointer.
+ */
+export async function dragCompanion(detach = false): Promise<CompanionDrop | null> {
+  return (await invoke<CompanionDrop | null>('companion_drag', { detach })) ?? null;
 }
 
 /**

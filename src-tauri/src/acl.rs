@@ -4,9 +4,9 @@
 mod tests {
     use tauri::ipc::Origin;
 
-    const COMPANION: [&str; 16] = ["core_endpoint", "companion_monitors", "companion_place", "companion_hit_rects", "companion_media",
+    const COMPANION: [&str; 17] = ["core_endpoint", "companion_monitors", "companion_place", "companion_hit_rects", "companion_media",
         "companion_media_control", "companion_configure", "companion_drag", "companion_capture", "companion_cover", "companion_focus",
-        "companion_keep", "bots_settings", "bots_tray_labels", "plugin:event|listen", "plugin:event|unlisten"];
+        "companion_keep", "island_place", "bots_settings", "bots_tray_labels", "plugin:event|listen", "plugin:event|unlisten"];
 
     fn handlers() -> Vec<&'static str> {
         let list = include_str!("lib.rs").split("tauri::generate_handler![").nth(1).unwrap().split("])").next().unwrap();
@@ -36,7 +36,7 @@ mod tests {
         for command in ["core_endpoint", "companion_monitors", "plugin:event|listen", "plugin:event|unlisten"] {
             assert!(authority.resolve_access(command, "settings", "settings", &Origin::Local).is_some(), "settings cannot invoke {command}");
         }
-        for command in ["companion_place", "companion_capture", "companion_keep", "companion_configure", "bots_tray_labels", "bots_settings"] {
+        for command in ["companion_place", "island_place", "companion_capture", "companion_keep", "companion_configure", "bots_tray_labels", "bots_settings"] {
             assert!(authority.resolve_access(command, "settings", "settings", &Origin::Local).is_none(), "settings can invoke {command}");
         }
     }
