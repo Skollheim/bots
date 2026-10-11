@@ -110,7 +110,9 @@ export const fr: Messages = {
     },
     sessions: {
       title: 'Sessions',
-      none: 'Aucune session au travail pour l’instant.',
+      none: 'Rien en cours',
+      noneHint: 'Vos agents se reposent. Un fil qui démarre s’affiche ici.',
+      duration: { seconds: '{n} s', minutes: '{n} min', hours: '{h} h {mm}', hoursOnly: '{h} h' },
       states: { working: 'Au travail', waiting: 'Vous attend', done: 'Terminé à l’instant', failed: 'En échec' },
       tools: { command: 'Commande', edit: 'Modifie', write: 'Écrit', read: 'Lit', search: 'Cherche', fetch: 'Télécharge', web: 'Web', agent: 'Agent', other: 'Outil', done: 'Terminé' },
       stepStatus: { running: 'En cours', done: 'Fait', error: 'En échec', denied: 'Refusé' },

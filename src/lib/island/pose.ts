@@ -16,7 +16,9 @@
  * - `timer=1`: a pomodoro running, in its drop on the left;
  * - `memory=thread|budget|machine|stopped`: the memory warning, or what the
  *   guard stopped;
- * - `update=nightly|stable`: a newer Boite in Home.
+ * - `update=nightly|stable`: a newer Boite in Home;
+ * - `sessions=none`: Home's sessions shown empty, the robot napping (pair it
+ *   with `calm=1`).
  *
  * A wallpaper goes under the transparent window, so the black island shows.
  */
@@ -94,6 +96,7 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     const version = update === 'nightly' ? '2.0.0-nightly.20261011.1' : '2.0.0';
     posed.release = { version, track: update, url: '', publishedAt: null };
   }
+  if (params.get('sessions') === 'none') posed.idle = true;
   const pose = params.get('pose');
   const tab = params.get('tab') as IslandTab | null;
   if (pose === 'peek') {

@@ -10,9 +10,12 @@
   --island-line: rgb(255 255 255 / 0.06);
   --island-line-strong: rgb(255 255 255 / 0.12);
   --island-text: #f2f2f5;
-  --island-muted: rgb(242 242 245 / 0.56);
-  --island-faint: rgb(242 242 245 / 0.32);
+  /* The secondary greys: muted text reads at 7:1 on black, faint marks stay a step under it. */
+  --island-muted: rgb(242 242 245 / 0.64);
+  --island-faint: rgb(242 242 245 / 0.42);
   --island-pill: rgb(255 255 255 / 0.09);
+  /* The light catching a card's top edge, which lifts it off the black. */
+  --island-card-edge: inset 0 1px 0 rgb(255 255 255 / 0.06);
   --island-radius: 22px;
   --island-font: system-ui, -apple-system, 'Segoe UI Variable Text', 'Segoe UI', Roboto, sans-serif;
   /* The glows, in Bots's hues: amber waits on the user, green is done, blue-violet talks. */
@@ -72,6 +75,7 @@
   border: 1px solid var(--island-line);
   border-radius: 14px;
   background: var(--island-card);
+  box-shadow: var(--island-card-edge);
 }
 .island-heading {
   margin: 0 0 6px;
@@ -79,9 +83,66 @@
   font-size: 12px;
   font-weight: 500;
 }
-/* Boite's cards inside the island's views lose their own frame and shadow. */
+/* Boite's cards inside the island's views lose their own shadow and keep the island's top light. */
 .island-tokens :is(.card, .panel) {
-  box-shadow: none;
+  box-shadow: var(--island-card-edge);
+}
+
+/*
+ * The open island's view as it scrolls: its edges fade into the black only
+ * where more is hidden, at the top once scrolled down, at the bottom until the
+ * end. Two black gradients stuck to the edges, whose opacity follows the
+ * scroll (a scroll-driven animation: no listener, nothing runs at rest; with
+ * nothing to scroll the timeline is inactive and they stay hidden).
+ * `--island-fade-gap` matches the view's own gap, which their negative
+ * margins give back so they take no room.
+ */
+@supports (animation-timeline: scroll()) {
+  .island-fade {
+    --island-fade: 22px;
+    --island-fade-gap: 8px;
+  }
+  .island-fade::before,
+  .island-fade::after {
+    content: '';
+    position: sticky;
+    z-index: 2;
+    flex: none;
+    height: var(--island-fade);
+    pointer-events: none;
+    opacity: 0;
+    animation: island-fade-in linear both;
+    animation-timeline: scroll(nearest block);
+  }
+  .island-fade::before {
+    top: 0;
+    margin-bottom: calc(-1 * (var(--island-fade) + var(--island-fade-gap)));
+    background: linear-gradient(var(--island-bg), transparent);
+    animation-range: 0 var(--island-fade);
+  }
+  .island-fade::after {
+    bottom: 0;
+    margin-top: calc(-1 * (var(--island-fade) + var(--island-fade-gap)));
+    background: linear-gradient(transparent, var(--island-bg));
+    animation-name: island-fade-out;
+    animation-range: calc(100% - var(--island-fade)) 100%;
+  }
+}
+@keyframes island-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes island-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 /* Sessions: Home's live sessions and the request card. The diff's added and removed lines, its type, the key hints. */
