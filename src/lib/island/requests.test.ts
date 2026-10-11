@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import type { PermissionRequest, QuestionRequest } from '@boite/contracts';
-import { keyAction, placeIn, requestQueue, step } from './requests';
+import { arrivals, keyAction, placeIn, requestQueue, step } from './requests';
 
 const permission = (id: string, createdAt: number): PermissionRequest => ({ id, threadId: 't', turnId: 'u', toolName: 'Bash', input: { command: 'ls' }, description: null, createdAt });
 const question = (id: string, createdAt: number, extra: Partial<QuestionRequest> = {}): QuestionRequest => ({
@@ -63,4 +63,13 @@ test('keys typed in a field or with a modifier are left alone', () => {
   expect(keyAction(pending!, press('Enter', { typing: true }))).toBeNull();
   expect(keyAction(pending!, press('Escape', { modified: true }))).toBeNull();
   expect(keyAction(null, press('Enter'))).toBeNull();
+});
+
+test('a new request calls and opens the panel; on the island a new permission only calls, a new question opens it', () => {
+  const seen = new Set(['old']);
+  expect(arrivals([permission('p', 1)], [], seen, false)).toEqual({ blocking: new Set(['p']), call: true, open: true });
+  expect(arrivals([permission('p', 1)], [], seen, true)).toMatchObject({ call: true, open: false });
+  expect(arrivals([permission('old', 1)], [question('q', 2)], seen, true)).toMatchObject({ call: true, open: true });
+  expect(arrivals([permission('old', 1)], [question('later', 2, { async: true })], seen, false)).toMatchObject({ blocking: new Set(['old']), call: false, open: false });
+  expect(arrivals([permission('p', 1)], [question('q', 2)], null, false)).toMatchObject({ call: false, open: false });
 });

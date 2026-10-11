@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { blurAway, bloom, DRIP, dripAt, dripBody, dripGoo, GOO_FILTER, GOO_REACH } from './motion';
+import { blurAway, bloom, DRIP, dripAt, dripBody, dripGoo, GOO_FILTER, GOO_REACH, ROLL_MS, rollIn, rollOut } from './motion';
 
 const steps = (count: number) => Array.from({ length: count + 1 }, (_, index) => index / count);
 
@@ -68,4 +68,26 @@ test('content blooms in to sharp, and blurs away fast', () => {
   const away = blurAway(node(0), { reduced: false });
   expect(away.duration).toBeLessThan(into.duration!);
   expect(bloom(node(0), { reduced: true }).css!(0.5, 0.5)).toBe('opacity: 0.5');
+});
+
+test('a changed line rolls in from below and the old one up and out, transform and opacity only', () => {
+  const line = (siblings: boolean) => ({ previousElementSibling: siblings ? {} : null, nextElementSibling: null }) as unknown as Element;
+  const coming = rollIn(line(true), { reduced: false });
+  const going = rollOut(line(true), { reduced: false });
+  expect(coming.duration).toBe(ROLL_MS);
+  expect(coming.css!(0, 1)).toBe('opacity: 0; transform: translateY(100%)');
+  expect(coming.css!(1, 0)).toBe('opacity: 1; transform: translateY(0%)');
+  expect(going.css!(0, 1)).toBe('opacity: 0; transform: translateY(-100%)');
+  // The springy ease clicks a little past the mark before it settles.
+  const eased = Array.from({ length: 21 }, (_, index) => coming.easing!(index / 20));
+  expect(Math.max(...eased)).toBeGreaterThan(1);
+  expect(eased.at(-1)).toBeCloseTo(1, 6);
+});
+
+test('the first line does not roll, and reduced motion crossfades', () => {
+  const alone = { previousElementSibling: null, nextElementSibling: null } as unknown as Element;
+  expect(rollIn(alone, { reduced: false }).duration).toBe(0);
+  const beside = { previousElementSibling: {}, nextElementSibling: null } as unknown as Element;
+  expect(rollIn(beside, { reduced: true }).css!(0.5, 0.5)).toBe('opacity: 0.5');
+  expect(rollOut(beside, { reduced: true }).css!(0.5, 0.5)).toBe('opacity: 0.5');
 });

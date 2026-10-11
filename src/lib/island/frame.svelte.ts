@@ -7,13 +7,15 @@
  * - The pointer gone, it collapses `LEAVE_MS` later unless something holds it:
  *   a pin, an agent waiting on the user, or a view (`hold`, the chat field
  *   with the keyboard).
- * - `flash()` peeks green a few seconds: a turn finished.
+ * - `flash()` peeks green a few seconds: a turn finished; red when it failed.
+ * - `hush(key, on)`: while something in the pill is being read (a request to
+ *   answer, a dot's name), a hover peeks but does not open.
  */
 
 export type IslandSize = 'collapsed' | 'peek' | 'open';
 export type IslandTab = 'home' | 'chat' | 'drop';
-/** Amber: the user is waited on. Green: done. Blue-violet: the assistant talks. */
-export type IslandGlow = 'none' | 'attention' | 'done' | 'talking';
+/** Amber: the user is waited on. Green: done; red: failed. Blue-violet: the assistant talks. */
+export type IslandGlow = 'none' | 'attention' | 'done' | 'failed' | 'talking';
 
 export const ISLAND_TABS: readonly IslandTab[] = ['home', 'chat', 'drop'];
 /** How long after the pointer leaves the island collapses. */
@@ -43,17 +45,23 @@ export class IslandFrame {
   hovering = $state(false);
   /** The green peek of a finished turn. */
   flashing = $state(false);
+  /** The peek tells of a failure: it glows red rather than green. */
+  flashFailed = $state(false);
   /** The open island wants more height (a diff open in Home): its window grows for it, within the work area. */
   tall = $state(false);
   /** What the views hold the island open for, and the attention they asked for, by key. */
   private holds = $state<Record<string, true>>({});
   private calls = $state<Record<string, true>>({});
+  /** What the pill shows to be read, by key: a hover does not open the island over it. */
+  private readonly hushes = new Set<string>();
+  /** Something in the pill is being read (`hush`). */
+  hushed = $state(false);
 
   /** Something keeps the island open while the pointer is away. */
   readonly held = $derived.by(() => this.pinned || this.source.waiting() || Object.keys(this.holds).length > 0 || Object.keys(this.calls).length > 0);
   readonly attention = $derived.by(() => this.source.waiting() || Object.keys(this.calls).length > 0);
   readonly size = $derived.by<IslandSize>(() => (this.source.isOpen() ? 'open' : this.hovering || this.flashing ? 'peek' : 'collapsed'));
-  readonly glow = $derived.by<IslandGlow>(() => (this.attention ? 'attention' : this.flashing ? 'done' : this.source.talking() ? 'talking' : 'none'));
+  readonly glow = $derived.by<IslandGlow>(() => (this.attention ? 'attention' : this.flashing ? (this.flashFailed ? 'failed' : 'done') : this.source.talking() ? 'talking' : 'none'));
 
   private openTimer: ReturnType<typeof setTimeout> | undefined;
   private leaveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -67,11 +75,28 @@ export class IslandFrame {
     this.hovering = over;
     clearTimeout(this.openTimer);
     clearTimeout(this.leaveTimer);
-    if (over) {
-      if (this.source.openOnHover() && !this.source.isOpen()) this.openTimer = setTimeout(() => this.source.setOpen(true), HOVER_OPEN_MS);
-      return;
-    }
+    if (over) return this.armOpen();
     this.settle();
+  }
+
+  /** A hover opens the island `HOVER_OPEN_MS` later, when it may and nothing in the pill is being read. */
+  private armOpen(): void {
+    clearTimeout(this.openTimer);
+    if (!this.hovering || this.hushes.size > 0 || !this.source.openOnHover() || this.source.isOpen()) return;
+    this.openTimer = setTimeout(() => this.source.setOpen(true), HOVER_OPEN_MS);
+  }
+
+  /** Something in the pill is being read: a hover does not open the island meanwhile, and counts again from zero after. */
+  hush(key: string, on: boolean): void {
+    if (on === this.hushes.has(key)) return;
+    if (on) {
+      this.hushes.add(key);
+      clearTimeout(this.openTimer);
+    } else {
+      this.hushes.delete(key);
+      this.armOpen();
+    }
+    this.hushed = this.hushes.size > 0;
   }
 
   /** A click on the collapsed island opens it; on the open one's robot, it is a poke and changes nothing here. */
@@ -124,9 +149,10 @@ export class IslandFrame {
     };
   }
 
-  /** A turn finished: the island peeks green a few seconds. */
-  flash(): void {
+  /** A turn finished: the island peeks green a few seconds, red for a failure. A plain flash keeps the red of one under way. */
+  flash(failed = this.flashing && this.flashFailed): void {
     this.flashing = true;
+    this.flashFailed = failed;
     clearTimeout(this.flashTimer);
     this.flashTimer = setTimeout(() => (this.flashing = false), FLASH_MS);
   }

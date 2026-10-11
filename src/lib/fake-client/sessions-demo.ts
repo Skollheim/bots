@@ -100,9 +100,11 @@ export function seedSessionsDemo(ctx: FakeContext): void {
     progress: { turnId, phase: 'tool', detail: 'Edit', at: now - 4_000, providerAt: now - 4_000 }
   };
   const readmePath = 'C:\\src\\boite\\README.md';
+  const README_BEFORE = '## Install\n\nRun the script.';
+  const README_AFTER = '## Install\n\nRun `bun install`, then `bun run dev`.';
   const readmeSteps = working(readme, 'm-readme-1', [
     tool('rd-1', 'Read', { file_path: readmePath }, 'done', started + 5_000),
-    tool('rd-2', 'Edit', { file_path: readmePath, old_string: '## Install\n\nRun the script.', new_string: '## Install\n\nRun `bun install`, then `bun run dev`.' }, 'running', now - 4_000)
+    tool('rd-2', 'Edit', { file_path: readmePath, old_string: README_BEFORE, new_string: README_AFTER }, 'running', now - 4_000)
   ], started + 1_000);
   ctx.threads.set(readme.id, readme);
   ctx.scheduler.running.push({ turnId, threadId: readme.id, startedAt: started });
@@ -110,7 +112,8 @@ export function seedSessionsDemo(ctx: FakeContext): void {
   whenFollowed(ctx, ENDING, () => {
     setTimeout(() => {
       const edit = readmeSteps.parts[1];
-      if (edit?.type === 'tool') stream(ctx, readme, readmeSteps, { ...edit, status: 'done', finishedAt: Date.now() });
+      const documents = [{ kind: 'diff' as const, path: readmePath, oldText: README_BEFORE, newText: README_AFTER }];
+      if (edit?.type === 'tool') stream(ctx, readme, readmeSteps, { ...edit, status: 'done', finishedAt: Date.now(), documents });
       const turn = readme.turns[0];
       if (!turn) return;
       turn.status = 'done';

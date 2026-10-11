@@ -18,6 +18,27 @@ export function requestQueue(permissions: readonly PermissionRequest[], question
   ];
 }
 
+export interface Arrivals {
+  /** The ids of the requests an agent stopped for. */
+  blocking: Set<string>;
+  /** One of them is new: the robots call. */
+  call: boolean;
+  /** One that opens the panel is new. */
+  open: boolean;
+}
+
+/**
+ * What new requests do. Any new one calls; it opens the panel, except on the
+ * island, where a permission is answered from the pill (`IslandBar.svelte`):
+ * there only a new question opens it. The first look (`seen` null) is no news.
+ */
+export function arrivals(permissions: readonly PermissionRequest[], questions: readonly QuestionRequest[], seen: ReadonlySet<string> | null, island: boolean): Arrivals {
+  const asked = questions.filter((question) => !question.async).map((question) => question.id);
+  const blocking = new Set([...permissions.map((request) => request.id), ...asked]);
+  const fresh = (id: string) => seen !== null && !seen.has(id);
+  return { blocking, call: [...blocking].some(fresh), open: (island ? asked : [...blocking]).some(fresh) };
+}
+
 /**
  * Where the card stands once the queue changed: on the same request when it
  * is still there, else at the same place, the last one if the end left.

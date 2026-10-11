@@ -45,6 +45,7 @@ import { Tasks } from './tasks.svelte';
 import { digestFor, Finder, Radar, replyInThread, ThreadReader } from './watch.svelte';
 import { fold, type WatchInput } from './watch';
 import { Assistant } from '../island/assistant.svelte';
+import { arrivals } from '../island/requests';
 
 const CELEBRATE_MS = 6000;
 const REFRESH_EVERY = 15_000;
@@ -373,15 +374,18 @@ export class Companion {
     this.radar.update();
   }
 
-  /** Opens the panel when an agent stops on something new; closes it once nothing waits. */
+  /**
+   * Opens the panel when an agent stops on something new; closes it once nothing waits. On the island a new
+   * permission only calls: the pill shows it with its answers (`IslandBar.svelte`); a question still opens it.
+   */
   private followRequests(): void {
-    const blocking = new Set([...this.permissions.map((request) => request.id), ...this.questions.filter((question) => !question.async).map((question) => question.id)]);
-    if (this.seen !== null && [...blocking].some((id) => !this.seen!.has(id))) {
+    const { blocking, call, open } = arrivals(this.permissions, this.questions, this.seen, this.prefs.robots === 'island');
+    if (open) {
       if (!this.open) this.autoOpened = true;
       this.open = true;
       this.history = false;
-      this.cue('call');
     }
+    if (call) this.cue('call');
     if (blocking.size === 0 && this.autoOpened && this.draft === '') {
       this.open = false;
       this.autoOpened = false;
