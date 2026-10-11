@@ -2,8 +2,9 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { RpcErrorCode } from '@boite/contracts';
 import { RpcFailure, type Client } from '@boite/ui/lib/client';
 import { reveal, revealProblem, useReveal } from './reveal';
+import { GroupClient } from './group/group-client';
 import { showAgent, showMain, showUpdates } from './companion/shell';
-import { strings } from './strings';
+import { fill, strings } from './strings';
 
 afterEach(() => useReveal(null, null));
 
@@ -53,4 +54,17 @@ test('without a client yet, the reveal fails quietly too', async () => {
   useReveal(null, failed);
   expect(await reveal({ kind: 'agent', agentId: 'a' })).not.toBeNull();
   expect(failed).toHaveBeenCalledTimes(1);
+});
+
+test("a thread of another machine is not revealed here: the notice names where it runs", async () => {
+  const call = vi.fn(async () => ({ delivered: 1 }));
+  const failed = vi.fn();
+  const group = Object.assign(Object.create(GroupClient.prototype) as GroupClient, { call, machineOf: (threadId: string) => (threadId === 't-srv' ? 'Serveur' : null) });
+  useReveal(group, failed);
+  const told = await reveal({ kind: 'thread', threadId: 't-srv' });
+  expect(told).toBe(fill(strings.bots.revealElsewhere, { machine: 'Serveur' }));
+  expect(failed).toHaveBeenCalledWith(told);
+  expect(call).not.toHaveBeenCalled();
+  await showMain('t-1');
+  expect(call).toHaveBeenCalledWith('ui.reveal', { target: { kind: 'thread', threadId: 't-1' } });
 });

@@ -7,6 +7,7 @@
  */
 import type { PermissionRequest, ThreadSummary } from '@boite/contracts';
 import { WsClient, type Client } from '@boite/ui/lib/client';
+import { GroupClient } from '../group/group-client';
 import { addRule, findRule, pruneRules, readRules, ruleTarget, ruleText, RULES_KEY, writeRules, type AllowRule, type RuleScope } from './allow-rules';
 
 /** How long the pill's trace of an answer stays. */
@@ -49,7 +50,27 @@ export function subscribeRules(listener: (rules: AllowRule[]) => void): () => vo
 
 /** Which core a rule belongs to: the demo's rules never answer a real core. */
 export function coreTag(client: Client | null): string {
-  return client instanceof WsClient ? `local:${client.core?.hostname ?? ''}` : 'demo';
+  const local = client instanceof GroupClient ? client.local : client;
+  return local instanceof WsClient ? `local:${local.core?.hostname ?? ''}` : 'demo';
+}
+
+/**
+ * The core a thread's rule belongs to: this machine's tag, or the machine of
+ * the group the thread runs on, by its id (`group:<coreId>`, `demo:group:…`
+ * in the demo). A rule made for the server never answers this machine.
+ */
+export function threadTag(client: Client | null, threadId: string): string {
+  const coreId = client instanceof GroupClient ? client.coreIdOf(threadId) : null;
+  if (coreId === null) return coreTag(client);
+  return coreTag(client) === 'demo' ? `demo:group:${coreId}` : `group:${coreId}`;
+}
+
+/** The cores whose threads the last list gave whole: only their rules for a gone thread are let go. */
+function listedTags(client: Client): string[] {
+  const local = coreTag(client);
+  if (!(client instanceof GroupClient)) return [local];
+  const prefix = local === 'demo' ? 'demo:group:' : 'group:';
+  return [local, ...client.answered().map((coreId) => `${prefix}${coreId}`)];
 }
 
 export class AllowRules {
@@ -79,14 +100,13 @@ export class AllowRules {
   sift(permissions: PermissionRequest[], threads: readonly ThreadSummary[]): PermissionRequest[] {
     const client = this.options.client();
     if (!client || this.rules.length === 0) return permissions;
-    const core = coreTag(client);
-    const kept = pruneRules(this.rules, core, threads);
+    const kept = listedTags(client).reduce<AllowRule[]>((rules, core) => pruneRules(rules, core, threads), this.rules);
     if (kept.length !== this.rules.length) save((this.rules = kept));
     const projectOf = new Map(threads.map((thread) => [thread.id, thread.projectId]));
     return permissions.filter((request) => {
       if (this.#failed.has(request.id)) return true;
       if (this.#answered.has(request.id)) return false;
-      const rule = findRule(kept, request, { core, threadId: request.threadId, projectId: projectOf.get(request.threadId) ?? null });
+      const rule = findRule(kept, request, { core: threadTag(client, request.threadId), threadId: request.threadId, projectId: projectOf.get(request.threadId) ?? null });
       if (!rule) return true;
       this.#answer(client, request, rule);
       return false;
@@ -116,7 +136,7 @@ export class AllowRules {
     const scopeId = scope === 'thread' ? request.threadId : thread?.projectId;
     if (!target || !scopeId) return false;
     const scopeName = scope === 'thread' ? (thread?.title ?? '') : (projects.get(scopeId) ?? '');
-    const rule: AllowRule = { id: crypto.randomUUID(), core: coreTag(this.options.client()), scope, scopeId, scopeName, createdAt: Date.now(), ...target };
+    const rule: AllowRule = { id: crypto.randomUUID(), core: threadTag(this.options.client(), request.threadId), scope, scopeId, scopeName, createdAt: Date.now(), ...target };
     this.rules = addRule(storedRules(), rule);
     save(this.rules);
     return true;

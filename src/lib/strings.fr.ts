@@ -12,6 +12,8 @@ export const fr: Messages = {
     connecting: 'Connexion à Boite',
     revealFailed: 'Boite n’a pas pu l’afficher : {reason}',
     revealUnsupported: 'Cette version de Boite ne sait pas encore l’afficher. Mettez Boite à jour, puis réessayez.',
+    revealElsewhere: 'Ce fil tourne sur {machine} : ouvrez-le dans Boite, sous cette machine.',
+    machineAway: '{machine} est injoignable pour le moment.',
     settingsTitle: 'Réglages de B.O.T.S',
     tray: { tooltip: 'B.O.T.S', settings: 'Réglages', quit: 'Quitter' },
     demo: 'Mode démo : un faux Boite, rien n’est envoyé.',

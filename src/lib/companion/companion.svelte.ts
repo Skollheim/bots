@@ -47,6 +47,9 @@ import { fold, type WatchInput } from './watch';
 import { Assistant } from '../island/assistant.svelte';
 import { arrivals } from '../island/requests';
 import { AllowRules } from '../island/allow.svelte';
+import { GroupClient } from '../group/group-client';
+import { storedKeys } from '../group/member-keys';
+import { placedProjects } from '../group/placed';
 import type { RuleScope } from '../island/allow-rules';
 
 const CELEBRATE_MS = 6000;
@@ -401,9 +404,9 @@ export class Companion {
 
   private async readProjects(): Promise<void> {
     if (!this.client) return;
-    const list = await this.client.call('projects.list', {});
-    this.projects = new Map(list.map((project) => [project.id, project.name]));
-    this.projectNames = taskProjects(list).map((project) => project.name);
+    const { names, local } = await placedProjects(this.client);
+    this.projects = names;
+    this.projectNames = taskProjects(local).map((project) => project.name);
   }
 
   private async refresh(): Promise<void> {
@@ -693,17 +696,21 @@ export class Companion {
     let assistantAgent: string | undefined;
     const initialize = async () => {
       let client: Client;
+      // The other machines of the group, as they come and go: their threads on the next read.
+      const changed = () => this.soon(0);
       if (fake) {
         const { FakeClient } = await import('../fake-client');
+        const { demoGroup } = await import('../fake-client/machines-demo');
         assistantAgent = (await import('../fake-client/assistant-demo')).ASSISTANT_DEMO_AGENT;
-        client = new FakeClient({ hudDemo: true, sessionsDemo: true, assistantDemo: true });
+        const local = new FakeClient({ hudDemo: true, sessionsDemo: true, assistantDemo: true });
+        client = await demoGroup(local, new URLSearchParams(location.search).get('machines'), changed);
         this.notice = strings.bots.demo;
       } else {
         const endpoint = await waitForCore(() => this.disposed, () => (this.waiting = true));
         if (!endpoint) return;
         this.waiting = false;
         const ws = new WsClient({ url: endpoint.url, token: endpoint.token, clientName: 'plugin' });
-        client = ws;
+        client = new GroupClient(ws, { keys: storedKeys(localStorage), changed });
         off.push(watchEndpoint(endpoint, () => ws.state === 'ready', () => location.reload()));
         off.push(
           ws.onState((state: ClientState) => {

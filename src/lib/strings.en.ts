@@ -15,6 +15,10 @@ export const strings = {
     connecting: 'Reaching Boite',
     revealFailed: 'Boite could not show it: {reason}',
     revealUnsupported: 'This version of Boite cannot show it. Update Boite, then try again.',
+    /** A thread of another machine of the group: Boite's window here cannot be pointed at it yet. */
+    revealElsewhere: 'This thread runs on {machine}: open it in Boite, under that machine.',
+    /** A call for a thread whose machine is not connected now. */
+    machineAway: '{machine} is out of reach right now.',
     settingsTitle: 'B.O.T.S settings',
     tray: { tooltip: 'B.O.T.S', settings: 'Settings', quit: 'Quit' },
     demo: 'Demo mode: a fake Boite, nothing is sent.',

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { PermissionRequest, ThreadSummary } from '@boite/contracts';
+import { GroupClient } from '../group/group-client';
 import { RULES_KEY } from './allow-rules';
-import { AllowRules, forgetAllRules, storedRules, TRACE_MS } from './allow.svelte';
+import { AllowRules, forgetAllRules, storedRules, threadTag, TRACE_MS } from './allow.svelte';
 
 const threads = [
   { id: 't1', projectId: 'p1', title: 'Run the tests' },
@@ -74,4 +75,35 @@ test('no rule for a project-less thread, nor for a request too long to read', ()
   rules.add(ask('r0', 'ls'), 'thread', threads, projects);
   forgetAllRules();
   expect(storedRules()).toEqual([]);
+});
+
+test("rules are each machine's: a server rule never answers here, and goes only when the server's list says so", async () => {
+  const answered: string[] = [];
+  let listed: string[] = [];
+  const group = Object.assign(Object.create(GroupClient.prototype) as GroupClient, {
+    local: { call: vi.fn() },
+    coreIdOf: (threadId: string) => (threadId === 't3' ? 'core-srv' : null),
+    answered: () => listed,
+    call: vi.fn(async (_method: string, params: { requestId: string; decision: string }) => void answered.push(`${params.requestId}:${params.decision}`))
+  });
+  const rules = new AllowRules({ client: () => group as never, failed: vi.fn() });
+  const all = [...threads, { id: 't3', projectId: 'p1', title: 'Fix the gameplay' }] as ThreadSummary[];
+  expect(threadTag(group, 't3')).toBe('demo:group:core-srv');
+  expect(threadTag(group, 't1')).toBe('demo');
+
+  // Same project id on both machines: the rule made for the server's stays there.
+  rules.add(ask('r0', 'dotnet test', 't3'), 'project', all, projects);
+  expect(storedRules()).toMatchObject([{ scope: 'project', core: 'demo:group:core-srv' }]);
+  expect(rules.sift([ask('r1', 'dotnet test', 't1')], all).map((request) => request.id)).toEqual(['r1']);
+  expect(rules.sift([ask('r2', 'dotnet test', 't3')], all)).toEqual([]);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(answered).toEqual(['r2:allow']);
+
+  rules.add(ask('r3', 'git push', 't3'), 'thread', all, projects);
+  // The server did not answer the last list: its thread is away, not gone.
+  rules.sift([], threads);
+  expect(rules.rules.some((rule) => rule.scope === 'thread')).toBe(true);
+  listed = ['core-srv'];
+  rules.sift([], threads);
+  expect(rules.rules.some((rule) => rule.scope === 'thread')).toBe(false);
 });

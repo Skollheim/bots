@@ -210,3 +210,19 @@ test('a row given back by an undone archive returns as it was, unless the list m
   const again = run(listed(7_000, thread('a', 'running', { runningSince: 7_000 })));
   expect(reduceSessions(again, { type: 'restore', row: ended })).toEqual(again);
 });
+
+test('a sub-agent whose main thread is not shown has a row of its own, and keeps it on updates', () => {
+  const orphan = run(listed(5_000, thread('kid', 'running', { parentThreadId: 'gone', runningSince: 3_000 })));
+  expect(orphan.map((row) => [row.id, row.state])).toEqual([['kid', 'working']]);
+  const under = run(listed(5_000, thread('main', 'idle', { archived: true }), thread('kid', 'running', { parentThreadId: 'main', runningSince: 3_000 })));
+  expect(under.map((row) => [row.id, row.state])).toEqual([['kid', 'working']]);
+  const updated = reduceSessions(under, { type: 'thread', thread: thread('kid', 'waiting', { parentThreadId: 'main', runningSince: 3_000 }), at: 6_000 });
+  expect(updated.map((row) => [row.id, row.state])).toEqual([['kid', 'waiting']]);
+});
+
+test('the thread that started last leads the ones at work, as on the HUD; the oldest wait leads the waiting', () => {
+  const rows = run(listed(9_000, thread('old', 'running', { runningSince: 1_000 }), thread('new', 'running', { runningSince: 8_000 }), thread('w2', 'waiting', { runningSince: 5_000 }), thread('w1', 'waiting', { runningSince: 2_000 })));
+  expect(rows.map((row) => row.id)).toEqual(['w1', 'w2', 'new', 'old']);
+  expect(leadOf(rows)?.id).toBe('w1');
+  expect(leadOf(rows.filter((row) => row.state === 'working'))?.id).toBe('new');
+});

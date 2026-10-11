@@ -9,6 +9,7 @@
  */
 import { RpcErrorCode, type UiRevealTarget } from '@boite/contracts';
 import type { Client } from '@boite/ui/lib/client';
+import { GroupClient } from './group/group-client';
 import { fill, strings } from './strings';
 
 /**
@@ -40,6 +41,14 @@ export function revealProblem(error: unknown, target?: RevealTarget): string {
 export async function reveal(target: RevealTarget): Promise<string | null> {
   try {
     if (!client) throw new Error(strings.bots.waiting);
+    // A thread of another machine: this machine's Boite takes `ui.reveal` for its own threads only,
+    // and that machine's core would bring Boite up over there. Said instead of sent.
+    const machine = target.kind === 'thread' && client instanceof GroupClient ? client.machineOf(target.threadId) : null;
+    if (machine !== null) {
+      const message = fill(strings.bots.revealElsewhere, { machine });
+      onfail?.(message);
+      return message;
+    }
     await client.call('ui.reveal', { target: target as UiRevealTarget });
     return null;
   } catch (error) {

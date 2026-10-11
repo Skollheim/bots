@@ -12,6 +12,7 @@ import { untrack } from 'svelte';
 import type { ThreadSummary } from '@boite/contracts';
 import type { Client, ObservableClient } from '@boite/ui/lib/client';
 import { page } from '@boite/ui/lib/page-hidden.svelte';
+import { GroupClient } from '../group/group-client';
 import type { UndoLine } from './archive-undo';
 import { ArchiveUndo } from './archive-undo.svelte';
 import { coreKey, followedGone, restingRow } from './followed';
@@ -136,11 +137,13 @@ export class Sessions {
           this.#holdRestored(threads, at);
         });
       });
-      // The followed thread archived or gone: the pill lets it go, unless an Undo just gave it back.
+      // The followed thread archived or gone: the pill lets it go, unless an Undo just gave it back,
+      // or its machine of the group is only out of reach for now.
       $effect(() => {
         const id = this.followedId;
         const threads = this.source.threads();
-        if (id && !this.#restoring.has(id) && followedGone(id, threads)) untrack(() => this.followed.set(null));
+        const client = this.source.client();
+        if (id && !this.#restoring.has(id) && followedGone(id, threads) && !(client instanceof GroupClient && client.away(id))) untrack(() => this.followed.set(null));
       });
       $effect(() => {
         void this.source.client();
