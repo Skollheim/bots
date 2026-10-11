@@ -12,11 +12,16 @@
     laid over it.
 
   Beside the pill and the peek hang two drops: the timer on the left while
-  one runs, the music on the right (`music/MusicBubble.svelte`). Open, the
-  music moves into the tab bar.
+  one runs, the music on the right (`music/MusicBubble.svelte`). Each is born
+  from the island's edge on a black neck that snaps, and is taken back the
+  same way (`lib/island/motion.ts`). Open, the music moves into the tab bar.
 
-  It glows amber while the user is waited on, green when a turn finished,
-  blue-violet while a reply comes. The views read what they need from the
+  A halo behind it breathes amber while the user is waited on, flashes green
+  once when a turn finished, and stays a calm blue-violet while a reply
+  comes. A soft shadow under it keeps it apart from light wallpapers. As it
+  changes size, the content coming in blooms from a light blur to sharp.
+
+  The views read what they need from the
   view contract (`lib/island/contract.ts`). A press on a robot that moves
   sets it loose on the desktop (`Companion.onpress`).
 -->
@@ -28,7 +33,8 @@
   import { writeCompanionPrefs } from '../../lib/companion/prefs';
   import { openSettings, showMain } from '../../lib/companion/shell';
   import { provideView } from '../../lib/island/contract';
-  import { ISLAND_TABS, type IslandFrame, type IslandTab } from '../../lib/island/frame.svelte';
+  import { HOVER_OPEN_MS, ISLAND_TABS, type IslandFrame, type IslandGlow, type IslandTab } from '../../lib/island/frame.svelte';
+  import { bloom, blurAway, GOO_FILTER } from '../../lib/island/motion';
   import { threadLabel } from '../../lib/companion/describe';
   import { posed } from '../../lib/island/posed.svelte';
   import { MemoryWatch } from '../../lib/island/pressure.svelte';
@@ -39,6 +45,7 @@
   import { islandStatus } from '../../lib/island/status';
   import { fill, strings } from '../../lib/strings';
   import CompanionCharacter, { type Gaze } from '../companion/CompanionCharacter.svelte';
+  import IslandDrop from './IslandDrop.svelte';
   import MusicBubble from './music/MusicBubble.svelte';
   import MusicStrip from './music/MusicStrip.svelte';
   import TimerBubble from './TimerBubble.svelte';
@@ -150,6 +157,25 @@
   /** What the drops beside the island have, up to the window's edge. */
   const sideRoom = $derived(Math.max(0, (windowWidth - box.current.w) / 2 - SIDE_GAP));
   const sides = $derived(frame.size !== 'open');
+  /** The music's drop shows: a track, or Spotify to open (`MusicBubble`'s own rule), so it is born and taken back here. */
+  const musicShown = $derived(companion.media !== null || companion.music.knowsSpotify);
+  const reduced = $derived(prefersReducedMotion.current);
+  /** The halo keeps its last hue while it fades out. */
+  let haloLast: IslandGlow = 'none';
+  const haloTone = $derived.by(() => (frame.glow === 'none' ? haloLast : (haloLast = frame.glow)));
+
+  /** Hovered with "open on hover", the pill swells a little until it opens; a moment at most, so no text rests scaled. */
+  const SWELL_SPARE_MS = 150;
+  let swelling = $state(false);
+  $effect(() => {
+    if (!frame.hovering || frame.size !== 'peek' || !companion.prefs.openOnHover || companion.dropped || reduced) return;
+    untrack(() => (swelling = true));
+    const end = setTimeout(() => (swelling = false), HOVER_OPEN_MS + SWELL_SPARE_MS);
+    return () => {
+      clearTimeout(end);
+      swelling = false;
+    };
+  });
 
   provideView({
     get companion() {
@@ -293,10 +319,18 @@
 <svelte:window bind:innerHeight={windowHeight} bind:innerWidth={windowWidth} />
 
 <div class="cluster island-tokens">
+<!-- The goo filter melts the drops' black twins and their necks while they move; nothing uses it at rest. -->
+<svg class="defs" width="0" height="0" aria-hidden="true">
+  <filter id={GOO_FILTER} x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+    <feGaussianBlur stdDeviation="4" />
+    <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9" />
+  </filter>
+</svg>
+<span class="halo" data-glow={frame.glow} data-tone={haloTone} style:border-radius="0 0 {radius}px {radius}px" aria-hidden="true"></span>
 {#if sides && companion.timer.current}
-  <div class="side left" role="presentation" onpointerenter={() => (onSide = true)} onpointerleave={() => (onSide = false)}>
+  <IslandDrop side="left" {reduced} {onresize} onside={(on) => (onSide = on)}>
     <TimerBubble timer={companion.timer} hover={companion.hover} {onresize} />
-  </div>
+  </IslandDrop>
 {/if}
 <div
   class="island"
@@ -304,6 +338,7 @@
   data-testid="island"
   data-size={frame.size}
   data-glow={frame.glow}
+  data-swell={swelling || undefined}
   role="region"
   aria-label={copy.label}
   style:width="{box.current.w}px"
@@ -323,6 +358,8 @@
   {#if frame.size !== 'open'}
     <button
       class="bar"
+      in:bloom={{ reduced }}
+      out:blurAway={{ reduced }}
       data-testid="island-bar"
       aria-expanded="false"
       aria-label={status.text}
@@ -347,9 +384,9 @@
         />
       </span>
       {#if frame.size === 'peek'}
-        <span class="status" data-tone={status.tone} data-testid="island-status">{status.text}</span>
+        <span class="status" in:bloom={{ reduced }} data-tone={status.tone} data-testid="island-status">{status.text}</span>
       {:else if live}
-        <span class="live" data-state={leadSession?.state} data-testid="island-live"><b>{live.name}</b> {live.doing}</span>
+        <span class="live" in:bloom={{ reduced }} data-state={leadSession?.state} data-testid="island-live"><b>{live.name}</b> {live.doing}</span>
       {/if}
       <span class="dots" aria-hidden="true">
         {#each dots as tone, index (index)}<i data-tone={tone}></i>{/each}
@@ -359,7 +396,7 @@
       {/if}
     </button>
   {:else}
-    <div class="open" style:max-height="{openMax}px" bind:offsetHeight={measured}>
+    <div class="open" in:bloom={{ reduced }} out:blurAway={{ reduced }} style:max-height="{openMax}px" bind:offsetHeight={measured}>
       <nav class="tabs" aria-label={copy.label}>
         <div class="group" role="tablist">
           {#each ISLAND_TABS as tab (tab)}
@@ -441,10 +478,10 @@
     </div>
   {/if}
 </div>
-{#if sides}
-  <div class="side right" role="presentation" onpointerenter={() => (onSide = true)} onpointerleave={() => (onSide = false)}>
+{#if sides && musicShown}
+  <IslandDrop side="right" {reduced} {onresize} onside={(on) => (onSide = on)} tint={{ accent: companion.music.accent, playing: companion.media?.playing === true }}>
     <MusicBubble {companion} {onresize} room={sideRoom} />
-  </div>
+  </IslandDrop>
 {/if}
 </div>
 
@@ -453,35 +490,90 @@
     position: relative;
     flex: none;
     font: 13px/1.4 var(--island-font);
-    /* Air for the glow under it, which the window leaves room for. */
+    /* Air for the glow and the shadow under it, which the window leaves room for. */
     margin-bottom: 28px;
+    /* The island over its drops, the halo under both, kept to the cluster. */
+    isolation: isolate;
+    --island-shadow: 0 6px 16px color-mix(in srgb, var(--island-bg) 30%, transparent), 0 1px 3px color-mix(in srgb, var(--island-bg) 35%, transparent);
   }
-  .side {
+  .defs {
     position: absolute;
-    top: 0;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    pointer-events: none;
   }
-  .side.left {
-    right: calc(100% + 8px);
+  /*
+   * The halo behind the island: it breathes while the user is waited on,
+   * flashes once when a turn finished, and stays calm while a reply comes.
+   */
+  .halo {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 360ms ease;
+    pointer-events: none;
   }
-  .side.right {
-    left: calc(100% + 8px);
+  .halo::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--halo) 45%, transparent), 0 8px 28px color-mix(in srgb, var(--halo) 34%, transparent);
   }
+  .halo[data-tone='attention'] {
+    --halo: var(--island-attention);
+  }
+  .halo[data-tone='done'] {
+    --halo: var(--island-done);
+  }
+  .halo[data-tone='talking'] {
+    --halo: var(--island-talking);
+  }
+  .halo[data-glow='attention'] {
+    opacity: 1;
+  }
+  .halo[data-glow='attention']::before {
+    animation: breathe 2.4s ease-in-out infinite;
+  }
+  .halo[data-glow='talking'] {
+    opacity: 0.75;
+  }
+  .halo[data-glow='done'] {
+    animation: flash 900ms ease-out forwards;
+  }
+
   .island {
     position: relative;
+    z-index: 1;
     flex: none;
     overflow: hidden;
     background: var(--island-bg);
     color: var(--island-text);
-    transition: box-shadow 360ms ease;
+    box-shadow: var(--island-shadow);
+    transform-origin: 50% 0;
+    transition:
+      transform 280ms cubic-bezier(0.34, 1.4, 0.64, 1),
+      scale 90ms ease-out;
   }
-  .island[data-glow='attention'] {
-    box-shadow: 0 0 0 1px rgb(245 165 36 / 0.45), 0 8px 28px rgb(245 165 36 / 0.32);
+  /* Hovered, about to open: a small swell. Pressed: it gives a little. */
+  .island[data-swell] {
+    transform: scale(1.03);
+    transition:
+      transform 620ms cubic-bezier(0.3, 0.1, 0.3, 1),
+      scale 90ms ease-out;
   }
-  .island[data-glow='done'] {
-    box-shadow: 0 0 0 1px rgb(52 211 153 / 0.4), 0 8px 26px rgb(52 211 153 / 0.28);
+  .island:has(> .bar:active) {
+    scale: 0.98;
   }
-  .island[data-glow='talking'] {
-    box-shadow: 0 0 0 1px rgb(139 124 246 / 0.4), 0 8px 26px rgb(139 124 246 / 0.3);
+  /* The buttons inside give under a press. */
+  .island :global(button:active:not(:disabled, .bar)) {
+    animation: bots-island-press 90ms ease-out forwards;
+  }
+  @keyframes -global-bots-island-press {
+    to {
+      scale: 0.96;
+    }
   }
 
   .bar {
@@ -498,7 +590,6 @@
     font: inherit;
     cursor: pointer;
     touch-action: none;
-    animation: appear 220ms ease-out;
   }
   .bar:focus-visible {
     outline: 2px solid var(--island-talking);
@@ -582,7 +673,7 @@
     width: 640px;
     display: flex;
     flex-direction: column;
-    animation: appear 260ms ease-out;
+    transform-origin: 50% 0;
   }
   .tabs {
     display: flex;
@@ -720,21 +811,61 @@
     scrollbar-color: rgb(255 255 255 / 0.15) transparent;
   }
 
-  @keyframes appear {
-    from {
-      opacity: 0;
-    }
-  }
   @keyframes pulse {
     50% {
       opacity: 0.45;
     }
   }
+  @keyframes breathe {
+    0%,
+    100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  @keyframes flash {
+    0% {
+      opacity: 0;
+    }
+    18% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  @keyframes fade {
+    from {
+      opacity: 0.8;
+    }
+    to {
+      opacity: 0;
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
-    .bar,
-    .open,
     .dots i {
       animation: none;
+    }
+    .island,
+    .island[data-swell] {
+      transform: none;
+      transition: none;
+    }
+    .island:has(> .bar:active) {
+      scale: none;
+    }
+    .island :global(button:active:not(:disabled, .bar)) {
+      animation: none;
+    }
+    /* A soft glow that stays while waited on, a fade when a turn finished. */
+    .halo[data-glow='attention']::before {
+      animation: none;
+      opacity: 0.75;
+    }
+    .halo[data-glow='done'] {
+      animation: fade 1.2s ease-out forwards;
     }
   }
 </style>
