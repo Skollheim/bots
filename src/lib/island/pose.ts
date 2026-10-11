@@ -30,7 +30,11 @@
  *   the fake core asks again a moment later: Bots answers it, the pill's
  *   shield shows (pair it with `calm=1`);
  * - `pr=green|red`: the tests thread opens PR #12, whose CI runs, then goes
- *   green or red (the fake core's side: `fake-client/allow-demo.ts`).
+ *   green or red (the fake core's side: `fake-client/allow-demo.ts`);
+ * - `machines=1|ask`: a second machine of the group, « Serveur », whose
+ *   « Corriger le gameplay » thread works among this machine's (`ask`: it
+ *   asks to push two seconds in); read by the companion, the fake side in
+ *   `fake-client/machines-demo.ts`.
  *
  * A wallpaper goes under the transparent window, so the black island shows.
  */

@@ -130,6 +130,16 @@ export function isHelper(thread: Pick<ThreadSummary, 'parentThreadId'>): boolean
   return Boolean(thread.parentThreadId);
 }
 
+/**
+ * The main conversation a sub-agent shows through; null when there is none to
+ * show it (its parent archived, or not in the list): it has a row of its own,
+ * or a thread at work would show nowhere.
+ */
+export function shownRoot(thread: ThreadSummary, byId: ReadonlyMap<string, ThreadSummary>): ThreadSummary | null {
+  const root = rootOf(thread, byId);
+  return root === thread || root.archived ? null : root;
+}
+
 interface Helpers {
   count: number;
   since: number;
@@ -142,8 +152,8 @@ export function helpersOf(threads: readonly ThreadSummary[], at: number): Map<st
   for (const thread of threads) {
     const state = stateOf(thread);
     if (!isHelper(thread) || thread.archived || (state !== 'working' && state !== 'waiting')) continue;
-    const root = rootOf(thread, byId);
-    if (root === thread) continue;
+    const root = shownRoot(thread, byId);
+    if (root === null) continue;
     const since = sinceOf(thread, at);
     const entry = helpers.get(root.id);
     helpers.set(root.id, entry ? { count: entry.count + 1, since: Math.min(entry.since, since) } : { count: 1, since });
@@ -151,9 +161,13 @@ export function helpersOf(threads: readonly ThreadSummary[], at: number): Map<st
   return helpers;
 }
 
-/** A thread from the list or an update, merged into the row it already has. Sub-agents have none: their main conversation shows them. */
-function fromThread(row: SessionRow | undefined, thread: ThreadSummary, at: number, listed: boolean, helpers: Helpers | undefined): SessionRow | null {
-  if (thread.archived || thread.incognito === true || isHelper(thread)) return null;
+/**
+ * A thread from the list or an update, merged into the row it already has.
+ * Sub-agents have none, their main conversation shows them, unless `alone`:
+ * no conversation shown above them.
+ */
+function fromThread(row: SessionRow | undefined, thread: ThreadSummary, at: number, listed: boolean, helpers: Helpers | undefined, alone = false): SessionRow | null {
+  if (thread.archived || thread.incognito === true || (isHelper(thread) && !alone)) return null;
   const own = stateOf(thread);
   const ownLive = own === 'working' || own === 'waiting';
   // A conversation whose sub-agents work is at work too, even while its own turn is over.
@@ -207,9 +221,13 @@ function finish(row: SessionRow, turn: Turn, at: number): SessionRow {
 
 const ORDER: Record<SessionState, number> = { waiting: 0, working: 1, failed: 2, done: 3 };
 
-/** Waiting rows first, then working ones, then the ones that ended; oldest request first inside each. */
+/**
+ * Waiting rows first, the longest waiting first; then the working ones, the
+ * latest started first, as the desktop HUD lists them, so a thread that just
+ * started shows on top; then the ones that ended.
+ */
 export function sortRows(rows: Iterable<SessionRow>): SessionRow[] {
-  return [...rows].sort((a, b) => ORDER[a.state] - ORDER[b.state] || a.since - b.since || a.id.localeCompare(b.id));
+  return [...rows].sort((a, b) => ORDER[a.state] - ORDER[b.state] || (a.state === 'working' ? b.since - a.since : a.since - b.since) || a.id.localeCompare(b.id));
 }
 
 /** The rows after one event. Never edits the rows it is given. */
@@ -223,9 +241,11 @@ export function reduceSessions(rows: readonly SessionRow[], event: SessionEvent)
     case 'threads': {
       const listed = new Set<string>();
       const helpers = helpersOf(event.threads, event.at);
+      const all = new Map(event.threads.map((thread) => [thread.id, thread]));
       for (const thread of event.threads) {
         listed.add(thread.id);
-        put(thread.id, fromThread(byId.get(thread.id), thread, event.at, true, helpers.get(thread.id)));
+        const alone = isHelper(thread) && shownRoot(thread, all) === null;
+        put(thread.id, fromThread(byId.get(thread.id), thread, event.at, true, helpers.get(thread.id), alone));
       }
       // A live row the list no longer has is gone (removed, archived elsewhere).
       for (const [id, row] of byId) if (!listed.has(id) && isLive(row)) byId.delete(id);
@@ -234,7 +254,8 @@ export function reduceSessions(rows: readonly SessionRow[], event: SessionEvent)
     case 'thread': {
       const row = byId.get(event.thread.id);
       const helpers = row && row.helpers > 0 ? { count: row.helpers, since: row.since } : undefined;
-      put(event.thread.id, fromThread(row, event.thread, event.at, false, helpers));
+      // A sub-agent with a row of its own got it from the list: it had no conversation shown above it.
+      put(event.thread.id, fromThread(row, event.thread, event.at, false, helpers, row !== undefined));
       break;
     }
     case 'turnStarted': {
@@ -285,7 +306,7 @@ export function reduceSessions(rows: readonly SessionRow[], event: SessionEvent)
   return sortRows(byId.values());
 }
 
-/** The session the peek speaks of: one waiting on the user, else the oldest at work. */
+/** The session the peek speaks of: one waiting on the user, else the latest started at work. */
 export function leadOf(rows: readonly SessionRow[]): SessionRow | null {
   return rows.find((row) => row.state === 'waiting') ?? rows.find((row) => row.state === 'working') ?? null;
 }
