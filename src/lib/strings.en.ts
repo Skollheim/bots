@@ -49,6 +49,34 @@ export const strings = {
     },
     /** A permission answered from the pill, without opening the island. */
     ask: 'Permission request',
+    /** "Always allow": the rules Bots keeps and answers with (`island/allow.svelte.ts`). */
+    allow: {
+      always: 'Always…',
+      alwaysTitle: 'Allow from now on: {rule}',
+      cannot: 'This request is too long to make a rule of',
+      thread: 'This thread',
+      project: 'This project',
+      threadLong: 'For this thread',
+      projectLong: 'For this project',
+      back: 'Back',
+      hint: 'Bots answers for you while it runs',
+      traced: 'Allowed by a rule · {rule}',
+      title: 'Always allowed',
+      lead: 'What you allowed for good from the island. Bots answers these requests itself, only while it runs.',
+      empty: 'No rule yet. Use “Always…” on a request.',
+      scopeThread: 'Thread: {name}',
+      scopeProject: 'Project: {name}',
+      remove: 'Remove this rule',
+      forgetAll: 'Forget all'
+    },
+    /** A pull request's CI, followed once a thread opens it (`island/pr-watch.svelte.ts`). */
+    pr: {
+      number: 'PR #{number}',
+      pending: 'CI running',
+      green: 'CI green',
+      red: 'CI failed',
+      open: 'Open the pull request'
+    },
     talking: '{name} is answering…',
     robot: '{name}. Click to poke it, drag it out to set it loose on the desktop.',
     home: {

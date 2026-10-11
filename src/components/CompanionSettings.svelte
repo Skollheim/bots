@@ -24,6 +24,7 @@
   import { readStatus, subscribeCompanionData } from '../lib/companion/memory';
   import { companionMonitors, inShell, type CompanionMonitor } from '../lib/companion/shell';
   import CompanionReminders from './companion/CompanionReminders.svelte';
+  import CompanionAllowRules from './companion/CompanionAllowRules.svelte';
   import CompanionCrewSettings from './companion/CompanionCrewSettings.svelte';
 
   let { store }: { store: CoreLink } = $props();
@@ -298,6 +299,7 @@
   </section>
 
   <CompanionReminders />
+  <CompanionAllowRules />
 </div>
 
 <style>

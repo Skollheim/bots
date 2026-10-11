@@ -18,12 +18,18 @@
  *   guard stopped;
  * - `update=nightly|stable`: a newer Boite in Home;
  * - `sessions=none`: Home's sessions shown empty, the robot napping (pair it
- *   with `calm=1`).
+ *   with `calm=1`);
+ * - `rule=1`: an "always allow" rule for the tests thread's command, which
+ *   the fake core asks again a moment later: Bots answers it, the pill's
+ *   shield shows (pair it with `calm=1`);
+ * - `pr=green|red`: the tests thread opens PR #12, whose CI runs, then goes
+ *   green or red (the fake core's side: `fake-client/allow-demo.ts`).
  *
  * A wallpaper goes under the transparent window, so the black island shows.
  */
 import type { Companion } from '../companion/companion.svelte';
 import { writeCompanionPrefs } from '../companion/prefs';
+import { DEMO_COMMAND, DEMO_THREAD } from '../fake-client/allow-demo';
 import { ISLAND_TABS, type IslandFrame, type IslandTab } from './frame.svelte';
 import { posed } from './posed.svelte';
 import type { PressureReason } from './pressure';
@@ -97,6 +103,10 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     posed.release = { version, track: update, url: '', publishedAt: null };
   }
   if (params.get('sessions') === 'none') posed.idle = true;
+  if (params.get('rule') === '1') {
+    const request = { id: 'perm-rule-pose', threadId: DEMO_THREAD, turnId: '', toolName: 'Bash', input: { command: DEMO_COMMAND }, description: '', createdAt: Date.now() };
+    companion.rules.add(request, 'thread', companion.threads, companion.projects);
+  }
   const pose = params.get('pose');
   const tab = params.get('tab') as IslandTab | null;
   if (pose === 'peek') {

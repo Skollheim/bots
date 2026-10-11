@@ -33,6 +33,7 @@ import { delegationMethods, seedDelegationDemo } from '@boite/ui/lib/fake-client
 import { seedHudDemo } from './fake-client/hud-demo';
 import { seedAssistantDemo } from './fake-client/assistant-demo';
 import { seedSessionsDemo } from './fake-client/sessions-demo';
+import { seedAllowDemo } from './fake-client/allow-demo';
 import { groupMethods } from '@boite/ui/lib/fake-client/group';
 import { pairingMethods } from '@boite/ui/lib/fake-client/pairing';
 import { projectMethods } from '@boite/ui/lib/fake-client/projects';
@@ -110,6 +111,7 @@ export class FakeClient implements ObservableClient {
     if (options.hudDemo ?? (typeof location !== 'undefined' && new URLSearchParams(location.search).get('hud') === '1')) seedHudDemo(ctx);
     if (options.assistantDemo) seedAssistantDemo(ctx, this.#methods);
     if (options.sessionsDemo) seedSessionsDemo(ctx);
+    if (options.sessionsDemo && typeof location !== 'undefined') seedAllowDemo(ctx, this.#methods, new URLSearchParams(location.search));
     if (options.uninstalled) {
       ctx.providers = ctx.providers.filter(provider => provider.id !== 'echo').map(provider => ({
         ...provider, available: false, executable: null,

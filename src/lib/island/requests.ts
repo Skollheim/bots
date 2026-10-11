@@ -71,8 +71,9 @@ export interface KeyPress {
 /**
  * What a key does to the request in view. A permission: Enter allows once,
  * Escape denies. A question: 1 to 9 pick a choice (toggle it on a question
- * that takes several). Boite's core has no "always allow" to offer: a
- * permission is answered allow or deny, once.
+ * that takes several). Boite's core answers a permission allow or deny,
+ * once; "always allow" is a rule Bots keeps and applies (`allow.svelte.ts`),
+ * offered by a button, not a key.
  */
 export function keyAction(pending: PendingRequest | null, press: KeyPress): CardKey | null {
   if (!pending || press.modified || press.typing) return null;
