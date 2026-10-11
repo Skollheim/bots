@@ -3,23 +3,26 @@
   at an ellipsis with reduced motion.
 -->
 <script lang="ts">
-  let { text, strong = false }: { text: string; strong?: boolean } = $props();
+  /**
+   * `fade`: the left fade's room, outside the text's, so that still, the
+   * first letter shows whole. It reaches into the gap before the text: no
+   * wider than that gap.
+   */
+  let { text, strong = false, fade = 8 }: { text: string; strong?: boolean; fade?: number } = $props();
 
   /** Space between the end of the text and its copy, in pixels. */
   const GAP = 28;
   /** Pixels a second. */
   const SPEED = 28;
-  /** The left fade's room, outside the text's: still, the first letter shows whole. */
-  const FADE = 6;
 
   let room = $state(0);
   let width = $state(0);
 
-  const moving = $derived(room > 0 && width > room - FADE + 1);
+  const moving = $derived(room > 0 && width > room - fade + 1);
   const shift = $derived(width + GAP);
 </script>
 
-<span class="marquee" class:strong class:moving style="--fade: {FADE}px" bind:clientWidth={room}>
+<span class="marquee" class:strong class:moving style="--fade: {fade}px" bind:clientWidth={room}>
   <span class="track" style="--gap: {GAP}px; --shift: {-shift}px; --time: {(shift / SPEED + 2).toFixed(1)}s">
     <span class="copy" bind:offsetWidth={width}>{text}</span>
     {#if moving}<span class="copy again" aria-hidden="true">{text}</span>{/if}
@@ -50,8 +53,10 @@
     animation: roll var(--time) linear infinite;
   }
   .moving {
-    /* The text fades at the edges as it goes by. */
-    mask-image: linear-gradient(90deg, transparent, currentColor var(--fade), currentColor calc(100% - 10px), transparent);
+    /* The text fades at the edges as it goes by: no cut, no ellipsis. Only
+       the mask's alpha counts, so it stays opaque whatever the text's colour. */
+    mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(100% - 18px), transparent);
+    text-overflow: clip;
   }
   .again {
     padding-left: var(--gap);
@@ -76,6 +81,7 @@
     }
     .moving {
       mask-image: none;
+      text-overflow: ellipsis;
     }
     .again {
       display: none;
