@@ -21,9 +21,11 @@
     changes?: boolean;
     /** The thread started again or left: its card goes. */
     ongone?: () => void;
+    /** Archives in its stead: Home's row archives so that it can be undone (`archive-undo.svelte.ts`). A refusal throws. */
+    onarchive?: () => Promise<void>;
   }
 
-  let { threadId, failed, client, changes = false, ongone }: Props = $props();
+  let { threadId, failed, client, changes = false, ongone, onarchive }: Props = $props();
 
   const copy = strings.island.notice;
   let busy = $state<'relaunch' | 'archive' | null>(null);
@@ -41,6 +43,7 @@
     problem = '';
     try {
       if (kind === 'relaunch') await relaunch(client, threadId, failed);
+      else if (onarchive) return await onarchive();
       else await archive(client, threadId);
       ongone?.();
     } catch (error) {

@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { strings as en } from '../strings.en';
 import { fr } from '../strings.fr';
 import { LINGER_MS, type SessionRow } from './sessions';
-import { clockDelay, nextChange, sessionTime } from './session-time';
+import { clockDelay, elapsedDelay, nextChange, sessionTime } from './session-time';
 
 const EN = en.island.sessions.duration;
 const FR = fr.island.sessions.duration;
@@ -68,4 +68,14 @@ test('an ended row needs the clock only to leave, unless its card keeps it', () 
 test('the clock looks again within a minute at most', () => {
   const now = 10 * H;
   expect(clockDelay([row('a', 'done', now - M, now)], now)).toBe(M);
+});
+
+test('the desktop clock wakes for the soonest of its times to change, never without one', () => {
+  const now = 10 * H;
+  expect(elapsedDelay([], now)).toBeNull();
+  expect(elapsedDelay([null], now)).toBeNull();
+  // 41 min 06 s changes in 54 s; 20.25 s within the second; a start not yet known waits.
+  expect(elapsedDelay([now - (41 * M + 6 * S), null, now - 20_250], now)).toBe(750);
+  expect(elapsedDelay([now - (41 * M + 6 * S)], now)).toBe(54 * S);
+  expect(elapsedDelay([now - 3 * H], now)).toBe(M);
 });

@@ -50,6 +50,8 @@ export interface SessionRow {
   progress: { done: number; total: number } | null;
   /** Sub-agents at work for this conversation: they show through it, never as rows of their own. */
   helpers: number;
+  /** A followed thread shown at rest, with no turn seen here: it has no time to tell (`followed.ts`). */
+  resting?: boolean;
 }
 
 export type SessionEvent =
@@ -61,7 +63,9 @@ export type SessionEvent =
   | { type: 'messages'; threadId: string; messages: readonly Message[] }
   | { type: 'activity'; threadId: string; activity: ThreadActivity }
   /** Ended rows leave once they lingered, but for `keep`: threads whose finished card the row carries. */
-  | { type: 'prune'; at: number; keep?: readonly string[] };
+  | { type: 'prune'; at: number; keep?: readonly string[] }
+  /** A row given back as it was: an archive undone (`archive-undo.svelte.ts`). */
+  | { type: 'restore'; row: SessionRow };
 
 /** Steps a row keeps, newest at the bottom. */
 export const STEP_LIMIT = 6;
@@ -279,6 +283,11 @@ export function reduceSessions(rows: readonly SessionRow[], event: SessionEvent)
     case 'prune': {
       const keep = new Set(event.keep ?? []);
       for (const [id, row] of byId) if (!isLive(row) && !keep.has(id) && (row.endedAt ?? 0) + LINGER_MS <= event.at) byId.delete(id);
+      break;
+    }
+    case 'restore': {
+      // A row the thread list made again meanwhile is newer than the one given back.
+      if (!byId.has(event.row.id)) byId.set(event.row.id, event.row);
       break;
     }
   }

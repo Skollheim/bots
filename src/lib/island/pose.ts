@@ -18,12 +18,15 @@
  *   guard stopped;
  * - `update=nightly|stable`: a newer Boite in Home;
  * - `sessions=none`: Home's sessions shown empty, the robot napping (pair it
- *   with `calm=1`).
+ *   with `calm=1`);
+ * - `rest=live|quota|music|robot`: what the pill shows at rest (pair `music`
+ *   with `music=playing`). A thread followed in the pill is chosen through
+ *   `localStorage` (`bots.followed`, `followed.ts`) before the page loads.
  *
  * A wallpaper goes under the transparent window, so the black island shows.
  */
 import type { Companion } from '../companion/companion.svelte';
-import { writeCompanionPrefs } from '../companion/prefs';
+import { PILL_RESTS, writeCompanionPrefs, type PillRest } from '../companion/prefs';
 import { ISLAND_TABS, type IslandFrame, type IslandTab } from './frame.svelte';
 import { posed } from './posed.svelte';
 import type { PressureReason } from './pressure';
@@ -97,6 +100,8 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     posed.release = { version, track: update, url: '', publishedAt: null };
   }
   if (params.get('sessions') === 'none') posed.idle = true;
+  const rest = params.get('rest') as PillRest | null;
+  if (rest && PILL_RESTS.includes(rest)) companion.prefs = { ...companion.prefs, pillRest: rest };
   const pose = params.get('pose');
   const tab = params.get('tab') as IslandTab | null;
   if (pose === 'peek') {

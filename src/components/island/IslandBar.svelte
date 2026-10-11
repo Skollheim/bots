@@ -7,6 +7,9 @@
     the ones at work). A thread that just ended is told in it for a few
     seconds (`finished.svelte.ts`). When the text changes it rolls, counter-
     like (`motion.ts`'s `rollIn` and `rollOut`); the same text moves nothing.
+    A thread followed from Home (`followed.ts`) keeps the live line, ended or
+    at rest too. At rest, Settings may show the quota, the music or the robot
+    alone instead (`pill-rest.ts`); the width follows through the spring.
   - A dot hovered names its thread and state in the line. Over the dots, and
     while a request shows, a hover peeks without opening the island
     (`frame.hush`): the pill would otherwise open under the pointer of someone
@@ -20,6 +23,7 @@
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { Gauge, Music } from '@lucide/svelte';
   import type { Companion } from '../../lib/companion/companion.svelte';
   import { describePermission, threadLabel } from '../../lib/companion/describe';
   import { dotLine, pillDots } from '../../lib/island/dots';
@@ -27,10 +31,12 @@
   import type { FinishLine } from '../../lib/island/finished';
   import type { IslandFrame } from '../../lib/island/frame.svelte';
   import { bloom, blurAway, rollIn, rollOut } from '../../lib/island/motion';
+  import { restLine, robotWidth, sessionLine } from '../../lib/island/pill-rest';
+  import { QuotaWatch } from '../../lib/island/quotas.svelte';
   import { requestQueue } from '../../lib/island/requests';
   import { isLive } from '../../lib/island/sessions';
   import type { Sessions } from '../../lib/island/sessions.svelte';
-  import { liveLine, rowDoing } from '../../lib/island/session-text';
+  import { rowDoing } from '../../lib/island/session-text';
   import { islandStatus } from '../../lib/island/status';
   import { fill, strings } from '../../lib/strings';
   import CompanionCharacter from '../companion/CompanionCharacter.svelte';
@@ -72,7 +78,13 @@
   const liveRows = $derived(sessions.rows.filter(isLive));
   let picked = $state<string | null>(null);
   const leadSession = $derived(liveRows.find((row) => row.id === picked) ?? sessions.lead);
-  const live = $derived(leadSession ? liveLine(leadSession, (leadSession.projectId && companion.projects.get(leadSession.projectId)) || '') : null);
+  /** The thread followed from Home keeps the line whatever else starts (`followed.ts`). */
+  const shown = $derived(sessions.followedRow ?? leadSession);
+  const session = $derived(shown ? sessionLine(shown, (shown.projectId && companion.projects.get(shown.projectId)) || '') : null);
+  /** What the pill shows at rest, as Settings chose (`pill-rest.ts`); null for the robot alone. */
+  const rest = $derived(companion.prefs.pillRest);
+  const quotas = new QuotaWatch(() => ({ shown: companion.prefs.quotas, hidden: companion.prefs.hiddenQuotas }));
+  const live = $derived(restLine(rest, { live: session, media: companion.media, quota: quotas.tightest }));
   const status = $derived(
     islandStatus({
       blocking: companion.blocking,
@@ -115,7 +127,9 @@
 
   const dotsWidth = $derived(dots.length * DOT_STEP);
   const peekWidth = $derived(Math.round(Math.min(PEEK.max, Math.max(PEEK.min, statusWidth + PEEK.chrome + dotsWidth))));
-  const collapsedWidth = $derived(live ? Math.round(Math.min(LIVE.max, Math.max(LIVE.min, liveWidth + LIVE.chrome + dotsWidth))) : SIZES.collapsed.w);
+  const collapsedWidth = $derived(
+    live ? Math.round(Math.min(LIVE.max, Math.max(LIVE.min, liveWidth + LIVE.chrome + dotsWidth))) : rest === 'robot' ? robotWidth(dotsWidth) : SIZES.collapsed.w
+  );
   const wanted = $derived(asking ? ASK : peeking ? { ...SIZES.peek, w: peekWidth } : { ...SIZES.collapsed, w: collapsedWidth });
   // Over the dots the width holds: a dot's name is longer or shorter than the line, and the dots would slide from under the pointer.
   $effect(() => {
@@ -137,6 +151,16 @@
     if (!onDots) return;
     untrack(() => frame.hush('dot', true));
     return () => frame.hush('dot', false);
+  });
+
+  // The quota at rest: read as the pill shows, then as the core pushes it. No clock of its own.
+  $effect(() => {
+    const client = companion.client;
+    if (rest !== 'quota' || !client) return;
+    return untrack(() => {
+      void quotas.refresh(client);
+      return client.on('quotas.updated', (rows) => quotas.accept(rows));
+    });
   });
 
   // The answers wake `ARM_MS` after their request shows.
@@ -164,7 +188,7 @@
   let wheelAt = 0;
   /** The wheel on the pill goes through the conversations at work. */
   function wheel(event: WheelEvent) {
-    if (liveRows.length < 2 || event.deltaY === 0) return;
+    if (sessions.followedRow || liveRows.length < 2 || event.deltaY === 0) return;
     const at = performance.now();
     if (at - wheelAt < WHEEL_REST_MS) return;
     wheelAt = at;
@@ -194,7 +218,7 @@
 
 <div class="pill" class:asking in:bloom={{ reduced }} out:blurAway={{ reduced }}>
   <span class="measure" aria-hidden="true" bind:offsetWidth={statusWidth}>{line.text}</span>
-  {#if live}<span class="measure live-measure" aria-hidden="true" bind:offsetWidth={liveWidth}><b>{live.name}</b> {live.doing}</span>{/if}
+  {#if live}<span class="measure live-measure" aria-hidden="true" bind:offsetWidth={liveWidth}>{#if live.kind !== 'live'}<i class="kind"></i>{/if}<b>{live.name}</b> {live.doing}</span>{/if}
   <button
     class="bar"
     data-testid="island-bar"
@@ -226,8 +250,8 @@
         {#key line.text}<span class="line" in:rollIn={{ reduced }} out:rollOut={{ reduced }}>{line.text}</span>{/key}
       </span>
     {:else if live}
-      <span class="live roll" in:bloom={{ reduced }} data-state={leadSession?.state} data-testid="island-live">
-        {#key `${live.name}\n${live.doing}`}<span class="line" in:rollIn={{ reduced }} out:rollOut={{ reduced }}><b>{live.name}</b> {live.doing}</span>{/key}
+      <span class="live roll" in:bloom={{ reduced }} data-kind={live.kind} data-tone={live.tone} data-testid="island-live">
+        {#key `${live.name}\n${live.doing}`}<span class="line" in:rollIn={{ reduced }} out:rollOut={{ reduced }}>{#if live.kind === 'quota'}<Gauge class="kind" size={12} strokeWidth={2} aria-hidden="true" />{:else if live.kind === 'music'}<Music class="kind" size={12} strokeWidth={2} aria-hidden="true" />{/if}<b>{live.name}</b> {live.doing}</span>{/key}
       </span>
     {/if}
     <span class="dots" aria-hidden="true">
@@ -325,8 +349,25 @@
     color: var(--island-text);
     font-weight: 600;
   }
-  .live[data-state='waiting'] b {
+  /* The quota's or the music's mark before the line; the measure keeps its room. */
+  .live :global(.kind),
+  .live-measure .kind {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 5px;
+    vertical-align: -2px;
+  }
+  .live[data-tone='waiting'] b,
+  .live[data-tone='amber'] b {
     color: var(--island-attention);
+  }
+  .live[data-tone='done'] b {
+    color: var(--island-done);
+  }
+  .live[data-tone='failed'] b,
+  .live[data-tone='red'] b {
+    color: var(--island-danger);
   }
   .progress {
     position: absolute;

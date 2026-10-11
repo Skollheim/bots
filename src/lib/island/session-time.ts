@@ -39,6 +39,21 @@ export function nextChange(ms: number): number {
 }
 
 /**
+ * When a clock showing elapsed times since `starts` must look again: the
+ * soonest of their texts changing; null with no start. The desktop HUD reads
+ * its times by this rather than each second.
+ */
+export function elapsedDelay(starts: readonly (number | null)[], now: number): number | null {
+  let soonest: number | null = null;
+  for (const start of starts) {
+    if (start === null) continue;
+    const due = nextChange(now - start);
+    if (soonest === null || due < soonest) soonest = due;
+  }
+  return soonest === null ? null : Math.min(soonest, CLOCK_MAX_MS);
+}
+
+/**
  * When the sessions' clock must look again: the soonest of a live row's time
  * changing and an ended row (not kept by its card) leaving; null when no row
  * needs it. Ended rows read a fixed time and need no tick.

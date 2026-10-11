@@ -23,6 +23,8 @@
   const companion = $derived(view.companion);
   const copy = strings.island.home;
   const open = (threadId: string) => void view.reveal(threadId).catch(() => {});
+  /** The cards Sessions carries: on their rows, or held while an archive can still be undone. */
+  const carried = $derived([...view.sessions.ended, ...view.sessions.undo.lines.map((line) => line.threadId)]);
 
   /** The earlier answers show in the chat: turned on here, the island turns to it. */
   function showHistory(on: boolean) {
@@ -33,7 +35,7 @@
 
 <div class="home" data-testid="island-home">
   <!-- A finished thread Sessions still shows carries its card on its row. -->
-  <CompanionNotes members={[]} notes={companion.notes} open={false} reachable={companion.reachable} except={view.sessions.ended} changes />
+  <CompanionNotes members={[]} notes={companion.notes} open={false} reachable={companion.reachable} except={carried} changes />
 
   <SessionsList />
 

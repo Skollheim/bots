@@ -24,6 +24,9 @@ test('stored preferences are read field by field, a wrong field taking its defau
   expect(parseCompanionPrefs({ hotkey: null }).hotkey).toBeNull();
   expect(parseCompanionPrefs({}).hotkey).toBe(DEFAULT_COMPANION_PREFS.hotkey);
   expect(parseCompanionPrefs({ hideFullscreen: false, sounds: false })).toMatchObject({ hideFullscreen: false, sounds: false });
+  expect(parseCompanionPrefs({}).pillRest).toBe('live');
+  expect(parseCompanionPrefs({ pillRest: 'quota' }).pillRest).toBe('quota');
+  expect(parseCompanionPrefs({ pillRest: 'clock' }).pillRest).toBe('live');
   window.localStorage.setItem(COMPANION_STORAGE_KEY, '{not json');
   expect(readCompanionPrefs()).toEqual(DEFAULT_COMPANION_PREFS);
 });
