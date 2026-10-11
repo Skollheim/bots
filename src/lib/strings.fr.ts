@@ -288,7 +288,11 @@ export const fr: Messages = {
       now: '{title} par {artist}',
       show: 'Afficher {app}',
       position: '{position} sur {duration}',
-      seek: 'Position dans le morceau'
+      seek: 'Position dans le morceau',
+      lyrics: 'Paroles',
+      lyricsShow: 'Afficher les paroles synchronisées : le titre et l’artiste sont envoyés à LRCLIB (lrclib.net)',
+      lyricsHide: 'Masquer les paroles (le titre et l’artiste sont envoyés à LRCLIB)',
+      lyricsNone: 'Pas de paroles synchronisées'
     },
     hud: {
       label: 'Fils au travail et quotas',
@@ -437,6 +441,8 @@ export const fr: Messages = {
       },
       music: 'Réagir à la musique',
       musicHint: 'Un casque et une petite danse quand quelque chose joue, et les commandes du lecteur sous B.O.T.S.',
+      lyrics: 'Paroles synchronisées',
+      lyricsHint: 'Les paroles du morceau dans le lecteur, ligne par ligne. Elles viennent de LRCLIB (lrclib.net), une bibliothèque de paroles gratuite : B.O.T.S lui envoie le titre et l’artiste de chaque morceau que vous écoutez, rien d’autre.',
       quotas: 'Afficher les quotas',
       quotasHint: 'Une petite jauge par abonnement du proxy (Douane) à côté de B.O.T.S, avec le logo de son fournisseur, rouge quand l’un est presque épuisé. Désactivez dans la liste ci-dessous ceux que vous ne voulez pas voir.',
       quotasShown: 'Quotas affichés à côté de B.O.T.S',

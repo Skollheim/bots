@@ -60,6 +60,8 @@ export interface CompanionPrefs {
   control: CompanionControl;
   /** React to the music playing and show its controls. */
   music: boolean;
+  /** The player's synced lyrics, from LRCLIB: off until the user turns them on, since they send the track's title and artist out. */
+  lyrics: boolean;
   /** A click anywhere but on the companion closes its panel. */
   closeOutside: boolean;
   /** One gauge per subscription of the proxy beside the character. */
@@ -101,6 +103,7 @@ export const DEFAULT_COMPANION_PREFS: CompanionPrefs = {
   effort: null,
   control: 'ask',
   music: true,
+  lyrics: false,
   closeOutside: true,
   quotas: true,
   hiddenQuotas: [],
@@ -165,6 +168,7 @@ export function parseCompanionPrefs(raw: unknown): CompanionPrefs {
     effort: text(value.effort),
     control: value.control === 'auto' ? 'auto' : 'ask',
     music: value.music !== false,
+    lyrics: value.lyrics === true,
     closeOutside: value.closeOutside !== false,
     quotas: value.quotas !== false,
     hiddenQuotas: Array.isArray(value.hiddenQuotas) ? [...new Set(value.hiddenQuotas.filter((id): id is string => typeof id === 'string' && id !== ''))] : [],
