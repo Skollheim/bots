@@ -36,6 +36,11 @@ const thread = (id: string, more: Partial<Source> = {}): Source => ({
 
 const projects = new Map([['p-1', 'boite']]);
 
+test('a thread whose turn ended with work left in the background is still listed', () => {
+  const rows = hudThreads([thread('shell', { status: 'idle', backgroundWork: { kinds: ['shell'], since: 4_000 } }), thread('rest', { status: 'idle', backgroundWork: null })], projects, []);
+  expect(rows.map((row) => [row.id, row.since])).toEqual([['shell', 4_000]]);
+});
+
 test('lists the threads at work but its own, the latest request first', () => {
   const rows = hudThreads(
     [
