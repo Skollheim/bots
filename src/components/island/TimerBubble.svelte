@@ -123,7 +123,6 @@
     border-radius: 0 0 16px 16px;
     background: var(--island-bg);
     color: var(--island-text);
-    animation: bud 420ms cubic-bezier(0.2, 0.9, 0.3, 1.25);
   }
   .resting {
     --tone: var(--island-done);
@@ -195,30 +194,33 @@
     background: var(--island-pill);
     color: var(--island-text);
     cursor: pointer;
+    transition: scale 90ms ease-out;
   }
   .controls button:hover {
     background: var(--island-card-hover);
+  }
+  .controls button:active {
+    scale: 0.96;
   }
   .controls button:focus-visible {
     outline: 2px solid var(--tone);
     outline-offset: 1px;
   }
 
-  @keyframes bud {
-    from {
-      opacity: 0;
-      transform: translateX(18px) scale(0.4);
-    }
-  }
   @keyframes appear {
     from {
       opacity: 0;
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .drop,
     .more {
       animation: none;
+    }
+    .controls button {
+      transition: none;
+    }
+    .controls button:active {
+      scale: none;
     }
   }
 </style>
