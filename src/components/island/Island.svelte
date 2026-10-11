@@ -71,9 +71,6 @@
   /** The open island's width, and the most its content takes before it scrolls. */
   const OPEN_WIDTH = 640;
   const OPEN_MAX = 440;
-  /** With a diff open in Home: as tall as the window lets it, up to this. The window keeps 60 px under it for the glow and a notice. */
-  const OPEN_TALL = 640;
-  const WINDOW_SPARE = 60;
   /** The tabs above the view. */
   const TABS_HEIGHT = 48;
   const COLLAPSED = { w: 200, h: 32 };
@@ -82,7 +79,6 @@
   const ICONS = { home: House, chat: MessageCircle, drop: Plus } as const;
 
   let measured = $state(0);
-  let windowHeight = $state(0);
   let windowWidth = $state(0);
   /** The pointer is on a drop beside the island: the island itself does not peek for it. */
   let onSide = $state(false);
@@ -93,11 +89,6 @@
 
   const lead = $derived(companion.members[0]!);
   const sessions = new Sessions({ client: () => companion.client, threads: () => companion.threads, own: () => companion.ownThreads, held: () => companion.notes.notices.map((notice) => notice.threadId) });
-  // An open diff in Home asks for a taller island; the window grows first (`App.svelte`), within the work area.
-  $effect(() => {
-    frame.tall = frame.size === 'open' && frame.tab === 'home' && sessions.diffShown;
-  });
-  const openMax = $derived(frame.tall ? Math.max(OPEN_MAX, Math.min(OPEN_TALL, windowHeight - WINDOW_SPARE)) : OPEN_MAX);
   $effect(() => sessions.start());
   /** A thread that ended is told in the pill, which peeks for it; red for a failure. */
   const finishes = new FinishWatch({ client: () => companion.client, rows: () => sessions.rows, announce: (failed) => frame.flash(failed) });
@@ -151,7 +142,7 @@
   // Settles within a quarter pixel: the last frames of a smaller step would move nothing one can see.
   const box = new Spring({ ...COLLAPSED }, { stiffness: 0.18, damping: 0.72, precision: 0.25 });
   const radius = $derived(Math.min(RADIUS, box.current.h / 2));
-  const target = $derived(frame.size === 'open' ? { w: OPEN_WIDTH, h: Math.min(Math.max(measured, 120), openMax) } : pill);
+  const target = $derived(frame.size === 'open' ? { w: OPEN_WIDTH, h: Math.min(Math.max(measured, 120), OPEN_MAX) } : pill);
   /** What the drops beside the island have, up to the window's edge. */
   const sideRoom = $derived(Math.max(0, (windowWidth - box.current.w) / 2 - SIDE_GAP));
   const sides = $derived(frame.size !== 'open');
@@ -280,7 +271,7 @@
   }
 </script>
 
-<svelte:window bind:innerHeight={windowHeight} bind:innerWidth={windowWidth} />
+<svelte:window bind:innerWidth={windowWidth} />
 
 <div class="cluster island-tokens">
 <!-- The goo filter melts the drops' black twins and their necks while they move; nothing uses it at rest. -->
@@ -320,7 +311,7 @@
   {#if frame.size !== 'open'}
     <IslandBar {companion} {frame} {sessions} told={prs.told ?? finishes.line} {cheering} {reduced} bind:want={pill} />
   {:else}
-    <div class="open" in:bloom={{ reduced }} out:blurAway={{ reduced }} style:max-height="{openMax}px" bind:offsetHeight={measured}>
+    <div class="open" in:bloom={{ reduced }} out:blurAway={{ reduced }} style:max-height="{OPEN_MAX}px" bind:offsetHeight={measured}>
       <nav class="tabs" aria-label={copy.label}>
         <div class="group" role="tablist">
           {#each ISLAND_TABS as tab (tab)}
@@ -388,7 +379,7 @@
             {#if companion.blocking > 0}<span class="badge" aria-hidden="true">{companion.blocking}</span>{/if}
           </button>
         </div>
-        <div class="view island-fade" data-tab={frame.tab} style:max-height="{openMax - TABS_HEIGHT}px">
+        <div class="view island-fade" data-tab={frame.tab} style:max-height="{OPEN_MAX - TABS_HEIGHT}px">
           <MemoryCard />
           {#if companion.blocking > 0}<AttentionCard />{/if}
           {#if frame.tab === 'home'}

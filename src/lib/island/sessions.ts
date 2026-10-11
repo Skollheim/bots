@@ -12,7 +12,7 @@ export type SessionState = 'working' | 'waiting' | 'done' | 'failed';
 export type StepKind = ToolFamily | 'done';
 export type StepStatus = 'running' | 'done' | 'error' | 'denied';
 
-/** The before and after of a file an Edit or Write step changed. */
+/** The before and after of a file the thread changed, shown by an ended row's "changes" (`thread-actions.ts`). */
 export interface SessionDiff {
   path: string;
   oldText: string;
@@ -28,7 +28,6 @@ export interface SessionStep {
   /** A file name, or a command cut to its first line. */
   target: string;
   status: StepStatus;
-  diff: SessionDiff | null;
 }
 
 export interface SessionRow {
@@ -40,7 +39,7 @@ export interface SessionRow {
   since: number;
   /** When it ended, for done and failed rows; what the two minutes count from. */
   endedAt: number | null;
-  /** Oldest first, at most `STEP_LIMIT`. */
+  /** Oldest first, at most `STEP_LIMIT`: the pill's live line says the last one (`session-text.ts`). */
   steps: SessionStep[];
   /** The agent's task in progress, when it keeps a list. */
   task: string | null;
@@ -92,20 +91,12 @@ function firstLine(text: string): string {
   return (text.split(/\r?\n/).find((line) => line.trim().length > 0) ?? '').trim();
 }
 
-function diffOf(part: ToolPart, family: ToolFamily, change: SessionDiff | null): SessionDiff | null {
-  if (family !== 'edit' && family !== 'write') return null;
-  const document = part.documentsDeferred === true ? undefined : part.documents?.find((entry) => entry.kind === 'diff');
-  const source = document && document.kind === 'diff' ? document : change;
-  if (!source) return null;
-  return { path: source.path, oldText: cut(source.oldText, DIFF_TEXT_LIMIT), newText: cut(source.newText, DIFF_TEXT_LIMIT) };
-}
-
 /** One tool call as a step: what it is, what it touches, how it went. */
 export function stepOf(part: ToolPart): SessionStep {
-  const { family, subject, change } = describeTool(part.name, part.input);
+  const { family, subject } = describeTool(part.name, part.input);
   const pathLike = family === 'edit' || family === 'write' || family === 'read';
   const target = cut(pathLike && subject ? fileName(subject) : firstLine(subject), TARGET_LIMIT);
-  return { id: part.toolId, kind: family, name: part.name, target, status: part.status, diff: diffOf(part, family, change) };
+  return { id: part.toolId, kind: family, name: part.name, target, status: part.status };
 }
 
 function withStep(steps: readonly SessionStep[], step: SessionStep): SessionStep[] {
@@ -207,7 +198,7 @@ function finish(row: SessionRow, turn: Turn, at: number): SessionRow {
   const failed = turn.status === 'error';
   if (!failed && turn.status !== 'done' && turn.status !== 'stopped') return row;
   const settled: SessionStep[] = row.steps.map((step) => (step.status === 'running' ? { ...step, status: failed ? 'error' : 'done' } : step));
-  const closing: SessionStep = { id: `done:${turn.id}`, kind: 'done', name: '', target: failed ? firstLine(turn.error ?? '') : '', status: failed ? 'error' : 'done', diff: null };
+  const closing: SessionStep = { id: `done:${turn.id}`, kind: 'done', name: '', target: failed ? firstLine(turn.error ?? '') : '', status: failed ? 'error' : 'done' };
   const steps = settled.some((step) => step.id === closing.id) ? settled : withStep(settled, closing);
   // The linger counts on this machine's clock: a core on another machine may run ahead or behind.
   const ended = isLive(row) ? at : (row.endedAt ?? at);

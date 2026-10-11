@@ -5,6 +5,7 @@
   the lead robot naps beside "Nothing running": a few breaths, then still.
   An archived row leaves a line in its place for a few seconds, to undo it
   (`archive-undo.ts`); a row followed in the pill says so (`followed.ts`).
+  A row with sub-agents counts the ones at work and unfolds them all.
 -->
 <script lang="ts">
   import { listed } from '../../../lib/island/archive-undo';
@@ -27,6 +28,8 @@
   const notices = $derived(new Map(notes.notices.filter((notice) => ended.has(notice.threadId)).map((notice) => [notice.threadId, notice])));
   const copy = strings.island.sessions;
   const reveal = (threadId: string) => void view.reveal(threadId).catch(() => {});
+  /** Some row has sub-agents: every row keeps the chevron's place, so that the times line up. */
+  const foldSpace = $derived(rows.some((row) => (sessions.agents.get(row.id)?.length ?? 0) > 0));
 </script>
 
 <section class="island-card" data-testid="island-sessions">
@@ -52,6 +55,8 @@
             {row}
             project={(row.projectId && projects.get(row.projectId)) || ''}
             now={sessions.now}
+            agents={sessions.agents.get(row.id) ?? []}
+            {foldSpace}
             {notice}
             {notes}
             followed={sessions.followedId === row.id}

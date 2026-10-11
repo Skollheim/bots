@@ -4,7 +4,9 @@
  * reads it and follows `thread.updated`; the turns, steps and tasks come from
  * the events here. A thread at work is subscribed for its steps
  * (`message.part` reaches subscribed sockets only) and its last steps are read
- * once with `threads.get`; it is let go when its row leaves.
+ * once with `threads.get`; it is let go when its row leaves. Each row's
+ * sub-agents come from the thread list, and the provider's own from a team
+ * read (`delegation.get`) when a row unfolds, starts work or its team changes.
  */
 import { untrack } from 'svelte';
 import type { ThreadSummary } from '@boite/contracts';
@@ -15,7 +17,8 @@ import { ArchiveUndo } from './archive-undo.svelte';
 import { coreKey, followedGone, restingRow } from './followed';
 import { Followed } from './followed.svelte';
 import { isLive, leadOf, reduceSessions, sortRows, type SessionEvent, type SessionRow } from './sessions';
-import { clockDelay } from './session-time';
+import { clockDelay, elapsedDelay } from './session-time';
+import { childrenIndex, isAgentLive, subAgentsOf, teamOf, type TeamRead } from './sub-agents';
 
 export interface SessionsSource {
   client(): Client | null;
@@ -35,15 +38,19 @@ const CLOCK_SLACK_MS = 20;
 const RESTORE_HOLD_MS = 15_000;
 
 /**
- * What Home shows unfolded: the rows opened on their steps and the one step
- * whose change is open. Kept here so it outlives a turn to another tab; a
- * capture pose sets it too (`pose.ts`).
+ * What Home shows unfolded: the rows opened on their sub-agents. Kept here so
+ * it outlives a turn to another tab; a capture pose sets it too (`pose.ts`).
  */
-export const unfolding = $state<{ rows: string[]; diff: string | null }>({ rows: [], diff: null });
+export const unfolding = $state<{ rows: string[] }>({ rows: [] });
 
 /** Who the core said it is on the last hello, when the client keeps it. */
 function coreOf(client: Client | null): ObservableClient['core'] {
   return client && 'core' in client ? (client as ObservableClient).core : null;
+}
+
+/** The sooner of two delays, either of which may be none. */
+function soonest(a: number | null, b: number | null): number | null {
+  return a === null ? b : b === null ? a : Math.min(a, b);
 }
 
 export class Sessions {
@@ -77,10 +84,21 @@ export class Sessions {
   readonly lead = $derived(leadOf(this.rows));
   /** The threads whose row shows them ended: their finished card folds into the row. */
   readonly ended = $derived(this.rows.filter((row) => !isLive(row)).map((row) => row.id));
-  /** A step's diff shows: its row unfolded and the step still there. The open island grows for it. */
-  readonly diffShown = $derived(
-    unfolding.diff !== null && this.rows.some((row) => unfolding.rows.includes(row.id) && row.steps.some((step) => step.id === unfolding.diff && step.diff !== null))
-  );
+  /** Each row's sub-agents of its current run (`sub-agents.ts`): the thread list's children, and the provider's own from the last team read. */
+  readonly agents = $derived.by(() => {
+    const index = childrenIndex(this.source.threads());
+    const teams = this.#teams;
+    return new Map(this.rows.map((row) => [row.id, subAgentsOf(row, index, teams[row.id])]));
+  });
+  /** When the sub-agents at work in an unfolded row started: their times move with the clock. */
+  readonly #shownStarts = $derived(unfolding.rows.flatMap((id) => (this.agents.get(id) ?? []).filter(isAgentLive).map((agent) => agent.start)));
+
+  /** The last team read of each row, by thread (`delegation.get`). */
+  #teams = $state.raw<Record<string, TeamRead>>({});
+  /** Team reads under way, and whether another was asked for meanwhile. */
+  #reading = new Map<string, boolean>();
+  /** The rows unfolded the last time it was looked: a row newly unfolded reads its team. */
+  #opened = new Set<string>();
 
   #followed = new Set<string>();
   #client: Client | null = null;
@@ -103,6 +121,10 @@ export class Sessions {
           detach?.();
           this.#client = client;
           this.#followed.clear();
+          // Another core, or the same one back: the teams are read again.
+          this.#opened.clear();
+          this.#reading.clear();
+          this.#teams = {};
           detach = client ? this.#listen(client) : null;
         });
       });
@@ -125,14 +147,27 @@ export class Sessions {
         const live = this.rows.filter(isLive).map((row) => row.id);
         untrack(() => this.#follow(live));
       });
+      // A row newly unfolded reads its team; a row gone forgets it.
+      $effect(() => {
+        void this.source.client();
+        const ids = new Set(this.rows.map((row) => row.id));
+        const opened = unfolding.rows.filter((id) => ids.has(id));
+        untrack(() => {
+          for (const id of opened) if (!this.#opened.has(id) && this.#client) void this.#readTeam(this.#client, id);
+          this.#opened = new Set(opened);
+          if (Object.keys(this.#teams).some((id) => !ids.has(id))) this.#teams = Object.fromEntries(Object.entries(this.#teams).filter(([id]) => ids.has(id)));
+        });
+      });
       // The clock wakes when a row's time would read differently or an ended row is due to leave
-      // (`clockDelay`): each second under a minute, then once a minute; never without a row.
+      // (`clockDelay`), or when an unfolded sub-agent's time would: each second under a minute, then
+      // once a minute; never without a row.
       $effect(() => {
         void this.now;
         if (page.hidden) return;
         const rows = this.#rows;
         const keep = this.#keep();
-        const delay = untrack(() => clockDelay(rows, Date.now(), keep));
+        const starts = this.#shownStarts;
+        const delay = untrack(() => soonest(clockDelay(rows, Date.now(), keep), elapsedDelay(starts, Date.now())));
         if (delay === null) return;
         const timer = setTimeout(() => this.#tick(keep), delay + CLOCK_SLACK_MS);
         return () => clearTimeout(timer);
@@ -191,9 +226,38 @@ export class Sessions {
       // A step ended on a thread whose parts do not reach this socket: its last steps are read again.
       client.on('turn.toolCompleted', ({ threadId }) => {
         if (!this.#followed.has(threadId) && this.#rows.some((row) => row.id === threadId && isLive(row))) void this.#seed(client, threadId);
+      }),
+      // Its team changed (a sub-agent started or ended, the provider's own included): read again when the row shows it.
+      client.on('delegation.changed', ({ threadId }) => {
+        const row = this.#rows.find((entry) => entry.id === threadId);
+        if (row && (isLive(row) || unfolding.rows.includes(threadId))) void this.#readTeam(client, threadId);
       })
     ];
     return () => off.forEach((stop) => stop());
+  }
+
+  /**
+   * Reads a thread's team (`delegation.get`): its provider's own agents and its
+   * children's last turns. One read at a time per thread; a change meanwhile
+   * reads once more after it. Never on a timer: an unfold, a team change, a
+   * thread starting work.
+   */
+  async #readTeam(client: Client, threadId: string): Promise<void> {
+    if (this.#reading.has(threadId)) {
+      this.#reading.set(threadId, true);
+      return;
+    }
+    this.#reading.set(threadId, false);
+    try {
+      const view = await client.call('delegation.get', { threadId });
+      if (client === this.#client && this.#rows.some((row) => row.id === threadId)) this.#teams = { ...this.#teams, [threadId]: teamOf(view) };
+    } catch {
+      // An older core, or one that refuses: the thread list's sub-agents still show.
+    } finally {
+      const again = this.#reading.get(threadId) === true;
+      this.#reading.delete(threadId);
+      if (again && client === this.#client) void this.#readTeam(client, threadId);
+    }
   }
 
   /** Subscribes to the threads newly at work, lets go of the ones that left. */
@@ -211,7 +275,7 @@ export class Sessions {
       this.#followed.add(id);
       void client
         .call('threads.subscribe', { threadId: id })
-        .then(() => this.#seed(client, id))
+        .then(() => Promise.all([this.#seed(client, id), this.#readTeam(client, id)]))
         .catch(() => this.#followed.delete(id));
     }
   }

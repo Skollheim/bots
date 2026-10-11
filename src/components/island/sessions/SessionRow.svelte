@@ -1,10 +1,11 @@
 <!--
   One live session in Home: its robot, its title (a click shows the thread in
-  Boite), its project, its state and how long it has been at it. Unfolded, its
-  last steps, newest at the bottom: the tool, its target and a status mark; an
-  Edit or Write step opens the change it made. A finished thread's card folds
-  into its row: the reply's first line, and answer or dismiss it from here.
-  An ended row offers to start the thread again, archive it, or show the
+  Boite), its project, its state and how long it has been at it. The second
+  line says the state, then how many sub-agents work for it; what the agent
+  does step by step is the pill's and the HUD's, not Home's. With sub-agents,
+  a chevron unfolds them (`SubAgentList.svelte`). A finished thread's card
+  folds into its row: the reply's first line, and answer or dismiss it from
+  here. An ended row offers to start the thread again, archive it, or show the
   changes in its folder (`NoticeActions.svelte`); archived, it can be undone
   for a few seconds (`archive-undo.ts`). A row can be followed in the pill
   (`followed.ts`): a small eye before its time says so. The actions show on
@@ -13,23 +14,28 @@
   reads calm (`session-time.ts`): seconds under a minute only.
 -->
 <script lang="ts">
-  import { Check, ChevronDown, CornerDownLeft, Eye, EyeOff, FileDiff, Minus, X } from '@lucide/svelte';
+  import { ChevronDown, CornerDownLeft, Eye, EyeOff, X } from '@lucide/svelte';
   import type { Notes, Notice } from '../../../lib/companion/notes.svelte';
   import { seededRobot } from '../../../lib/robots';
   import { isLive, type SessionRow } from '../../../lib/island/sessions';
   import { unfolding } from '../../../lib/island/sessions.svelte';
-  import { rowDoing, toolLabel } from '../../../lib/island/session-text';
+  import { agentsText } from '../../../lib/island/session-text';
   import { sessionTime } from '../../../lib/island/session-time';
+  import { liveCount, type SubAgent } from '../../../lib/island/sub-agents';
   import { strings } from '../../../lib/strings';
   import RobotFace from '../../agents/RobotFace.svelte';
   import CompanionReply from '../../companion/CompanionReply.svelte';
   import NoticeActions from './NoticeActions.svelte';
-  import SessionDiff from './SessionDiff.svelte';
+  import SubAgentList from './SubAgentList.svelte';
 
   interface Props {
     row: SessionRow;
     project: string;
     now: number;
+    /** The sub-agents of its current run, in start order (`sub-agents.ts`). */
+    agents: readonly SubAgent[];
+    /** Some row of the list has a chevron: this one keeps its place, so that the times line up. */
+    foldSpace: boolean;
     /** The finished card of this thread, folded into the row; null when none stands. */
     notice: Notice | null;
     notes: Notes;
@@ -41,19 +47,15 @@
     onarchive(): Promise<void>;
   }
 
-  let { row, project, now, notice, notes, followed, onreveal, onfollow, onarchive }: Props = $props();
+  let { row, project, now, agents, foldSpace, notice, notes, followed, onreveal, onfollow, onarchive }: Props = $props();
 
   const copy = strings.island.sessions;
-  const unfolded = $derived(unfolding.rows.includes(row.id));
-  const opened = $derived(unfolding.diff);
+  const foldable = $derived(agents.length > 0);
+  const unfolded = $derived(foldable && unfolding.rows.includes(row.id));
   const replying = $derived(!!notice && notes.replying === notice.id);
 
   function fold() {
     unfolding.rows = unfolded ? unfolding.rows.filter((id) => id !== row.id) : [...unfolding.rows, row.id];
-  }
-
-  function openDiff(stepId: string) {
-    unfolding.diff = unfolding.diff === stepId ? null : stepId;
   }
 
   const robot = $derived(seededRobot(row.id, 'box'));
@@ -61,15 +63,15 @@
   // A row at rest saw no turn here: it has no time to tell.
   const time = $derived(row.resting ? '' : sessionTime((row.endedAt ?? now) - row.since));
   const state = $derived(row.resting && row.state === 'done' ? copy.followState.resting : copy.states[row.state]);
-  const line = $derived(isLive(row) ? (rowDoing(row) ?? '') : (notice?.line ?? ''));
+  const line = $derived(isLive(row) ? (agentsText(liveCount(agents)) ?? '') : (notice?.line ?? ''));
 </script>
 
-<li class="session" class:unfolded class:closed={!isLive(row) && !replying} data-state={row.state} data-testid="session-row">
+<li class="session" class:unfolded class:closed={!isLive(row) && !replying} class:bare={!foldSpace} data-state={row.state} data-testid="session-row">
   <div class="head">
     <span class="avatar" aria-hidden="true"><RobotFace {robot} state={face} /></span>
     <button class="title" title={copy.reveal} onclick={() => onreveal(row.id)}>
       <span class="name">{row.title}{#if project}<span class="project">&nbsp;· {project}</span>{/if}</span>
-      <span class="sub">
+      <span class="sub" data-testid="session-line">
         <span class="state">{state}</span>{#if line}<span class="step">&nbsp;· {line}</span>{/if}
       </span>
     </button>
@@ -99,17 +101,21 @@
         </button>
       {/if}
     </span>
-    <button
-      class="fold"
-      class:on={unfolded}
-      aria-expanded={unfolded}
-      aria-label={unfolded ? copy.hideSteps : copy.showSteps}
-      title={unfolded ? copy.hideSteps : copy.showSteps}
-      data-testid="session-fold"
-      onclick={fold}
-    >
-      <ChevronDown size={14} strokeWidth={2} />
-    </button>
+    {#if foldable}
+      <button
+        class="fold"
+        class:on={unfolded}
+        aria-expanded={unfolded}
+        aria-label={unfolded ? copy.agents.hide : copy.agents.show}
+        title={unfolded ? copy.agents.hide : copy.agents.show}
+        data-testid="session-fold"
+        onclick={fold}
+      >
+        <ChevronDown size={14} strokeWidth={2} />
+      </button>
+    {:else if foldSpace}
+      <span class="fold-space" aria-hidden="true"></span>
+    {/if}
   </div>
   {#if !isLive(row) && !replying}
     <div class="ended">
@@ -123,41 +129,7 @@
     </div>
   {/if}
   {#if unfolded}
-    {#if row.steps.length === 0}
-      <p class="empty">{copy.noSteps}</p>
-    {:else}
-      <ol class="steps">
-        {#each row.steps as entry (entry.id)}
-          <li class="step-row" data-status={entry.status} data-kind={entry.kind}>
-            <span class="mark" title={copy.stepStatus[entry.status]}>
-              {#if entry.status === 'running'}<i class="spin" aria-hidden="true"></i>
-              {:else if entry.status === 'done'}<Check size={12} strokeWidth={2.4} aria-hidden="true" />
-              {:else if entry.status === 'error'}<X size={12} strokeWidth={2.4} aria-hidden="true" />
-              {:else}<Minus size={12} strokeWidth={2.4} aria-hidden="true" />{/if}
-              <span class="sr">{copy.stepStatus[entry.status]}</span>
-            </span>
-            <span class="tool" title={entry.name || undefined}>{toolLabel(entry)}</span>
-            <span class="target" title={entry.target}>{entry.target}</span>
-            {#if entry.diff}
-              <button
-                class="change"
-                class:on={opened === entry.id}
-                aria-expanded={opened === entry.id}
-                aria-label={opened === entry.id ? copy.hideDiff : copy.showDiff}
-                title={opened === entry.id ? copy.hideDiff : copy.showDiff}
-                data-testid="session-diff-toggle"
-                onclick={() => openDiff(entry.id)}
-              >
-                <FileDiff size={13} strokeWidth={1.9} />
-              </button>
-            {/if}
-            {#if entry.diff && opened === entry.id}
-              <div class="diff-slot"><SessionDiff diff={entry.diff} /></div>
-            {/if}
-          </li>
-        {/each}
-      </ol>
-    {/if}
+    <SubAgentList {agents} {now} {onreveal} />
   {/if}
 </li>
 
@@ -206,8 +178,7 @@
     background: var(--island-card-hover);
   }
   .title:focus-visible,
-  .fold:focus-visible,
-  .change:focus-visible {
+  .fold:focus-visible {
     outline: 2px solid var(--island-talking);
     outline-offset: 1px;
   }
@@ -248,7 +219,7 @@
     font-variant-numeric: tabular-nums;
   }
   .fold,
-  .change,
+  .fold-space,
   .act {
     display: grid;
     place-items: center;
@@ -263,11 +234,12 @@
     cursor: pointer;
   }
   .fold:hover,
-  .change:hover,
-  .change.on,
   .act:hover {
     background: var(--island-pill);
     color: var(--island-text);
+  }
+  .fold-space {
+    cursor: default;
   }
   .act:focus-visible {
     outline: 2px solid var(--island-talking);
@@ -290,7 +262,9 @@
    * end, on a fade of the card, and the ended row's ones take the place of
    * its second line, which fades out for them. The list never moves. Hidden,
    * they take no click; the keyboard still reaches them, and its focus shows
-   * them. The fold's chevron stays, quieter: it says the row opens.
+   * them. The fold's chevron stays, quieter: it says the row opens. In a list
+   * where no row has sub-agents, there is no chevron and they float over the
+   * very end.
    */
   .tools {
     position: absolute;
@@ -303,19 +277,27 @@
     background: linear-gradient(to right, transparent, var(--island-card) 16px);
     transform: translateY(-50%);
   }
+  .bare .tools {
+    right: 0;
+  }
   .tools,
   .ended {
     opacity: 0;
     pointer-events: none;
     transition: opacity 180ms ease;
   }
-  .sub {
+  .sub,
+  .time {
     transition: opacity 180ms ease;
   }
   .session:is(:hover, :focus-within, .unfolded) :is(.tools, .ended),
   .ended:has(:global([aria-expanded='true'], [role='alert'])) {
     opacity: 1;
     pointer-events: auto;
+  }
+  /* The time under the actions fades with their coming, so no digit shows through their fade. */
+  .session:is(:hover, :focus-within, .unfolded) .time {
+    opacity: 0;
   }
   .session.closed:is(:hover, :focus-within, .unfolded) .sub,
   .session.closed:has(.ended :global(:is([aria-expanded='true'], [role='alert']))) .sub {
@@ -360,7 +342,8 @@
     .ended {
       margin: 0 0 8px 32px;
     }
-    .session.closed .sub {
+    .session.closed .sub,
+    .session:is(:hover, :focus-within, .unfolded) .time {
       opacity: 1;
     }
   }
@@ -395,68 +378,6 @@
   .fold.on :global(svg) {
     transform: rotate(180deg);
   }
-  .empty {
-    margin: 0 0 6px 32px;
-    color: var(--island-muted);
-    font-size: 12px;
-  }
-  .steps {
-    display: flex;
-    flex-direction: column;
-    margin: 0 0 6px 32px;
-    padding: 0;
-    list-style: none;
-  }
-  .step-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 2px 8px;
-    min-height: 24px;
-    font-size: 12px;
-  }
-  .mark {
-    display: grid;
-    place-items: center;
-    flex: none;
-    width: 14px;
-    color: var(--island-faint);
-  }
-  .step-row[data-status='done'] .mark {
-    color: var(--island-done);
-  }
-  .step-row[data-status='error'] .mark {
-    color: var(--island-danger);
-  }
-  .spin {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--island-working);
-    animation: pulse 1.4s ease-in-out infinite;
-  }
-  .tool {
-    flex: none;
-    min-width: 56px;
-    color: var(--island-text);
-    font-weight: 500;
-  }
-  .target {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--island-muted);
-  }
-  .change {
-    width: 22px;
-    height: 22px;
-  }
-  .diff-slot {
-    flex-basis: 100%;
-    min-width: 0;
-  }
   .sr {
     position: absolute;
     width: 1px;
@@ -465,20 +386,13 @@
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  @keyframes pulse {
-    50% {
-      opacity: 0.4;
-    }
-  }
   @media (prefers-reduced-motion: reduce) {
-    .spin {
-      animation: none;
-    }
     .fold :global(svg),
     .fold,
     .tools,
     .ended,
-    .sub {
+    .sub,
+    .time {
       transition: none;
     }
   }

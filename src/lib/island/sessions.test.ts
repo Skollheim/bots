@@ -84,17 +84,6 @@ test('a step updates in place and the row keeps the last six', () => {
   expect(currentStep(run(...events)[0]!)).toMatchObject({ target: 'last', status: 'done' });
 });
 
-test('an Edit step carries its diff, from the document first, else from the input', () => {
-  const fromInput = tool('e1', 'Edit', { file_path: 'C:\\a\\b.ts', old_string: 'one', new_string: 'two' });
-  const fromDocument = tool('e2', 'Edit', { file_path: 'C:\\a\\c.ts', old_string: 'x', new_string: 'y' }, 'done', {
-    documents: [{ kind: 'diff', path: 'C:\\a\\c.ts', oldText: 'whole old', newText: 'whole new' }]
-  });
-  const steps = run(listed(2_000, thread('a', 'running')), { type: 'part', threadId: 'a', part: fromInput }, { type: 'part', threadId: 'a', part: fromDocument })[0]?.steps ?? [];
-  expect(steps[0]?.diff).toEqual({ path: 'C:\\a\\b.ts', oldText: 'one', newText: 'two' });
-  expect(steps[1]?.diff).toEqual({ path: 'C:\\a\\c.ts', oldText: 'whole old', newText: 'whole new' });
-  expect(run(listed(2_000, thread('a', 'running')), { type: 'part', threadId: 'a', part: tool('r', 'Read', { file_path: 'x' }) })[0]?.steps[0]?.diff).toBeNull();
-});
-
 test('a finished turn closes the row with a Done step, once, and it stays two minutes', () => {
   let rows = run(
     listed(2_000, thread('a', 'running')),
