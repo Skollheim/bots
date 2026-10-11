@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import type { MediaState } from './media';
-import { accentOf, barOf, clockAfter, DRIFT_MS, fallTo, heldClock, LEVEL_FLOOR, liftOnBlack, mirrored, nextCeiling, positionAt, seekTo, type MusicBase } from './music';
+import { accentOf, ART_SETTLE_MS, barOf, clockAfter, DRIFT_MS, fallTo, heldClock, isNewTrack, LEVEL_FLOOR, liftOnBlack, mirrored, nextCeiling, positionAt, seekTo, SKIP_ANSWER_MS, slideOf, type MusicBase } from './music';
 import { Music } from './music.svelte';
 
 const state = (position: number | null, playing = true, duration = 200_000): MediaState => ({ title: 'Song', artist: 'Band', app: 'Spotify.exe', playing, position, duration });
@@ -88,4 +88,26 @@ test('the cover lends its most vivid colour, lifted for black; a grey cover lend
   const [r, g, b] = liftOnBlack(40, 10, 10).match(/\d+/g)!.map(Number);
   expect(Math.max(r!, g!, b!)).toBeGreaterThanOrEqual(220);
   expect(r).toBeGreaterThan(g!);
+});
+
+test('another title or artist is a new track; the position, the play state or a late cover are not', () => {
+  const song = { title: 'Song', artist: 'Band', art: 'data:a' };
+  expect(isNewTrack(song, { ...song }, 0)).toBe(false);
+  expect(isNewTrack(song, { ...song, title: 'Other' }, 0)).toBe(true);
+  expect(isNewTrack(song, { ...song, artist: 'Other' }, 0)).toBe(true);
+  // The cover the player sends after the title, or none, belongs to the same track.
+  expect(isNewTrack({ ...song, art: null }, song, 0)).toBe(false);
+  expect(isNewTrack(song, { ...song, art: undefined }, ART_SETTLE_MS * 4)).toBe(false);
+  // Another cover right after a change arrives late; long after, it is another track.
+  expect(isNewTrack(song, { ...song, art: 'data:b' }, ART_SETTLE_MS - 1)).toBe(false);
+  expect(isNewTrack(song, { ...song, art: 'data:b' }, ART_SETTLE_MS)).toBe(true);
+  expect(isNewTrack(null, song, 0)).toBe(false);
+  expect(isNewTrack(song, null, 0)).toBe(false);
+});
+
+test('a new track slides back after a press of previous, forward otherwise', () => {
+  expect(slideOf(null, 1_000)).toBe(1);
+  expect(slideOf({ action: 'next', at: 1_000 }, 1_500)).toBe(1);
+  expect(slideOf({ action: 'previous', at: 1_000 }, 1_500)).toBe(-1);
+  expect(slideOf({ action: 'previous', at: 1_000 }, 1_000 + SKIP_ANSWER_MS + 1)).toBe(1);
 });

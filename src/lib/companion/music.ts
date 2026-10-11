@@ -54,6 +54,37 @@ export function heldClock(base: MusicBase | null, state: MediaState | null, now:
   return next.playing === base.playing && Math.abs(next.duration - base.duration) < 1000 ? base : next;
 }
 
+/** What tells one track from another in the player: the position and the play state do not. */
+export interface TrackFace {
+  title: string;
+  artist: string;
+  art?: string | null;
+}
+
+/** A cover that changes this soon after the title is taken for the new track's cover arriving late. */
+export const ART_SETTLE_MS = 1500;
+
+/**
+ * Whether `next` is another track than `shown`, for the player to slide the
+ * change: another title or artist, or another cover once the last change
+ * settled. A cover that comes or goes (the player sent it late, or has none)
+ * is the same track.
+ */
+export function isNewTrack(shown: TrackFace | null, next: TrackFace | null, sinceChange: number): boolean {
+  if (!shown || !next) return false;
+  if (shown.title !== next.title || shown.artist !== next.artist) return true;
+  const [before, after] = [shown.art ?? null, next.art ?? null];
+  return before !== null && after !== null && before !== after && sinceChange >= ART_SETTLE_MS;
+}
+
+/** How long after a press of previous or next the track that changes is taken for its answer. */
+export const SKIP_ANSWER_MS = 4000;
+
+/** The way a new track slides in: back after a press of previous a moment ago, forward otherwise. */
+export function slideOf(skip: { action: 'previous' | 'next'; at: number } | null, now: number): 1 | -1 {
+  return skip !== null && skip.action === 'previous' && now - skip.at <= SKIP_ANSWER_MS ? -1 : 1;
+}
+
 /** The loudness the bars are drawn against: it follows a louder peak at once and lets go slowly, never under `LEVEL_FLOOR`. */
 export const LEVEL_FLOOR = 0.06;
 export function nextCeiling(ceiling: number, peak: number): number {

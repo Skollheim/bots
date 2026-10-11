@@ -9,8 +9,12 @@
   const GAP = 28;
   /** Pixels a second. */
   const SPEED = 28;
-  /** The left fade's room, outside the text's: still, the first letter shows whole. */
-  const FADE = 6;
+  /**
+   * The left fade's room, outside the text's: still, the first letter shows
+   * whole. It reaches into the gap before the text, 8 pixels wherever a
+   * marquee sits.
+   */
+  const FADE = 8;
 
   let room = $state(0);
   let width = $state(0);
@@ -50,8 +54,10 @@
     animation: roll var(--time) linear infinite;
   }
   .moving {
-    /* The text fades at the edges as it goes by. */
-    mask-image: linear-gradient(90deg, transparent, currentColor var(--fade), currentColor calc(100% - 10px), transparent);
+    /* The text fades at the edges as it goes by: no cut, no ellipsis. Only
+       the mask's alpha counts, so it stays opaque whatever the text's colour. */
+    mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(100% - 18px), transparent);
+    text-overflow: clip;
   }
   .again {
     padding-left: var(--gap);
@@ -76,6 +82,7 @@
     }
     .moving {
       mask-image: none;
+      text-overflow: ellipsis;
     }
     .again {
       display: none;
