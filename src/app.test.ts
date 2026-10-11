@@ -4,6 +4,9 @@ import App from './App.svelte';
 import SettingsApp from './SettingsApp.svelte';
 import { strings } from './lib/strings';
 
+/** The demo loads its fake core on demand: in a cold run its first import alone can take seconds. */
+const DEMO_WAIT = { timeout: 15_000 };
+
 let shown: { app: Record<string, unknown>; target: HTMLElement } | null = null;
 
 function show(page: typeof App | typeof SettingsApp, search: string) {
@@ -32,13 +35,13 @@ test('without Boite, the companion waits and says how to wake it', async () => {
 
 test('the demo mode runs the companion on the fake core', async () => {
   const target = show(App, '?fake=1');
-  await vi.waitFor(() => expect(target.querySelector('[data-testid="bots-notice"]')?.textContent).toContain(strings.bots.demo));
+  await vi.waitFor(() => expect(target.querySelector('[data-testid="bots-notice"]')?.textContent).toContain(strings.bots.demo), DEMO_WAIT);
   expect(target.querySelector('[data-testid="companion"]')).not.toBeNull();
 });
 
 test('the settings window lists the crew, without a link to Boite\'s Advanced page', async () => {
   const target = show(SettingsApp, '?view=settings&fake=1');
-  await vi.waitFor(() => expect(target.querySelector('[data-testid="companion-crew"] ul, [data-testid="companion-crew"] form')).not.toBeNull());
+  await vi.waitFor(() => expect(target.querySelector('[data-testid="companion-crew"] ul, [data-testid="companion-crew"] form')).not.toBeNull(), DEMO_WAIT);
   expect(target.querySelector('[data-testid="companion-settings"]')).not.toBeNull();
   expect(target.querySelector('[data-testid="companion-open-advanced"]')).toBeNull();
   expect(document.title).toBe(strings.bots.settingsTitle);
