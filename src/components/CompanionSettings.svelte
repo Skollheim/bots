@@ -17,13 +17,14 @@
   import { fill, strings } from '../lib/strings';
   import type { CoreLink } from '../lib/core.svelte';
   import { hudGauges } from '../lib/companion/hud';
-  import { COMPANION_HOTKEYS, MASCOT_FAMILIES, readCompanionPrefs, subscribeCompanionPrefs, writeCompanionPrefs, type CompanionAnchor, type CompanionControl, type CompanionPrefs, type CompanionRobots, type Mascot } from '../lib/companion/prefs';
+  import { COMPANION_HOTKEYS, MASCOT_FAMILIES, PILL_RESTS, readCompanionPrefs, subscribeCompanionPrefs, writeCompanionPrefs, type CompanionAnchor, type CompanionControl, type CompanionPrefs, type CompanionRobots, type Mascot, type PillRest } from '../lib/companion/prefs';
   import { CLASSIC_SKIN } from '../lib/companion/crew';
   import { parseRobot } from '../lib/robots';
   import RobotPicker from './agents/RobotPicker.svelte';
   import { readStatus, subscribeCompanionData } from '../lib/companion/memory';
   import { companionMonitors, inShell, type CompanionMonitor } from '../lib/companion/shell';
   import CompanionReminders from './companion/CompanionReminders.svelte';
+  import CompanionAllowRules from './companion/CompanionAllowRules.svelte';
   import CompanionCrewSettings from './companion/CompanionCrewSettings.svelte';
 
   let { store }: { store: CoreLink } = $props();
@@ -137,6 +138,8 @@
   const CONTROLS: CompanionControl[] = ['ask', 'auto'];
   let controlItems = $derived<MenuItem[]>(CONTROLS.map((control) => ({ id: control, label: copy.controls[control], hint: copy.controlsHint[control], active: prefs.control === control })));
 
+  let pillRestItems = $derived<MenuItem[]>(PILL_RESTS.map((rest) => ({ id: rest, label: copy.pillRests[rest], hint: copy.pillRestHints[rest], active: prefs.pillRest === rest })));
+
   const WORK_MINUTES = [15, 20, 25, 30, 45, 50, 60, 90];
   const BREAK_MINUTES = [3, 5, 10, 15];
   const minutesLabel = (count: number) => fill(copy.minutes, { count: String(count) });
@@ -217,6 +220,7 @@
         <span class="text ui-label-box"><span class="ui-label">{copy.openOnHover}</span><InfoTip topic={copy.openOnHover} text={copy.openOnHoverHint} /></span>
         <input type="checkbox" role="switch" checked={prefs.openOnHover} onchange={(event) => save({ openOnHover: event.currentTarget.checked })} data-testid="companion-open-on-hover" />
       </label>
+      {@render picker(copy.pillRest, copy.pillRestHint, pillRestItems, copy.pillRests[prefs.pillRest], (id) => save({ pillRest: id as PillRest }), 'companion-pill-rest')}
     {/if}
     {@render picker(copy.screen, copy.screenHint, screenItems, prefs.monitor ?? copy.primary, (id) => save({ monitor: id === PRIMARY ? null : id }), 'companion-screen')}
     {#if prefs.robots === 'desktop'}
@@ -259,6 +263,10 @@
       <input type="checkbox" role="switch" checked={prefs.music} onchange={(event) => save({ music: event.currentTarget.checked })} data-testid="companion-music" />
     </label>
     <label class="switch-row">
+      <span class="text ui-label-box"><span class="ui-label">{copy.lyrics}</span><InfoTip topic={copy.lyrics} text={copy.lyricsHint} /></span>
+      <input type="checkbox" role="switch" checked={prefs.lyrics} onchange={(event) => save({ lyrics: event.currentTarget.checked })} data-testid="companion-lyrics" />
+    </label>
+    <label class="switch-row">
       <span class="text ui-label-box"><span class="ui-label">{copy.quotas}</span><InfoTip topic={copy.quotas} text={copy.quotasHint} /></span>
       <input type="checkbox" role="switch" checked={prefs.quotas} onchange={(event) => save({ quotas: event.currentTarget.checked })} data-testid="companion-quotas" />
     </label>
@@ -298,6 +306,7 @@
   </section>
 
   <CompanionReminders />
+  <CompanionAllowRules />
 </div>
 
 <style>

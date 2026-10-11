@@ -7,21 +7,26 @@
   next, and the timeline, where a click or a drag moves the track
   (`MusicTimeline`). It wears the cover's colour, and open, the cover itself,
   blurred and dark behind the player. Another track slides its cover and
-  names in, back after previous, forward otherwise. A sideways swipe skips a
+  names in, back after previous, forward otherwise, and its backdrop crosses
+  over, to the bubble's black when it has no cover. A sideways swipe skips a
   track. With nothing playing, it still opens Spotify where Spotify played.
+  Once the user turns them on (they send the title and the artist to
+  LRCLIB), synced lyrics roll under the names (`MusicLyrics`).
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
   import { backOut, cubicOut } from 'svelte/easing';
   import { fade } from 'svelte/transition';
-  import { Music2, Pause, Play, SkipBack, SkipForward, SquareArrowOutUpRight } from '@lucide/svelte';
+  import { MicVocal, Music2, Pause, Play, SkipBack, SkipForward, SquareArrowOutUpRight } from '@lucide/svelte';
   import type { Companion } from '../../../lib/companion/companion.svelte';
   import { appName, canShow, type MediaAction } from '../../../lib/companion/media';
   import { isNewTrack, slideOf, type TrackFace } from '../../../lib/companion/music';
   import { backdropOf } from '../../../lib/companion/music.svelte';
+  import { writeCompanionPrefs } from '../../../lib/companion/prefs';
   import { inShell } from '../../../lib/companion/shell';
   import { fill, strings } from '../../../lib/strings';
   import Marquee from '../../companion/Marquee.svelte';
+  import MusicLyrics from './MusicLyrics.svelte';
   import MusicMeter from './MusicMeter.svelte';
   import MusicTimeline from './MusicTimeline.svelte';
 
@@ -47,6 +52,9 @@
   const SWIPE_REST_MS = 700;
   /** A new track's cover and names slide in this long, and the background crosses over. */
   const TRACK_MS = 260;
+  /** The open player's height, and with the lyrics' row under the names. */
+  const OPEN_HEIGHT = 116;
+  const LYRICS_HEIGHT = 159;
 
   const media = $derived(companion.media);
   const music = $derived(companion.music);
@@ -99,9 +107,24 @@
   const position = $derived(music.base ? music.position(now) : 0);
   const progress = $derived(duration > 0 ? position / duration : 0);
 
+  // Synced lyrics, once the user turned them on: LRCLIB is asked for the
+  // track playing, or shown in the open player, and only with a timeline to
+  // follow; never while they are off or nothing plays.
+  const lyricsOn = $derived(companion.prefs.lyrics);
+  /** The lyrics' row shows under the names while they are on and the track tells its timeline. */
+  const lyricsRow = $derived(lyricsOn && duration > 0);
+  $effect(() => {
+    const [title, artist] = [media?.title ?? '', media?.artist ?? ''];
+    const wanted = lyricsOn && title !== '' && artist !== '' && duration > 0 && (media?.playing === true || open);
+    untrack(() => music.wantLyrics(wanted ? { title, artist, duration } : null));
+  });
+  function toggleLyrics() {
+    companion.prefs = writeCompanionPrefs({ lyrics: !lyricsOn });
+  }
+
   // The hit area follows the bubble: once at the change, once the change is drawn.
   $effect(() => {
-    void [open, media === null];
+    void [open, media === null, lyricsRow];
     const read = setTimeout(onresize);
     return () => clearTimeout(read);
   });
@@ -130,6 +153,7 @@
   });
 
   // The cover, blurred and dark, behind the open player; without one, the bubble's own black.
+  // Either way the change crosses over.
   let backdrop = $state<string | null>(null);
   $effect(() => {
     const art = face?.art;
@@ -190,6 +214,7 @@
     class:covered={open && backdrop !== null}
     style:--music-accent={music.accent ?? undefined}
     style:--open-w="{Math.max(OPEN_LEAST, Math.min(OPEN_WIDTH, Math.floor(room)))}px"
+    style:--open-h="{lyricsRow ? LYRICS_HEIGHT : OPEN_HEIGHT}px"
     data-hit
     data-testid="island-music"
     role="group"
@@ -202,12 +227,12 @@
       if (!event.currentTarget.contains(event.relatedTarget as Node | null)) keyboard = false;
     }}
     ontransitionend={(event) => {
-      if (event.target === event.currentTarget && event.propertyName === 'width') onresize();
+      if (event.target === event.currentTarget && (event.propertyName === 'width' || event.propertyName === 'height')) onresize();
     }}
   >
-    {#if open && backdrop}
+    {#if open}
       <span class="backdrop" aria-hidden="true">
-        {#key backdrop}<img src={backdrop} alt="" transition:fade={{ duration: TRACK_MS }} />{/key}
+        {#each backdrop ? [backdrop] : [] as drawn (drawn)}<img src={drawn} alt="" transition:fade={{ duration: TRACK_MS }} />{/each}
       </span>
     {/if}
     {#if !media}
@@ -247,8 +272,9 @@
             {/key}
           </span>
           <div class="deck">
-            <MusicMeter levels={music.levels} count={9} playing={media.playing && music.measured} height={16} />
+            <span class="level"><MusicMeter levels={music.levels} count={9} playing={media.playing && music.measured} height={16} /></span>
             <span class="buttons">
+              <button class="skip lyric" class:on={lyricsOn} aria-pressed={lyricsOn} aria-label={copy.lyrics} title={lyricsOn ? copy.lyricsHide : copy.lyricsShow} onclick={toggleLyrics} data-testid="island-music-lyrics-toggle"><MicVocal size={13} strokeWidth={2.2} /></button>
               <button class="skip" aria-label={copy.previous} title={copy.previous} onclick={() => press('previous')} data-testid="island-music-previous"><SkipBack size={14} fill="currentColor" /></button>
               <button class="play" aria-label={media.playing ? copy.pause : copy.play} title={media.playing ? copy.pause : copy.play} onclick={() => press('toggle')} data-testid="island-music-toggle">
                 {#if media.playing}<Pause size={14} fill="currentColor" />{:else}<Play size={14} fill="currentColor" />{/if}
@@ -257,6 +283,9 @@
             </span>
           </div>
         </div>
+        {#if lyricsRow}
+          <MusicLyrics lines={music.lyrics?.lines} base={music.base} />
+        {/if}
         {#if duration > 0}
           <MusicTimeline {position} {duration} seekable={media.seekable === true} onseek={(to) => companion.seekMedia(to)} />
         {/if}
@@ -286,7 +315,7 @@
   }
   .bubble.open {
     width: var(--open-w);
-    height: 116px;
+    height: var(--open-h);
     border-radius: 0 0 24px 24px;
     background:
       radial-gradient(150px 110px at 44px 44px, color-mix(in srgb, var(--music-accent) 24%, transparent), transparent 72%),
@@ -369,7 +398,7 @@
     left: 0;
     /* The open size, not the bubble's: it never resizes while the bubble unfolds, the bubble clips it. */
     width: var(--open-w);
-    height: 116px;
+    height: var(--open-h);
     pointer-events: none;
     animation: appear 220ms 60ms ease-out both;
   }
@@ -386,6 +415,7 @@
   /* The secondary text stays AA on the brightest backdrop a white cover gives. */
   .covered {
     --island-muted: color-mix(in srgb, var(--island-text) 76%, transparent);
+    --lyric-dim: 0.8;
   }
   .player {
     position: relative;
@@ -475,7 +505,15 @@
     gap: 6px;
     margin-top: 5px;
   }
+  /* The meter gives way first when the player is narrow, cut evenly on both sides. */
+  .level {
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+    overflow: hidden;
+  }
   .buttons {
+    flex: none;
     display: flex;
     align-items: center;
     gap: 2px;
@@ -492,6 +530,15 @@
   .skip:hover {
     background: var(--island-pill);
     opacity: 1;
+  }
+  .lyric {
+    width: 24px;
+    height: 24px;
+    color: var(--island-muted);
+    opacity: 1;
+  }
+  .lyric.on {
+    color: var(--music-accent);
   }
   .play {
     display: grid;

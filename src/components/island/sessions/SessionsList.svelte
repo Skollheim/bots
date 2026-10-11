@@ -3,18 +3,23 @@
   waiting ones first, kept two minutes after they end (longer while the
   thread's finished card stands: it folds into the row). With nothing at work,
   the lead robot naps beside "Nothing running": a few breaths, then still.
+  An archived row leaves a line in its place for a few seconds, to undo it
+  (`archive-undo.ts`); a row followed in the pill says so (`followed.ts`).
 -->
 <script lang="ts">
+  import { listed } from '../../../lib/island/archive-undo';
   import { useView } from '../../../lib/island/contract';
   import { posed } from '../../../lib/island/posed.svelte';
   import { strings } from '../../../lib/strings';
   import CompanionCharacter from '../../companion/CompanionCharacter.svelte';
+  import ArchiveUndoLine from './ArchiveUndoLine.svelte';
   import SessionRow from './SessionRow.svelte';
 
   const view = useView();
   const sessions = $derived(view.sessions);
   // A capture pose (`sessions=none`, `pose.ts`) shows the list empty; the dev bundle only.
   const rows = $derived(import.meta.env.DEV && posed.idle ? [] : sessions.rows);
+  const items = $derived(listed(rows, sessions.undo.lines));
   const projects = $derived(view.companion.projects);
   const notes = $derived(view.companion.notes);
   const lead = $derived(view.companion.members[0] ?? null);
@@ -26,7 +31,7 @@
 
 <section class="island-card" data-testid="island-sessions">
   <h3 class="island-heading">{copy.title}</h3>
-  {#if rows.length === 0}
+  {#if items.length === 0}
     <div class="none" data-testid="island-sessions-none">
       <span class="nap" aria-hidden="true">
         <CompanionCharacter mood="idle" asleep lively={false} skin={lead?.skin ?? null} size={40} />
@@ -38,8 +43,23 @@
     </div>
   {:else}
     <ul class="rows">
-      {#each rows as row (row.id)}
-        <SessionRow {row} project={(row.projectId && projects.get(row.projectId)) || ''} now={sessions.now} notice={notices.get(row.id) ?? null} {notes} onreveal={reveal} />
+      {#each items as { row, undo } (row.id)}
+        {#if undo}
+          <ArchiveUndoLine line={undo} onundo={() => void sessions.undo.undo(row.id)} />
+        {:else}
+          {@const notice = notices.get(row.id) ?? null}
+          <SessionRow
+            {row}
+            project={(row.projectId && projects.get(row.projectId)) || ''}
+            now={sessions.now}
+            {notice}
+            {notes}
+            followed={sessions.followedId === row.id}
+            onreveal={reveal}
+            onfollow={() => sessions.followed.toggle(row.id)}
+            onarchive={() => sessions.undo.archive(row, sessions.followedId === row.id, notice ? () => notes.dismiss(notice.id) : undefined)}
+          />
+        {/if}
       {/each}
     </ul>
   {/if}

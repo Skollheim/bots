@@ -20,6 +20,9 @@ export type CompanionControl = 'ask' | 'auto';
 export type CompanionScreenScope = 'all' | 'here' | 'zone';
 /** Where the robots live: in the island at the top of the screen, or loose on the desktop. */
 export type CompanionRobots = 'island' | 'desktop';
+/** What the island's pill shows when nothing else claims it: the live line, the tightest quota, the music, or the robot alone. */
+export type PillRest = 'live' | 'quota' | 'music' | 'robot';
+export const PILL_RESTS = ['live', 'quota', 'music', 'robot'] as const satisfies readonly PillRest[];
 /** The character's centre, in fractions of the screen's work area. */
 export interface CompanionSpot { x: number; y: number }
 /** The families the island's mascot may come from: Boîte, the box, or a Jelly. */
@@ -36,6 +39,8 @@ export interface CompanionPrefs {
   robots: CompanionRobots;
   /** Hovering the island long enough opens its panel; off, only a click does. */
   openOnHover: boolean;
+  /** What the pill shows at rest (`IslandBar.svelte`). */
+  pillRest: PillRest;
   /** The island's character, the first agent's on the desktop; null is that agent's own box (Boîte by default). */
   mascot: Mascot | null;
   anchor: CompanionAnchor;
@@ -55,6 +60,8 @@ export interface CompanionPrefs {
   control: CompanionControl;
   /** React to the music playing and show its controls. */
   music: boolean;
+  /** The player's synced lyrics, from LRCLIB: off until the user turns them on, since they send the track's title and artist out. */
+  lyrics: boolean;
   /** A click anywhere but on the companion closes its panel. */
   closeOutside: boolean;
   /** One gauge per subscription of the proxy beside the character. */
@@ -83,6 +90,7 @@ export const DEFAULT_COMPANION_PREFS: CompanionPrefs = {
   monitor: null,
   robots: 'island',
   openOnHover: true,
+  pillRest: 'live',
   mascot: null,
   anchor: 'center',
   spot: null,
@@ -95,6 +103,7 @@ export const DEFAULT_COMPANION_PREFS: CompanionPrefs = {
   effort: null,
   control: 'ask',
   music: true,
+  lyrics: false,
   closeOutside: true,
   quotas: true,
   hiddenQuotas: [],
@@ -145,6 +154,7 @@ export function parseCompanionPrefs(raw: unknown): CompanionPrefs {
     monitor: text(value.monitor),
     robots: value.robots === 'desktop' ? 'desktop' : 'island',
     openOnHover: value.openOnHover !== false,
+    pillRest: (PILL_RESTS as readonly unknown[]).includes(value.pillRest) ? (value.pillRest as PillRest) : 'live',
     mascot: mascotOf(value.mascot),
     // A free place needs the spot it was dropped on.
     anchor: value.anchor === 'left' || value.anchor === 'right' || (value.anchor === 'free' && spot) ? value.anchor : 'center',
@@ -158,6 +168,7 @@ export function parseCompanionPrefs(raw: unknown): CompanionPrefs {
     effort: text(value.effort),
     control: value.control === 'auto' ? 'auto' : 'ask',
     music: value.music !== false,
+    lyrics: value.lyrics === true,
     closeOutside: value.closeOutside !== false,
     quotas: value.quotas !== false,
     hiddenQuotas: Array.isArray(value.hiddenQuotas) ? [...new Set(value.hiddenQuotas.filter((id): id is string => typeof id === 'string' && id !== ''))] : [],

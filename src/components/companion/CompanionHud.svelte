@@ -10,12 +10,13 @@
   two shapes; the page reads it again as a hit area once the morph settles.
 -->
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { Gauge } from '@lucide/svelte';
   import type { ThreadSummary } from '@boite/contracts';
   import { count } from '../../lib/companion/describe';
   import { hudThreads, type HudGauge } from '../../lib/companion/hud';
   import { inShell, type CompanionLayout } from '../../lib/companion/shell';
-  import { elapsed } from '@boite/ui/lib/format';
+  import { elapsedDelay, sessionTime } from '../../lib/island/session-time';
   import { page } from '@boite/ui/lib/page-hidden.svelte';
   import { fill, strings } from '../../lib/strings';
   import ProviderLogo from '@boite/ui/components/ProviderLogo.svelte';
@@ -43,6 +44,8 @@
   /** Passing over the pill on the way to the character does not open it. */
   const OPEN_AFTER = 120;
   const CLOSE_AFTER = 250;
+  /** The clock wakes a little after a time's text turns, never just before. */
+  const CLOCK_SLACK_MS = 20;
 
   const rows = $derived(hudThreads(threads, projects, own));
   const first = $derived(rows[0] ?? null);
@@ -81,16 +84,21 @@
 
   $effect(() => () => clearTimeout(timer));
 
-  // The clock runs while a thread is shown and the page can be seen.
+  // The clock wakes only when a shown time would read differently (`elapsedDelay`):
+  // each second under a minute, then once a minute; never with no thread shown or the page hidden.
   let now = $state(Date.now());
   $effect(() => {
+    void now;
     if (!shown || rows.length === 0 || page.hidden) return;
-    now = Date.now();
-    const tick = setInterval(() => (now = Date.now()), 1000);
-    return () => clearInterval(tick);
+    const starts = rows.map((row) => row.since);
+    const delay = untrack(() => elapsedDelay(starts, Date.now()));
+    if (delay === null) return;
+    const wake = setTimeout(() => (now = Date.now()), delay + CLOCK_SLACK_MS);
+    return () => clearTimeout(wake);
   });
 
-  const since = (from: number | null) => (from === null ? '' : elapsed(now - from));
+  /** Calm times, as Home reads them (`session-time.ts`): "45 s", "41 min", "1 h 20". */
+  const since = (from: number | null) => (from === null ? '' : sessionTime(now - from));
   const working = $derived(count(rows.length, strings.companion.threadsOne, strings.companion.threadsMany));
   const summary = $derived(first ? [working, first.title, first.step, since(first.since)].filter(Boolean).join(', ') : copy.quotas);
 

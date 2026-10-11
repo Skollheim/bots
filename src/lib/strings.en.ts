@@ -49,6 +49,34 @@ export const strings = {
     },
     /** A permission answered from the pill, without opening the island. */
     ask: 'Permission request',
+    /** "Always allow": the rules Bots keeps and answers with (`island/allow.svelte.ts`). */
+    allow: {
+      always: 'Always…',
+      alwaysTitle: 'Allow from now on: {rule}',
+      cannot: 'This request is too long to make a rule of',
+      thread: 'This thread',
+      project: 'This project',
+      threadLong: 'For this thread',
+      projectLong: 'For this project',
+      back: 'Back',
+      hint: 'Bots answers for you while it runs',
+      traced: 'Allowed by a rule · {rule}',
+      title: 'Always allowed',
+      lead: 'What you allowed for good from the island. Bots answers these requests itself, only while it runs.',
+      empty: 'No rule yet. Use “Always…” on a request.',
+      scopeThread: 'Thread: {name}',
+      scopeProject: 'Project: {name}',
+      remove: 'Remove this rule',
+      forgetAll: 'Forget all'
+    },
+    /** A pull request's CI, followed once a thread opens it (`island/pr-watch.svelte.ts`). */
+    pr: {
+      number: 'PR #{number}',
+      pending: 'CI running',
+      green: 'CI green',
+      red: 'CI failed',
+      open: 'Open the pull request'
+    },
     talking: '{name} is answering…',
     robot: '{name}. Click to poke it, drag it out to set it loose on the desktop.',
     home: {
@@ -140,6 +168,11 @@ export const strings = {
       hideSteps: 'Hide the steps',
       noSteps: 'No step yet.',
       reveal: 'Open in Boite',
+      follow: 'Follow in the pill',
+      unfollow: 'Stop following in the pill',
+      followed: 'Followed in the pill',
+      /** A followed thread's state in the pill once it ended, and at rest in Home (`followed.ts`). */
+      followState: { done: 'Done', failed: 'Failed', resting: 'At rest' },
       showDiff: 'Show the change',
       hideDiff: 'Hide the change',
       folded: '{count} unchanged lines',
@@ -167,6 +200,12 @@ export const strings = {
       archive: 'Archive',
       archiving: 'Archiving…',
       archiveTitle: 'Archive the thread while it rests',
+      /** The line standing in an archived row's place for a few seconds (`archive-undo.ts`). */
+      archived: 'Archived',
+      undo: 'Undo',
+      undoing: 'Undoing…',
+      undoTitle: 'Bring {title} back from the archive',
+      offline: 'Boite cannot be reached',
       changes: 'Show the changes',
       hideChanges: 'Hide the changes',
       noChanges: 'No change in its folder.',
@@ -266,7 +305,11 @@ export const strings = {
       now: '{title} by {artist}',
       show: 'Show {app}',
       position: '{position} of {duration}',
-      seek: 'Track position'
+      seek: 'Track position',
+      lyrics: 'Lyrics',
+      lyricsShow: 'Show synced lyrics: the title and the artist are sent to LRCLIB (lrclib.net)',
+      lyricsHide: 'Hide the lyrics (the title and the artist are sent to LRCLIB)',
+      lyricsNone: 'No synced lyrics'
     },
     hud: {
       label: 'Threads at work and quotas',
@@ -415,6 +458,8 @@ export const strings = {
       },
       music: 'React to music',
       musicHint: 'Headphones and a little dance when something plays, and the player controls under B.O.T.S.',
+      lyrics: 'Synced lyrics',
+      lyricsHint: 'The words of the song in the player, line by line. They come from LRCLIB (lrclib.net), a free lyrics library: B.O.T.S sends it the title and the artist of each track you play, nothing else.',
       quotas: 'Show quotas',
       quotasHint: 'A small gauge per subscription of the proxy (Douane) beside B.O.T.S, with its provider’s logo, red when one nearly runs out. Turn off the ones you do not want to see in the list below.',
       quotasShown: 'Quotas shown beside B.O.T.S',
@@ -443,6 +488,10 @@ export const strings = {
       robotsChoice: { island: 'In the island', desktop: 'On the desktop' },
       openOnHover: 'Open on hover',
       openOnHoverHint: 'Resting the pointer on the island a moment opens it. Off, only a click does.',
+      pillRest: 'Pill at rest',
+      pillRestHint: 'What the closed island shows when nothing else needs it. Requests and finished threads still show over it.',
+      pillRests: { live: 'Live line', quota: 'Quota', music: 'Music', robot: 'Robot only' },
+      pillRestHints: { live: 'The thread at work and what it does', quota: 'The quota with the least left', music: 'Title and artist of what plays, else the live line', robot: 'A short pill, no text' },
       mascot: 'Mascot',
       mascotHint: 'The island’s robot, and the first agent’s on the desktop. Pick a style, then make it yours.',
       mascotReset: 'Use the first agent’s own look',

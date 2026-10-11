@@ -40,6 +40,7 @@
   import { gazeOf, moodOf } from '../../lib/island/face';
   import { FinishWatch } from '../../lib/island/finished.svelte';
   import { posed } from '../../lib/island/posed.svelte';
+  import { PrWatch } from '../../lib/island/pr-watch.svelte';
   import { MemoryWatch } from '../../lib/island/pressure.svelte';
   import { Sessions } from '../../lib/island/sessions.svelte';
   import { UpdateWatch } from '../../lib/island/update.svelte';
@@ -102,8 +103,25 @@
   const finishes = new FinishWatch({ client: () => companion.client, rows: () => sessions.rows, announce: (failed) => frame.flash(failed) });
   $effect(() => finishes.start());
   $effect(() => {
-    if (!frame.flashing) untrack(() => finishes.clear());
+    if (!frame.flashing)
+      untrack(() => {
+        finishes.clear();
+        prs.clear();
+      });
   });
+  /** A pull request a Home thread opened: its CI is followed, and told once settled (fast in the `pr=` demo). */
+  const prDemo = import.meta.env.DEV && new URLSearchParams(location.search).has('pr');
+  const prs = new PrWatch({
+    client: () => companion.client,
+    rows: () => sessions.rows,
+    threads: () => companion.threads,
+    announce: (failed) => {
+      frame.flash(failed);
+      companion.cue(failed ? 'error' : 'done');
+    },
+    ...(prDemo ? { first: 1_500, max: 1_500 } : {})
+  });
+  $effect(() => prs.start());
   /** How near Boite's memory guard is to stopping an agent, and a newer Boite out. */
   const memory = new MemoryWatch();
   const update = new UpdateWatch();
@@ -300,7 +318,7 @@
   ondrop={drop}
 >
   {#if frame.size !== 'open'}
-    <IslandBar {companion} {frame} {sessions} told={finishes.line} {cheering} {reduced} bind:want={pill} />
+    <IslandBar {companion} {frame} {sessions} told={prs.told ?? finishes.line} {cheering} {reduced} bind:want={pill} />
   {:else}
     <div class="open" in:bloom={{ reduced }} out:blurAway={{ reduced }} style:max-height="{openMax}px" bind:offsetHeight={measured}>
       <nav class="tabs" aria-label={copy.label}>

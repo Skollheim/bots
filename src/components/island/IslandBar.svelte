@@ -7,6 +7,9 @@
     the ones at work). A thread that just ended is told in it for a few
     seconds (`finished.svelte.ts`). When the text changes it rolls, counter-
     like (`motion.ts`'s `rollIn` and `rollOut`); the same text moves nothing.
+    A thread followed from Home (`followed.ts`) keeps the live line, ended or
+    at rest too. At rest, Settings may show the quota, the music or the robot
+    alone instead (`pill-rest.ts`); the width follows through the spring.
   - A dot hovered names its thread and state in the line. Over the dots, and
     while a request shows, a hover peeks without opening the island
     (`frame.hush`): the pill would otherwise open under the pointer of someone
@@ -14,23 +17,33 @@
   - A permission waiting shows under the line with Deny and Allow once, as the
     attention card has them: answered without opening the island. The buttons
     take no click for `ARM_MS` after they appear, so a click aimed elsewhere
-    cannot allow by accident. Questions open the island, as before.
+    cannot allow by accident. "Always…" opens the choice of where the rule
+    holds, this thread or this project (`lib/island/allow.svelte.ts`), armed
+    again. Questions open the island, as before.
+  - A request a rule answered peeks the pill for a few seconds, with no sound
+    or glow: the line says what was allowed, a shield stands by the dots. A pull request's CI told in the
+    line (`pr-watch.svelte.ts`) opens its thread in Boite on a click.
 
   It tells the island the size it wants through `want`.
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { Gauge, Music, ShieldCheck, X } from '@lucide/svelte';
   import type { Companion } from '../../lib/companion/companion.svelte';
   import { describePermission, threadLabel } from '../../lib/companion/describe';
+  import { showMain } from '../../lib/companion/shell';
+  import { ruleTarget, ruleText, type RuleScope } from '../../lib/island/allow-rules';
   import { dotLine, pillDots } from '../../lib/island/dots';
   import { gazeOf, moodOf } from '../../lib/island/face';
   import type { FinishLine } from '../../lib/island/finished';
   import type { IslandFrame } from '../../lib/island/frame.svelte';
   import { bloom, blurAway, rollIn, rollOut } from '../../lib/island/motion';
+  import { restLine, robotWidth, sessionLine } from '../../lib/island/pill-rest';
+  import { QuotaWatch } from '../../lib/island/quotas.svelte';
   import { requestQueue } from '../../lib/island/requests';
   import { isLive } from '../../lib/island/sessions';
   import type { Sessions } from '../../lib/island/sessions.svelte';
-  import { liveLine, rowDoing } from '../../lib/island/session-text';
+  import { rowDoing } from '../../lib/island/session-text';
   import { islandStatus } from '../../lib/island/status';
   import { fill, strings } from '../../lib/strings';
   import CompanionCharacter from '../companion/CompanionCharacter.svelte';
@@ -39,8 +52,8 @@
     companion: Companion;
     frame: IslandFrame;
     sessions: Sessions;
-    /** A thread that just ended, told while the island peeks for it. */
-    told: FinishLine | null;
+    /** A thread that just ended, or a pull request's CI, told while the island peeks for it. */
+    told: (FinishLine & { threadId?: string }) | null;
     cheering: boolean;
     reduced: boolean;
     /** The size the pill wants; the island's spring goes there. */
@@ -52,8 +65,8 @@
   const copy = strings.island;
   const card = strings.island.sessions.card;
   const SIZES = { collapsed: { w: 200, h: 32 }, peek: { w: 360, h: 40 } };
-  /** With a request to answer: the line, then what is asked and the two answers. */
-  const ASK = { w: 440, h: 78 };
+  /** With a request to answer: the line, then what is asked and the three answers. */
+  const ASK = { w: 480, h: 78 };
   const PEEK = { min: 240, max: 420, chrome: 82 };
   /** The collapsed pill with a conversation at work: its line, the face, the gaps and the padding, and the dots. */
   const LIVE = { min: 200, max: 360, chrome: 74 };
@@ -72,7 +85,13 @@
   const liveRows = $derived(sessions.rows.filter(isLive));
   let picked = $state<string | null>(null);
   const leadSession = $derived(liveRows.find((row) => row.id === picked) ?? sessions.lead);
-  const live = $derived(leadSession ? liveLine(leadSession, (leadSession.projectId && companion.projects.get(leadSession.projectId)) || '') : null);
+  /** The thread followed from Home keeps the line whatever else starts (`followed.ts`). */
+  const shown = $derived(sessions.followedRow ?? leadSession);
+  const session = $derived(shown ? sessionLine(shown, (shown.projectId && companion.projects.get(shown.projectId)) || '') : null);
+  /** What the pill shows at rest, as Settings chose (`pill-rest.ts`); null for the robot alone. */
+  const rest = $derived(companion.prefs.pillRest);
+  const quotas = new QuotaWatch(() => ({ shown: companion.prefs.quotas, hidden: companion.prefs.hiddenQuotas }));
+  const live = $derived(restLine(rest, { live: session, media: companion.media, quota: quotas.tightest }));
   const status = $derived(
     islandStatus({
       blocking: companion.blocking,
@@ -103,19 +122,32 @@
   let armed = $state<string | null>(null);
   let sending = $state<string | null>(null);
   let failure = $state<{ id: string; message: string } | null>(null);
+  /** The request whose "Always…" was picked: its row offers the rule's scope. */
+  let scoping = $state<string | null>(null);
+  /** What a rule made from the request would cover; null when none can be made. */
+  const target = $derived(ask ? ruleTarget(ask.request) : null);
+  const ruleTitle = $derived(target ? fill(copy.allow.alwaysTitle, { rule: ruleText(target) }) : copy.allow.cannot);
+  const inProject = $derived(ask ? companion.threads.some((thread) => thread.id === ask.request.threadId && thread.projectId) : false);
+  /** Each row of answers arms on its own: the scope's too. */
+  const armKey = $derived(ask ? (scoping === ask.id ? `scope:${ask.id}` : ask.id) : null);
+  /** The last request a rule answered: the pill peeks with its line, a shield by the dots. */
+  const trace = $derived(companion.rules.trace);
+  const traceLine = $derived(trace ? { text: fill(copy.allow.traced, { rule: trace.text }), tone: 'done' as const } : null);
 
   /** The line the peek shows: a hovered dot, else the request, else a thread just ended, else the status. */
   const line = $derived.by(() => {
     if (hoveredDot) return dotLine(hoveredDot);
     if (ask && origin) return { text: queue.length > 1 ? `${origin.title} · ${fill(card.of, { index: '1', count: String(queue.length) })}` : origin.title, tone: 'attention' };
     if (told && frame.flashing) return told;
-    return status;
+    return traceLine ?? status;
   });
-  const peeking = $derived(frame.size === 'peek' || asking || hoveredDot !== null);
+  const peeking = $derived(frame.size === 'peek' || asking || hoveredDot !== null || trace !== null);
 
-  const dotsWidth = $derived(dots.length * DOT_STEP);
+  const dotsWidth = $derived((dots.length + (trace ? 1 : 0)) * DOT_STEP);
   const peekWidth = $derived(Math.round(Math.min(PEEK.max, Math.max(PEEK.min, statusWidth + PEEK.chrome + dotsWidth))));
-  const collapsedWidth = $derived(live ? Math.round(Math.min(LIVE.max, Math.max(LIVE.min, liveWidth + LIVE.chrome + dotsWidth))) : SIZES.collapsed.w);
+  const collapsedWidth = $derived(
+    live ? Math.round(Math.min(LIVE.max, Math.max(LIVE.min, liveWidth + LIVE.chrome + dotsWidth))) : rest === 'robot' ? robotWidth(dotsWidth) : SIZES.collapsed.w
+  );
   const wanted = $derived(asking ? ASK : peeking ? { ...SIZES.peek, w: peekWidth } : { ...SIZES.collapsed, w: collapsedWidth });
   // Over the dots the width holds: a dot's name is longer or shorter than the line, and the dots would slide from under the pointer.
   $effect(() => {
@@ -139,21 +171,31 @@
     return () => frame.hush('dot', false);
   });
 
-  // The answers wake `ARM_MS` after their request shows.
+  // The quota at rest: read as the pill shows, then as the core pushes it. No clock of its own.
   $effect(() => {
-    const id = ask?.id;
-    if (!id) return;
-    const arm = setTimeout(() => (armed = id), ARM_MS);
+    const client = companion.client;
+    if (rest !== 'quota' || !client) return;
+    return untrack(() => {
+      void quotas.refresh(client);
+      return client.on('quotas.updated', (rows) => quotas.accept(rows));
+    });
+  });
+
+  // The answers wake `ARM_MS` after their request shows, and the scopes after "Always…".
+  $effect(() => {
+    const key = armKey;
+    if (!key) return;
+    const arm = setTimeout(() => (armed = key), ARM_MS);
     return () => clearTimeout(arm);
   });
 
-  async function answer(kind: 'allow' | 'deny') {
+  async function answer(kind: 'allow' | 'deny', scope?: RuleScope) {
     const current = ask;
-    if (!current || armed !== current.id || sending) return;
+    if (!current || armed !== armKey || sending) return;
     sending = current.id;
     failure = null;
     try {
-      await companion.act({ kind, request: current.request });
+      await companion.act(scope ? { kind: 'always', request: current.request, scope } : { kind, request: current.request });
     } catch (error) {
       failure = { id: current.id, message: error instanceof Error ? error.message : String(error) };
     } finally {
@@ -164,7 +206,7 @@
   let wheelAt = 0;
   /** The wheel on the pill goes through the conversations at work. */
   function wheel(event: WheelEvent) {
-    if (liveRows.length < 2 || event.deltaY === 0) return;
+    if (sessions.followedRow || liveRows.length < 2 || event.deltaY === 0) return;
     const at = performance.now();
     if (at - wheelAt < WHEEL_REST_MS) return;
     wheelAt = at;
@@ -188,13 +230,14 @@
 
   function barClick() {
     if (companion.dropped) return;
+    if (told?.threadId && frame.flashing) return void showMain(told.threadId);
     frame.click();
   }
 </script>
 
 <div class="pill" class:asking in:bloom={{ reduced }} out:blurAway={{ reduced }}>
   <span class="measure" aria-hidden="true" bind:offsetWidth={statusWidth}>{line.text}</span>
-  {#if live}<span class="measure live-measure" aria-hidden="true" bind:offsetWidth={liveWidth}><b>{live.name}</b> {live.doing}</span>{/if}
+  {#if live}<span class="measure live-measure" aria-hidden="true" bind:offsetWidth={liveWidth}>{#if live.kind !== 'live'}<i class="kind"></i>{/if}<b>{live.name}</b> {live.doing}</span>{/if}
   <button
     class="bar"
     data-testid="island-bar"
@@ -226,11 +269,12 @@
         {#key line.text}<span class="line" in:rollIn={{ reduced }} out:rollOut={{ reduced }}>{line.text}</span>{/key}
       </span>
     {:else if live}
-      <span class="live roll" in:bloom={{ reduced }} data-state={leadSession?.state} data-testid="island-live">
-        {#key `${live.name}\n${live.doing}`}<span class="line" in:rollIn={{ reduced }} out:rollOut={{ reduced }}><b>{live.name}</b> {live.doing}</span>{/key}
+      <span class="live roll" in:bloom={{ reduced }} data-kind={live.kind} data-tone={live.tone} data-testid="island-live">
+        {#key `${live.name}\n${live.doing}`}<span class="line" in:rollIn={{ reduced }} out:rollOut={{ reduced }}>{#if live.kind === 'quota'}<Gauge class="kind" size={12} strokeWidth={2} aria-hidden="true" />{:else if live.kind === 'music'}<Music class="kind" size={12} strokeWidth={2} aria-hidden="true" />{/if}<b>{live.name}</b> {live.doing}</span>{/key}
       </span>
     {/if}
     <span class="dots" aria-hidden="true">
+      {#if trace}<span class="dot rule" data-testid="island-rule-trace" title={traceLine?.text} in:bloom={{ reduced }}><ShieldCheck size={11} strokeWidth={2.4} /></span>{/if}
       {#each dots as dot (dot.key)}<span class="dot" class:on={dot.key === hoveredKey} data-dot={dot.key}><i data-tone={dot.tone}></i></span>{/each}
     </span>
     {#if !peeking && live?.progress}
@@ -240,20 +284,36 @@
   {#if ask && said}
     {@const request = ask.request}
     {@const waiting = sending === ask.id}
-    {@const ready = armed === ask.id && !waiting}
+    {@const ready = armed === armKey && !waiting}
     <div class="ask" role="group" aria-label={copy.ask} data-testid="island-ask">
       {#if failure?.id === ask.id}
         <p class="what failure" role="alert">{failure.message}</p>
+      {:else if scoping === ask.id}
+        <p class="what hint">{copy.allow.hint}</p>
       {:else}
         <p class="what">{said.verb}{#if said.target}&nbsp;<code>{said.target}</code>{/if}</p>
       {/if}
-      <button class="answer ghost" aria-disabled={!ready} disabled={waiting} data-testid="island-ask-deny" onclick={() => answer('deny')}>{card.deny}</button>
-      <button class="answer primary" aria-disabled={!ready} disabled={waiting} data-testid="island-ask-allow" onclick={() => answer('allow')}>
-        {card.allowOnce}
-      </button>
+      {#if scoping === ask.id}
+        <button class="answer ghost back" aria-label={copy.allow.back} title={copy.allow.back} disabled={waiting} data-testid="island-ask-back" onclick={() => (scoping = null)}>
+          <X size={13} />
+        </button>
+        <button class="answer scope" aria-disabled={!ready} disabled={waiting} title={ruleTitle} data-testid="island-ask-thread" onclick={() => answer('allow', 'thread')}>{copy.allow.thread}</button>
+        <button class="answer scope" aria-disabled={!ready} disabled={waiting || !inProject} title={ruleTitle} data-testid="island-ask-project" onclick={() => answer('allow', 'project')}>
+          {copy.allow.project}
+        </button>
+      {:else}
+        <button class="answer ghost" aria-disabled={!ready} disabled={waiting} data-testid="island-ask-deny" onclick={() => answer('deny')}>{card.deny}</button>
+        <button class="answer ghost" aria-disabled={!ready || !target} disabled={waiting} title={ruleTitle} data-testid="island-ask-always" onclick={() => ready && target && (scoping = ask.id)}>
+          {copy.allow.always}
+        </button>
+        <button class="answer primary" aria-disabled={!ready} disabled={waiting} data-testid="island-ask-allow" onclick={() => answer('allow')}>
+          {card.allowOnce}
+        </button>
+      {/if}
       {#if request.description}<span class="sr">{request.description}</span>{/if}
     </div>
   {/if}
+  {#if traceLine}<span class="sr" role="status">{traceLine.text}</span>{/if}
 </div>
 
 <style>
@@ -325,8 +385,25 @@
     color: var(--island-text);
     font-weight: 600;
   }
-  .live[data-state='waiting'] b {
+  /* The quota's or the music's mark before the line; the measure keeps its room. */
+  .live :global(.kind),
+  .live-measure .kind {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 5px;
+    vertical-align: -2px;
+  }
+  .live[data-tone='waiting'] b,
+  .live[data-tone='amber'] b {
     color: var(--island-attention);
+  }
+  .live[data-tone='done'] b {
+    color: var(--island-done);
+  }
+  .live[data-tone='failed'] b,
+  .live[data-tone='red'] b {
+    color: var(--island-danger);
   }
   .progress {
     position: absolute;
@@ -428,6 +505,27 @@
   }
   .answer.ghost:hover:not([aria-disabled='true'], :disabled) {
     background: var(--island-card-hover);
+  }
+  /* Where the rule holds: allowing, quieter than "Allow once". */
+  .answer.scope {
+    border-color: var(--island-attention);
+    color: var(--island-attention);
+  }
+  .answer.scope:hover:not([aria-disabled='true'], :disabled) {
+    background: var(--island-card-hover);
+  }
+  .answer.back {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    padding: 0;
+  }
+  .hint {
+    color: var(--island-muted);
+  }
+  /* The shield a rule's answer leaves by the dots. */
+  .dot.rule {
+    color: var(--island-done);
   }
   /* Asleep for a moment after the request shows: seen, not yet clickable. */
   .answer[aria-disabled='true'],

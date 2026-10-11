@@ -3,7 +3,7 @@ import type { Client } from '@boite/ui/lib/client';
 import { fill, strings } from '../strings';
 import type { SessionRow } from './sessions';
 import { liveLine, rowDoing } from './session-text';
-import { archive, changeCount, changeOf, relaunch } from './thread-actions';
+import { archive, changeCount, changeOf, relaunch, unarchive } from './thread-actions';
 
 function row(extra: Partial<SessionRow> = {}): SessionRow {
   return { id: 'a', title: 'Port the queue', projectId: 'p-1', state: 'working', since: 0, endedAt: null, steps: [], task: null, detail: null, progress: null, helpers: 0, ...extra };
@@ -44,6 +44,12 @@ test('archive leaves a thread started again meanwhile', async () => {
   const fake = client();
   await archive(fake.client, 'thr-1');
   expect(fake.call).toHaveBeenCalledWith('threads.archive', { threadId: 'thr-1', archived: true, onlyIfIdle: true });
+});
+
+test('an archive undone brings the thread back and starts nothing', async () => {
+  const fake = client();
+  await unarchive(fake.client, 'thr-1');
+  expect(fake.call.mock.calls).toEqual([['threads.archive', { threadId: 'thr-1', archived: false }]]);
 });
 
 test('a file’s change is cut like a session diff; a binary one has none', async () => {
