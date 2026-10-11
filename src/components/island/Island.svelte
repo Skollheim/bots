@@ -3,10 +3,11 @@
   bottom only, in three sizes that one spring moves between
   (`lib/island/frame.svelte.ts`):
 
-  - collapsed, a pill with the lead robot and a dot per agent at work, and,
-    while a conversation works, its project and step with its task list's
-    progress under it (the wheel goes through the ones at work);
-  - peek, on hover or when a turn finished, one line of status;
+  - collapsed, a pill with the lead robot and a dot per session, and, while
+    a conversation works, its project and step with its task list's progress
+    under it (the wheel goes through the ones at work);
+  - peek, on hover or when a thread ended, one line of status; a permission
+    waiting is answered from the pill (`IslandBar.svelte`);
   - open, the tab bar (Home, Chat, Drop; pin, Settings, sound), the robot the
     view talks about on the left, and the view, with the requests waiting
     laid over it.
@@ -17,7 +18,7 @@
   same way (`lib/island/motion.ts`). Open, the music moves into the tab bar.
 
   A halo behind it breathes amber while the user is waited on, flashes green
-  once when a turn finished, and stays a calm blue-violet while a reply
+  once when a turn finished (red when a thread failed), and stays a calm blue-violet while a reply
   comes. A soft shadow under it keeps it apart from light wallpapers. As it
   changes size, the content coming in blooms from a light blur to sharp.
 
@@ -36,15 +37,15 @@
   import { HOVER_OPEN_MS, ISLAND_TABS, type IslandFrame, type IslandGlow, type IslandTab } from '../../lib/island/frame.svelte';
   import { bloom, blurAway, GOO_FILTER } from '../../lib/island/motion';
   import { threadLabel } from '../../lib/companion/describe';
+  import { gazeOf, moodOf } from '../../lib/island/face';
+  import { FinishWatch } from '../../lib/island/finished.svelte';
   import { posed } from '../../lib/island/posed.svelte';
   import { MemoryWatch } from '../../lib/island/pressure.svelte';
-  import { isLive } from '../../lib/island/sessions';
   import { Sessions } from '../../lib/island/sessions.svelte';
   import { UpdateWatch } from '../../lib/island/update.svelte';
-  import { liveLine, rowDoing } from '../../lib/island/session-text';
-  import { islandStatus } from '../../lib/island/status';
   import { fill, strings } from '../../lib/strings';
-  import CompanionCharacter, { type Gaze } from '../companion/CompanionCharacter.svelte';
+  import CompanionCharacter from '../companion/CompanionCharacter.svelte';
+  import IslandBar from './IslandBar.svelte';
   import IslandDrop from './IslandDrop.svelte';
   import MusicBubble from './music/MusicBubble.svelte';
   import MusicStrip from './music/MusicStrip.svelte';
@@ -74,10 +75,9 @@
   const WINDOW_SPARE = 60;
   /** The tabs above the view. */
   const TABS_HEIGHT = 48;
-  const SIZES = { collapsed: { w: 200, h: 32 }, peek: { w: 360, h: 40 } };
+  const COLLAPSED = { w: 200, h: 32 };
   const RADIUS = 22;
   const CHEER_MS = 1200;
-  const GAZE_REACH = { x: 240, y: 180 };
   const ICONS = { home: House, chat: MessageCircle, drop: Plus } as const;
 
   let measured = $state(0);
@@ -87,7 +87,8 @@
   let onSide = $state(false);
   let cheering = $state(false);
   let robotButton = $state<HTMLButtonElement | null>(null);
-  let barFace = $state<HTMLElement | null>(null);
+  /** The size the pill wants (`IslandBar`). */
+  let pill = $state({ ...COLLAPSED });
 
   const lead = $derived(companion.members[0]!);
   const sessions = new Sessions({ client: () => companion.client, threads: () => companion.threads, own: () => companion.ownThreads, held: () => companion.notes.notices.map((notice) => notice.threadId) });
@@ -97,6 +98,12 @@
   });
   const openMax = $derived(frame.tall ? Math.max(OPEN_MAX, Math.min(OPEN_TALL, windowHeight - WINDOW_SPARE)) : OPEN_MAX);
   $effect(() => sessions.start());
+  /** A thread that ended is told in the pill, which peeks for it; red for a failure. */
+  const finishes = new FinishWatch({ client: () => companion.client, rows: () => sessions.rows, announce: (failed) => frame.flash(failed) });
+  $effect(() => finishes.start());
+  $effect(() => {
+    if (!frame.flashing) untrack(() => finishes.clear());
+  });
   /** How near Boite's memory guard is to stopping an agent, and a newer Boite out. */
   const memory = new MemoryWatch();
   const update = new UpdateWatch();
@@ -121,39 +128,12 @@
   });
   /** The warning's cause, not its numbers: a warning calls the island once, not on every read. */
   const memoryCause = $derived(memory.warning ? `${memory.warning.reason}:${memory.warning.threadId ?? ''}` : null);
-  /** The conversations at work, and the one the wheel picked among them. */
-  const liveRows = $derived(sessions.rows.filter(isLive));
-  let picked = $state<string | null>(null);
-  const leadSession = $derived(liveRows.find((row) => row.id === picked) ?? sessions.lead);
-  const live = $derived(leadSession ? liveLine(leadSession, (leadSession.projectId && companion.projects.get(leadSession.projectId)) || '') : null);
-  const PEEK = { min: 240, max: 420, chrome: 82 };
-  /** The collapsed pill with a conversation at work: its line, the face, the gaps and the padding, and the dots. */
-  const LIVE = { min: 200, max: 360, chrome: 74 };
-  const WHEEL_REST_MS = 220;
   /** The room between a drop and the island. */
   const SIDE_GAP = 8;
-  let statusWidth = $state(0);
-  let liveWidth = $state(0);
   // Settles within a quarter pixel: the last frames of a smaller step would move nothing one can see.
-  const box = new Spring({ ...SIZES.collapsed }, { stiffness: 0.18, damping: 0.72, precision: 0.25 });
+  const box = new Spring({ ...COLLAPSED }, { stiffness: 0.18, damping: 0.72, precision: 0.25 });
   const radius = $derived(Math.min(RADIUS, box.current.h / 2));
-  const status = $derived(
-    islandStatus({
-      blocking: companion.blocking,
-      finished: frame.flashing,
-      talking: companion.talking ? (companion.members.find((member) => member.talk.thinking)?.name ?? '') : null,
-      busy: companion.busy.length,
-      lead: leadSession ? { title: leadSession.title, step: rowDoing(leadSession) } : null
-    })
-  );
-  /** One dot per agent at work, amber first while one waits on the user. */
-  const dots = $derived([...(companion.blocking > 0 ? ['attention'] : []), ...companion.busy.slice(0, 5).map(() => 'working')]);
-  /** The peek fits its line: the status's own width (`measure`) plus the face, the gaps and the padding, and the dots. */
-  const peekWidth = $derived(Math.round(Math.min(PEEK.max, Math.max(PEEK.min, statusWidth + PEEK.chrome + Math.max(0, dots.length * 12 - 5)))));
-  const collapsedWidth = $derived(live ? Math.round(Math.min(LIVE.max, Math.max(LIVE.min, liveWidth + LIVE.chrome + Math.max(0, dots.length * 12 - 5)))) : SIZES.collapsed.w);
-  const target = $derived(
-    frame.size === 'open' ? { w: OPEN_WIDTH, h: Math.min(Math.max(measured, 120), openMax) } : frame.size === 'peek' ? { ...SIZES.peek, w: peekWidth } : { ...SIZES.collapsed, w: collapsedWidth }
-  );
+  const target = $derived(frame.size === 'open' ? { w: OPEN_WIDTH, h: Math.min(Math.max(measured, 120), openMax) } : pill);
   /** What the drops beside the island have, up to the window's edge. */
   const sideRoom = $derived(Math.max(0, (windowWidth - box.current.w) / 2 - SIDE_GAP));
   const sides = $derived(frame.size !== 'open');
@@ -168,7 +148,7 @@
   const SWELL_SPARE_MS = 150;
   let swelling = $state(false);
   $effect(() => {
-    if (!frame.hovering || frame.size !== 'peek' || !companion.prefs.openOnHover || companion.dropped || reduced) return;
+    if (!frame.hovering || frame.size !== 'peek' || frame.hushed || !companion.prefs.openOnHover || companion.dropped || reduced) return;
     untrack(() => (swelling = true));
     const end = setTimeout(() => (swelling = false), HOVER_OPEN_MS + SWELL_SPARE_MS);
     return () => {
@@ -232,23 +212,6 @@
     untrack(() => frame.hover(over));
   });
 
-  // The pick lasts while its conversation works.
-  $effect(() => {
-    if (picked !== null && !liveRows.some((row) => row.id === picked)) picked = null;
-  });
-
-  let wheelAt = 0;
-  /** The wheel on the pill goes through the conversations at work. */
-  function wheel(event: WheelEvent) {
-    if (liveRows.length < 2 || event.deltaY === 0) return;
-    const at = performance.now();
-    if (at - wheelAt < WHEEL_REST_MS) return;
-    wheelAt = at;
-    const index = Math.max(0, liveRows.findIndex((row) => row.id === leadSession?.id));
-    const next = (index + (event.deltaY > 0 ? 1 : -1) + liveRows.length) % liveRows.length;
-    picked = liveRows[next]!.id;
-  }
-
   // A turn finished: the lead jumps for joy and the island peeks green.
   let seenDone = -1;
   let cheerTimer: ReturnType<typeof setTimeout> | undefined;
@@ -279,23 +242,6 @@
     untrack(() => companion.cue('call'));
     return untrack(() => frame.call('memory'));
   });
-
-  function gazeOf(element: HTMLElement | null): Gaze | null {
-    const pointer = companion.senses.pointer;
-    if (!pointer || !element || companion.dragging) return null;
-    const rect = element.getBoundingClientRect();
-    const clamp = (value: number) => Math.max(-1, Math.min(1, value));
-    return { x: clamp((pointer.x - rect.x - rect.width / 2) / GAZE_REACH.x), y: clamp((pointer.y - rect.y - rect.height / 2) / GAZE_REACH.y) };
-  }
-
-  function moodOf(talking: boolean, leader: boolean) {
-    return talking || (leader && companion.assistant.running) ? 'working' : leader ? companion.mood.mood : 'idle';
-  }
-
-  function barClick() {
-    if (companion.dropped) return;
-    frame.click();
-  }
 
   function robotClick() {
     if (companion.dropped) return;
@@ -353,48 +299,8 @@
   ondragover={(event) => companion.attached.dragover(event)}
   ondrop={drop}
 >
-  <span class="measure" aria-hidden="true" bind:offsetWidth={statusWidth}>{status.text}</span>
-  {#if live}<span class="measure live-measure" aria-hidden="true" bind:offsetWidth={liveWidth}><b>{live.name}</b> {live.doing}</span>{/if}
   {#if frame.size !== 'open'}
-    <button
-      class="bar"
-      in:bloom={{ reduced }}
-      out:blurAway={{ reduced }}
-      data-testid="island-bar"
-      aria-expanded="false"
-      aria-label={status.text}
-      onclick={barClick}
-      onpointerdown={(event) => companion.onpress(event, true)}
-      onpointermove={companion.onmove}
-      onpointerup={companion.onrelease}
-      onwheel={wheel}
-    >
-      <span class="face" bind:this={barFace}>
-        <CompanionCharacter
-          mood={moodOf(lead.talk.thinking, true)}
-          busy={companion.mood.busy}
-          alarm={companion.notes.alarms.length > 0}
-          cheer={cheering}
-          boing={companion.boings[lead.id] ?? 0}
-          dizzy={companion.dizzy[lead.id] ?? false}
-          gaze={gazeOf(barFace)}
-          skin={lead.skin}
-          size={frame.size === 'peek' ? 34 : 28}
-          {...companion.look}
-        />
-      </span>
-      {#if frame.size === 'peek'}
-        <span class="status" in:bloom={{ reduced }} data-tone={status.tone} data-testid="island-status">{status.text}</span>
-      {:else if live}
-        <span class="live" in:bloom={{ reduced }} data-state={leadSession?.state} data-testid="island-live"><b>{live.name}</b> {live.doing}</span>
-      {/if}
-      <span class="dots" aria-hidden="true">
-        {#each dots as tone, index (index)}<i data-tone={tone}></i>{/each}
-      </span>
-      {#if frame.size === 'collapsed' && live?.progress}
-        <span class="progress" aria-hidden="true"><i style:transform="scaleX({live.progress.toFixed(3)})"></i></span>
-      {/if}
-    </button>
+    <IslandBar {companion} {frame} {sessions} told={finishes.line} {cheering} {reduced} bind:want={pill} />
   {:else}
     <div class="open" in:bloom={{ reduced }} out:blurAway={{ reduced }} style:max-height="{openMax}px" bind:offsetHeight={measured}>
       <nav class="tabs" aria-label={copy.label}>
@@ -450,13 +356,13 @@
           >
             <!-- Its eyes follow the pointer while it is on the island (nothing to follow elsewhere), and it cheers when any thread finishes. -->
             <CompanionCharacter
-              mood={moodOf(companion.active.talk.thinking, companion.active.id === lead.id)}
+              mood={moodOf(companion, companion.active.talk.thinking, companion.active.id === lead.id)}
               busy={companion.active.id === lead.id && companion.mood.busy}
               alarm={companion.notes.alarms.length > 0}
               cheer={cheering}
               boing={companion.boings[companion.active.id] ?? 0}
               dizzy={companion.dizzy[companion.active.id] ?? false}
-              gaze={companion.pointerOn ? gazeOf(robotButton) : null}
+              gaze={companion.pointerOn ? gazeOf(companion, robotButton) : null}
               skin={companion.active.skin}
               size={60}
               {...companion.look}
@@ -534,6 +440,9 @@
   .halo[data-tone='done'] {
     --halo: var(--island-done);
   }
+  .halo[data-tone='failed'] {
+    --halo: var(--island-danger);
+  }
   .halo[data-tone='talking'] {
     --halo: var(--island-talking);
   }
@@ -546,7 +455,8 @@
   .halo[data-glow='talking'] {
     opacity: 0.75;
   }
-  .halo[data-glow='done'] {
+  .halo[data-glow='done'],
+  .halo[data-glow='failed'] {
     animation: flash 900ms ease-out forwards;
   }
 
@@ -575,8 +485,8 @@
       transform 620ms cubic-bezier(0.3, 0.1, 0.3, 1),
       scale 90ms ease-out;
   }
-  .island:has(> .bar:active),
-  .cluster:has(> .island > .bar:active) > .halo {
+  .island:has(:global(.bar:active)),
+  .cluster:has(> .island :global(.bar:active)) > .halo {
     scale: 0.98;
   }
   /* The buttons inside give under a press. */
@@ -587,96 +497,6 @@
     to {
       scale: 0.96;
     }
-  }
-
-  .bar {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0 14px 0 12px;
-    border: none;
-    border-radius: 0;
-    background: none;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
-    touch-action: none;
-  }
-  .bar:focus-visible {
-    outline: 2px solid var(--island-talking);
-    outline-offset: -2px;
-  }
-  .face {
-    display: grid;
-    place-items: center;
-    flex: none;
-    height: 100%;
-  }
-  .status {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-weight: 500;
-    text-align: left;
-  }
-  .status[data-tone='attention'] { color: var(--island-attention); }
-  .status[data-tone='done'] { color: var(--island-done); }
-  .status[data-tone='talking'] { color: #b9aefb; }
-  .status[data-tone='idle'] { color: var(--island-muted); }
-  /* Collapsed, the conversation at work: its project, then what it does. */
-  .live {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    color: var(--island-muted);
-    font-size: 12px;
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .live b {
-    color: var(--island-text);
-    font-weight: 600;
-  }
-  .live[data-state='waiting'] b {
-    color: var(--island-attention);
-  }
-  .progress {
-    position: absolute;
-    right: 16px;
-    bottom: 3px;
-    left: 16px;
-    height: 2px;
-    overflow: hidden;
-    border-radius: 1px;
-    background: rgb(255 255 255 / 0.1);
-  }
-  .progress i {
-    display: block;
-    width: 100%;
-    height: 100%;
-    background: var(--island-working);
-    transform-origin: left;
-    transition: transform 400ms ease;
-  }
-  .dots {
-    display: flex;
-    gap: 5px;
-    margin-left: auto;
-  }
-  .dots i {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--island-working);
-    animation: pulse 1.6s ease-in-out infinite;
-  }
-  .dots i[data-tone='attention'] {
-    background: var(--island-attention);
   }
 
   .open {
@@ -745,23 +565,6 @@
     text-align: center;
     font-variant-numeric: tabular-nums;
   }
-  /* Sizes the peek's one-line status; never seen. */
-  .measure {
-    position: absolute;
-    top: 0;
-    left: 0;
-    visibility: hidden;
-    white-space: nowrap;
-    font-weight: 500;
-    pointer-events: none;
-  }
-  .live-measure {
-    font-size: 12px;
-    font-weight: 400;
-  }
-  .live-measure b {
-    font-weight: 600;
-  }
   .sr {
     position: absolute;
     width: 1px;
@@ -824,11 +627,6 @@
     scrollbar-color: rgb(255 255 255 / 0.15) transparent;
   }
 
-  @keyframes pulse {
-    50% {
-      opacity: 0.45;
-    }
-  }
   @keyframes breathe {
     0%,
     100% {
@@ -858,9 +656,6 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .dots i {
-      animation: none;
-    }
     .island,
     .island[data-swell] {
       transform: none;
@@ -872,8 +667,8 @@
       transform: none;
       transition: opacity 360ms ease;
     }
-    .island:has(> .bar:active),
-    .cluster:has(> .island > .bar:active) > .halo {
+    .island:has(:global(.bar:active)),
+    .cluster:has(> .island :global(.bar:active)) > .halo {
       scale: none;
     }
     .island :global(button:active:not(:disabled, .bar)) {
@@ -884,7 +679,8 @@
       animation: none;
       opacity: 0.75;
     }
-    .halo[data-glow='done'] {
+    .halo[data-glow='done'],
+    .halo[data-glow='failed'] {
       animation: fade 1.2s ease-out forwards;
     }
   }

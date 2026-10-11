@@ -93,3 +93,40 @@ test('the shortcut opens on a tab', () => {
   frame.show('chat');
   expect([state.open, frame.tab]).toEqual([true, 'chat']);
 });
+
+test('a failure peeks red, and a plain flash meanwhile keeps it red', () => {
+  const { frame } = source();
+  frame.flash(true);
+  expect(frame.glow).toBe('failed');
+  frame.flash();
+  expect(frame.glow).toBe('failed');
+  vi.advanceTimersByTime(FLASH_MS);
+  frame.flash();
+  expect(frame.glow).toBe('done');
+});
+
+test('while the pill is being read, a hover peeks without opening, and counts again once it is let go', () => {
+  const { state, frame } = source();
+  frame.hush('ask', true);
+  frame.hover(true);
+  vi.advanceTimersByTime(HOVER_OPEN_MS * 3);
+  expect([state.open, frame.size]).toEqual([false, 'peek']);
+  frame.hush('ask', false);
+  vi.advanceTimersByTime(HOVER_OPEN_MS - 1);
+  expect(state.open).toBe(false);
+  vi.advanceTimersByTime(1);
+  expect(state.open).toBe(true);
+});
+
+test('a hush coming during a hover stops the opening under way', () => {
+  const { state, frame } = source();
+  frame.hover(true);
+  vi.advanceTimersByTime(HOVER_OPEN_MS - 100);
+  frame.hush('dot', true);
+  vi.advanceTimersByTime(HOVER_OPEN_MS);
+  expect(state.open).toBe(false);
+  frame.hover(false);
+  frame.hush('dot', false);
+  vi.advanceTimersByTime(HOVER_OPEN_MS * 2);
+  expect(state.open).toBe(false);
+});

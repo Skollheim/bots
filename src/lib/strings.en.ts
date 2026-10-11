@@ -37,6 +37,18 @@ export const strings = {
     waitingOne: 'An agent needs you',
     waitingMany: '{count} requests wait for you',
     finished: 'Done',
+    /** A thread that just ended, told in the pill: "Port the scheduler · done · 3 files". */
+    finish: {
+      done: 'done',
+      failed: 'failed',
+      filesOne: '1 file',
+      filesMany: '{count} files',
+      manyDone: '{count} threads done',
+      manyFailed: '{count} threads failed',
+      someFailed: '{count} failed'
+    },
+    /** A permission answered from the pill, without opening the island. */
+    ask: 'Permission request',
     talking: '{name} is answering…',
     robot: '{name}. Click to poke it, drag it out to set it loose on the desktop.',
     home: {

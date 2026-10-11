@@ -32,6 +32,16 @@ export const fr: Messages = {
     waitingOne: 'Un agent a besoin de vous',
     waitingMany: '{count} demandes vous attendent',
     finished: 'Terminé',
+    finish: {
+      done: 'terminé',
+      failed: 'en échec',
+      filesOne: '1 fichier',
+      filesMany: '{count} fichiers',
+      manyDone: '{count} fils terminés',
+      manyFailed: '{count} fils en échec',
+      someFailed: 'dont {count} en échec'
+    },
+    ask: 'Demande d’autorisation',
     talking: '{name} répond…',
     robot: '{name}. Cliquez pour le taquiner, faites-le glisser hors de l’île pour le poser sur le bureau.',
     home: {

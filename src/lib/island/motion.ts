@@ -141,3 +141,24 @@ export function blurAway(_node: Element, { reduced }: BloomParams): TransitionCo
   if (reduced) return { duration: 100, css: (t) => `opacity: ${t}` };
   return { duration: 140, css: (t, u) => `opacity: ${round(t, 3)}; filter: blur(${round(u * 4, 2)}px)` };
 }
+
+/** How long a line of text takes to roll to the next. */
+export const ROLL_MS = 240;
+/** Eases out past the mark a little and settles: a counter's wheel clicking into place. */
+const springOut = (value: number) => 1 + 2.2 * (value - 1) ** 3 + 1.2 * (value - 1) ** 2;
+
+/**
+ * A line of text taking the place of the one before: in from below with a small click, faded in. A crossfade with
+ * reduced motion. A line with no other beside it is the first one, shown with its container: it does not roll.
+ */
+export function rollIn(node: Element, { reduced }: BloomParams): TransitionConfig {
+  if (!node.previousElementSibling && !node.nextElementSibling) return { duration: 0 };
+  if (reduced) return { duration: 160, css: (t) => `opacity: ${round(t, 3)}` };
+  return { duration: ROLL_MS, easing: springOut, css: (t, u) => `opacity: ${round(clamp01(t * 1.4), 3)}; transform: translateY(${round(u * 100, 2)}%)` };
+}
+
+/** The line it replaces: up and out, faded. */
+export function rollOut(_node: Element, { reduced }: BloomParams): TransitionConfig {
+  if (reduced) return { duration: 160, css: (t) => `opacity: ${round(t, 3)}` };
+  return { duration: ROLL_MS, easing: easeOut, css: (t, u) => `opacity: ${round(t, 3)}; transform: translateY(${round(-u * 100, 2)}%)` };
+}
