@@ -82,6 +82,7 @@
     border: 1px solid color-mix(in srgb, var(--tone) 45%, transparent);
     border-radius: 14px;
     background: linear-gradient(color-mix(in srgb, var(--tone) 10%, transparent), color-mix(in srgb, var(--tone) 3%, transparent) 64px), var(--island-card);
+    box-shadow: var(--island-card-edge);
     animation: arrive 320ms ease-out;
   }
   .memory.red {

@@ -411,14 +411,15 @@
             onpointermove={companion.onmove}
             onpointerup={companion.onrelease}
           >
+            <!-- Its eyes follow the pointer while it is on the island (nothing to follow elsewhere), and it cheers when any thread finishes. -->
             <CompanionCharacter
               mood={moodOf(companion.active.talk.thinking, companion.active.id === lead.id)}
               busy={companion.active.id === lead.id && companion.mood.busy}
               alarm={companion.notes.alarms.length > 0}
-              cheer={cheering && companion.active.id === lead.id}
+              cheer={cheering}
               boing={companion.boings[companion.active.id] ?? 0}
               dizzy={companion.dizzy[companion.active.id] ?? false}
-              gaze={gazeOf(robotButton)}
+              gaze={companion.pointerOn ? gazeOf(robotButton) : null}
               skin={companion.active.skin}
               size={60}
               {...companion.look}
@@ -426,7 +427,7 @@
             {#if companion.blocking > 0}<span class="badge" aria-hidden="true">{companion.blocking}</span>{/if}
           </button>
         </div>
-        <div class="view" data-tab={frame.tab} style:max-height="{openMax - TABS_HEIGHT}px">
+        <div class="view island-fade" data-tab={frame.tab} style:max-height="{openMax - TABS_HEIGHT}px">
           <MemoryCard />
           {#if companion.blocking > 0}<AttentionCard />{/if}
           {#if frame.tab === 'home'}

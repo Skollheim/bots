@@ -11,6 +11,7 @@ import type { ThreadSummary } from '@boite/contracts';
 import type { Client } from '@boite/ui/lib/client';
 import { page } from '@boite/ui/lib/page-hidden.svelte';
 import { isLive, leadOf, reduceSessions, type SessionEvent, type SessionRow } from './sessions';
+import { clockDelay } from './session-time';
 
 export interface SessionsSource {
   client(): Client | null;
@@ -24,7 +25,8 @@ export interface SessionsSource {
 
 /** The steps read once when a thread starts being followed. */
 const SEED_MESSAGES = 4;
-const TICK_MS = 1_000;
+/** The clock wakes a little after a time's text turns, never just before. */
+const CLOCK_SLACK_MS = 20;
 
 /**
  * What Home shows unfolded: the rows opened on their steps and the one step
@@ -35,7 +37,7 @@ export const unfolding = $state<{ rows: string[]; diff: string | null }>({ rows:
 
 export class Sessions {
   #rows = $state.raw<SessionRow[]>([]);
-  /** The clock the elapsed times read, a tick a second while a row shows. */
+  /** The clock the elapsed times read: it moves only when a row's time would read differently (`clockDelay`). */
   now = $state(Date.now());
 
   /** The rows Home lists, waiting ones first. */
@@ -83,19 +85,32 @@ export class Sessions {
         const live = this.rows.filter(isLive).map((row) => row.id);
         untrack(() => this.#follow(live));
       });
+      // The clock wakes when a row's time would read differently or an ended row is due to leave
+      // (`clockDelay`): each second under a minute, then once a minute; never without a row.
+      $effect(() => {
+        void this.now;
+        if (page.hidden) return;
+        const rows = this.#rows;
+        const keep = this.source.held?.() ?? [];
+        const delay = untrack(() => clockDelay(rows, Date.now(), keep));
+        if (delay === null) return;
+        const timer = setTimeout(() => this.#tick(keep), delay + CLOCK_SLACK_MS);
+        return () => clearTimeout(timer);
+      });
     });
-    const clock = setInterval(() => {
-      if (page.hidden || this.#rows.length === 0) return;
-      this.now = Date.now();
-      this.apply({ type: 'prune', at: this.now, keep: this.source.held?.() });
-    }, TICK_MS);
     return () => {
-      clearInterval(clock);
       stop();
       detach?.();
       this.#follow([]);
       this.#client = null;
     };
+  }
+
+  /** Moves the clock and lets the ended rows due go; the rows change only when one leaves. */
+  #tick(keep: readonly string[]): void {
+    this.now = Date.now();
+    const next = reduceSessions(this.#rows, { type: 'prune', at: this.now, keep });
+    if (next.length !== this.#rows.length) this.#rows = next;
   }
 
   #listen(client: Client): () => void {

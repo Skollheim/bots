@@ -5,16 +5,18 @@
   Edit or Write step opens the change it made. A finished thread's card folds
   into its row: the reply's first line, and answer or dismiss it from here.
   An ended row offers to start the thread again, archive it, or show the
-  changes in its folder (`NoticeActions.svelte`).
+  changes in its folder (`NoticeActions.svelte`). The actions show on the row
+  under the pointer or the focus, and keep their room elsewhere. The time
+  reads calm (`session-time.ts`): seconds under a minute only.
 -->
 <script lang="ts">
   import { Check, ChevronDown, CornerDownLeft, FileDiff, Minus, X } from '@lucide/svelte';
   import type { Notes, Notice } from '../../../lib/companion/notes.svelte';
-  import { elapsed } from '@boite/ui/lib/format';
   import { seededRobot } from '../../../lib/robots';
   import { isLive, type SessionRow } from '../../../lib/island/sessions';
   import { unfolding } from '../../../lib/island/sessions.svelte';
   import { rowDoing, toolLabel } from '../../../lib/island/session-text';
+  import { sessionTime } from '../../../lib/island/session-time';
   import { strings } from '../../../lib/strings';
   import RobotFace from '../../agents/RobotFace.svelte';
   import CompanionReply from '../../companion/CompanionReply.svelte';
@@ -48,11 +50,11 @@
 
   const robot = $derived(seededRobot(row.id, 'box'));
   const face = $derived(row.state === 'working' ? 'working' : row.state === 'waiting' ? 'waiting' : 'still');
-  const time = $derived(elapsed((row.endedAt ?? now) - row.since));
+  const time = $derived(sessionTime((row.endedAt ?? now) - row.since));
   const line = $derived(isLive(row) ? (rowDoing(row) ?? '') : (notice?.line ?? ''));
 </script>
 
-<li class="session" data-state={row.state} data-testid="session-row">
+<li class="session" class:unfolded data-state={row.state} data-testid="session-row">
   <div class="head">
     <span class="avatar" aria-hidden="true"><RobotFace {robot} state={face} /></span>
     <button class="title" title={copy.reveal} onclick={() => onreveal(row.id)}>
@@ -190,6 +192,7 @@
     white-space: nowrap;
   }
   .name {
+    font-size: 13px;
     font-weight: 500;
   }
   .project,
@@ -243,6 +246,38 @@
   .act:focus-visible {
     outline: 2px solid var(--island-talking);
     outline-offset: 1px;
+  }
+  /*
+   * A row's actions (reply, dismiss, run again, archive, the changes) show on
+   * the row under the pointer or holding the focus, and on an unfolded row.
+   * Elsewhere they keep their room, faded out, so the list never jumps. The
+   * fold's chevron stays, quieter: it says the row opens.
+   */
+  .act,
+  .ended {
+    opacity: 0;
+    transition: opacity 180ms ease;
+  }
+  .session:is(:hover, :focus-within, .unfolded) :is(.act, .ended),
+  .ended:has(:global([aria-expanded='true'], [role='alert'])) {
+    opacity: 1;
+  }
+  .fold {
+    color: var(--island-faint);
+    transition: color 180ms ease;
+  }
+  :where(.session:hover, .session:focus-within) .fold {
+    color: var(--island-muted);
+  }
+  .fold:hover,
+  .fold.on {
+    color: var(--island-text);
+  }
+  @media (hover: none) {
+    .act,
+    .ended {
+      opacity: 1;
+    }
   }
   .ended {
     margin: 0 0 8px 32px;
@@ -357,7 +392,10 @@
     .spin {
       animation: none;
     }
-    .fold :global(svg) {
+    .fold :global(svg),
+    .fold,
+    .act,
+    .ended {
       transition: none;
     }
   }
