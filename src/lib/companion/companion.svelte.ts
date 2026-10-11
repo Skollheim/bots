@@ -46,6 +46,8 @@ import { digestFor, Finder, Radar, replyInThread, ThreadReader } from './watch.s
 import { fold, type WatchInput } from './watch';
 import { Assistant } from '../island/assistant.svelte';
 import { arrivals } from '../island/requests';
+import { AllowRules } from '../island/allow.svelte';
+import type { RuleScope } from '../island/allow-rules';
 
 const CELEBRATE_MS = 6000;
 const REFRESH_EVERY = 15_000;
@@ -69,6 +71,8 @@ export interface Member {
 export type RequestAction =
   | { kind: 'allow'; request: PermissionRequest }
   | { kind: 'deny'; request: PermissionRequest }
+  /** Allowed now, and from then on in this thread or project (`allow.svelte.ts`). */
+  | { kind: 'always'; request: PermissionRequest; scope: RuleScope }
   | { kind: 'answer'; question: QuestionRequest; optionIds: string[]; text?: string }
   | { kind: 'skip'; question: QuestionRequest };
 
@@ -163,6 +167,8 @@ export class Companion {
   private readonly tracker = createMoodTracker({ celebrateMs: CELEBRATE_MS });
   /** What the other threads last said, for the digest each request carries and for the search. */
   private readonly reader = new ThreadReader(() => this.client);
+  /** The "always allow" rules: what they cover is answered before the island sees it. */
+  readonly rules = new AllowRules({ client: () => this.client, failed: () => this.soon(0) });
   private readonly talkCache = new Map<string, Talk>();
   /** The agent whose fresh reply set a task: what the tasks say goes to its bubble. */
   private answerer: string | null = null;
@@ -407,7 +413,7 @@ export class Companion {
       const [threadList, permissionList, questionList] = await Promise.all([client.call('threads.list', {}), client.call('permissions.list', {}), client.call('questions.list', {})]);
       if (this.disposed) return;
       this.threads = threadList;
-      this.permissions = permissionList;
+      this.permissions = this.rules.sift(permissionList, threadList);
       this.questions = questionList;
       this.reachable = true;
       this.loaded = true;
@@ -486,15 +492,16 @@ export class Companion {
   async act(action: RequestAction): Promise<void> {
     const client = this.client;
     if (!client) return;
-    if (action.kind === 'allow' || action.kind === 'deny') {
-      await client.call('permissions.answer', { requestId: action.request.id, decision: action.kind });
+    if (action.kind === 'always') this.rules.add(action.request, action.scope, this.threads, this.projects);
+    if (action.kind === 'allow' || action.kind === 'deny' || action.kind === 'always') {
+      await client.call('permissions.answer', { requestId: action.request.id, decision: action.kind === 'deny' ? 'deny' : 'allow' });
     } else if (action.kind === 'answer') {
       const { question, optionIds, text } = action;
       await client.call('questions.answer', { threadId: question.threadId, questionId: question.id, optionIds, ...(text ? { text } : {}) });
     } else {
       await client.call('questions.skip', { threadId: action.question.threadId, questionId: action.question.id });
     }
-    this.settled(action.kind === 'allow' || action.kind === 'deny' ? action.request.id : action.question.id);
+    this.settled('request' in action ? action.request.id : action.question.id);
   }
 
   /** A request answered here or elsewhere leaves the lists at once; the core is read again right after. */
@@ -657,7 +664,7 @@ export class Companion {
 
   /** Connects, follows the state, and starts the timers; returns what stops all of it. */
   start(): () => void {
-    const off: (() => void)[] = [this.follow()];
+    const off: (() => void)[] = [this.follow(), this.rules.follow()];
     off.push(
       subscribeCompanionPrefs((next) => {
         const crewChanged = next.agents.join() !== this.prefs.agents.join();

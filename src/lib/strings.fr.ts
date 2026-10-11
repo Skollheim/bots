@@ -42,6 +42,32 @@ export const fr: Messages = {
       someFailed: 'dont {count} en échec'
     },
     ask: 'Demande d’autorisation',
+    allow: {
+      always: 'Toujours…',
+      alwaysTitle: 'Autoriser désormais : {rule}',
+      cannot: 'Cette demande est trop longue pour en faire une règle',
+      thread: 'Ce fil',
+      project: 'Ce projet',
+      threadLong: 'Pour ce fil',
+      projectLong: 'Pour ce projet',
+      back: 'Retour',
+      hint: 'Bots répond pour vous tant qu’il tourne',
+      traced: 'Autorisé par une règle · {rule}',
+      title: 'Toujours autorisé',
+      lead: 'Ce que vous avez autorisé pour de bon depuis l’île. Bots répond lui-même à ces demandes, seulement tant qu’il tourne.',
+      empty: 'Aucune règle pour l’instant. Utilisez « Toujours… » sur une demande.',
+      scopeThread: 'Fil : {name}',
+      scopeProject: 'Projet : {name}',
+      remove: 'Retirer cette règle',
+      forgetAll: 'Tout oublier'
+    },
+    pr: {
+      number: 'PR #{number}',
+      pending: 'CI en cours',
+      green: 'CI verte',
+      red: 'CI en échec',
+      open: 'Ouvrir la pull request'
+    },
     talking: '{name} répond…',
     robot: '{name}. Cliquez pour le taquiner, faites-le glisser hors de l’île pour le poser sur le bureau.',
     home: {
