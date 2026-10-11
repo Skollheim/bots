@@ -22,6 +22,11 @@ export async function archive(client: Client, threadId: string): Promise<void> {
   await client.call('threads.archive', { threadId, archived: true, onlyIfIdle: true });
 }
 
+/** Back from the archive, as it was: an archive undone (`archive-undo.svelte.ts`). Starts nothing. */
+export async function unarchive(client: Client, threadId: string): Promise<void> {
+  await client.call('threads.archive', { threadId, archived: false });
+}
+
 /** The files changed in the thread's folder, as `git status` gives them. */
 export async function changesOf(client: Client, threadId: string): Promise<GitChange[]> {
   return (await client.call('git.status', { threadId })).changes;

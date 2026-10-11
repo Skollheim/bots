@@ -2,7 +2,7 @@
   The island's assistant (`lib/island/assistant.svelte.ts`): one of the
   user's Boite agents, chosen in a menu, with its model and effort, a way to
   its page in Boite, the conversation scrolled to its end (older messages as
-  the reader scrolls up), the answer as it streams with the tool at work on
+  the reader scrolls up), its edges fading where more is hidden, the answer as it streams with the tool at work on
   one quiet line, the files that go with the next message, and the field.
   Enter sends, also while the agent works (a follow-up), Shift+Enter breaks
   the line, Escape leaves the field. While the field has the keyboard, the
@@ -131,7 +131,7 @@
       {/if}
     </header>
 
-    <div class="list" bind:this={list} onscroll={() => void scrolled()} role="log" aria-live="polite" aria-busy={assistant.running} data-testid="assistant-log">
+    <div class="list island-fade" bind:this={list} onscroll={() => void scrolled()} role="log" aria-live="polite" aria-busy={assistant.running} data-testid="assistant-log">
       {#if assistant.loadingOlder}<p class="older">{copy.older}</p>{/if}
       {#if agent && assistant.bubbles.length === 0 && !assistant.running}
         <p class="empty">{fill(copy.empty, { name })}</p>
@@ -220,7 +220,9 @@
     font-size: 12.5px;
     line-height: 1.45;
   }
+  /* Its edges fade where more is hidden, as Home's do (`bots.css`, `.island-fade`): the gap is its own. */
   .list {
+    --island-fade-gap: 10px;
     display: flex;
     flex-direction: column;
     gap: 10px;

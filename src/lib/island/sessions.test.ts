@@ -211,3 +211,13 @@ test('the progress counts the finished tasks of the list', () => {
   });
   expect(rows[0]?.progress).toEqual({ done: 1, total: 3 });
 });
+
+test('a row given back by an undone archive returns as it was, unless the list made it again', () => {
+  const rows = run(listed(2_000, thread('a', 'running')), { type: 'turnFinished', turn: turn('a', 'done'), at: 5_000 });
+  const ended = rows[0]!;
+  const archived = reduceSessions(rows, listed(6_000, thread('a', 'idle', { archived: true })));
+  expect(archived).toEqual([]);
+  expect(reduceSessions(archived, { type: 'restore', row: ended })).toEqual([ended]);
+  const again = run(listed(7_000, thread('a', 'running', { runningSince: 7_000 })));
+  expect(reduceSessions(again, { type: 'restore', row: ended })).toEqual(again);
+});

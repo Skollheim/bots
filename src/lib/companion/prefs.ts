@@ -20,6 +20,9 @@ export type CompanionControl = 'ask' | 'auto';
 export type CompanionScreenScope = 'all' | 'here' | 'zone';
 /** Where the robots live: in the island at the top of the screen, or loose on the desktop. */
 export type CompanionRobots = 'island' | 'desktop';
+/** What the island's pill shows when nothing else claims it: the live line, the tightest quota, the music, or the robot alone. */
+export type PillRest = 'live' | 'quota' | 'music' | 'robot';
+export const PILL_RESTS = ['live', 'quota', 'music', 'robot'] as const satisfies readonly PillRest[];
 /** The character's centre, in fractions of the screen's work area. */
 export interface CompanionSpot { x: number; y: number }
 /** The families the island's mascot may come from: Boîte, the box, or a Jelly. */
@@ -36,6 +39,8 @@ export interface CompanionPrefs {
   robots: CompanionRobots;
   /** Hovering the island long enough opens its panel; off, only a click does. */
   openOnHover: boolean;
+  /** What the pill shows at rest (`IslandBar.svelte`). */
+  pillRest: PillRest;
   /** The island's character, the first agent's on the desktop; null is that agent's own box (Boîte by default). */
   mascot: Mascot | null;
   anchor: CompanionAnchor;
@@ -83,6 +88,7 @@ export const DEFAULT_COMPANION_PREFS: CompanionPrefs = {
   monitor: null,
   robots: 'island',
   openOnHover: true,
+  pillRest: 'live',
   mascot: null,
   anchor: 'center',
   spot: null,
@@ -145,6 +151,7 @@ export function parseCompanionPrefs(raw: unknown): CompanionPrefs {
     monitor: text(value.monitor),
     robots: value.robots === 'desktop' ? 'desktop' : 'island',
     openOnHover: value.openOnHover !== false,
+    pillRest: (PILL_RESTS as readonly unknown[]).includes(value.pillRest) ? (value.pillRest as PillRest) : 'live',
     mascot: mascotOf(value.mascot),
     // A free place needs the spot it was dropped on.
     anchor: value.anchor === 'left' || value.anchor === 'right' || (value.anchor === 'free' && spot) ? value.anchor : 'center',

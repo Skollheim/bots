@@ -8,9 +8,13 @@
  */
 import { untrack } from 'svelte';
 import type { ThreadSummary } from '@boite/contracts';
-import type { Client } from '@boite/ui/lib/client';
+import type { Client, ObservableClient } from '@boite/ui/lib/client';
 import { page } from '@boite/ui/lib/page-hidden.svelte';
-import { isLive, leadOf, reduceSessions, type SessionEvent, type SessionRow } from './sessions';
+import type { UndoLine } from './archive-undo';
+import { ArchiveUndo } from './archive-undo.svelte';
+import { coreKey, followedGone, restingRow } from './followed';
+import { Followed } from './followed.svelte';
+import { isLive, leadOf, reduceSessions, sortRows, type SessionEvent, type SessionRow } from './sessions';
 import { clockDelay } from './session-time';
 
 export interface SessionsSource {
@@ -27,6 +31,8 @@ export interface SessionsSource {
 const SEED_MESSAGES = 4;
 /** The clock wakes a little after a time's text turns, never just before. */
 const CLOCK_SLACK_MS = 20;
+/** How long a row given back by an Undo is kept while the thread list still says the thread is archived. */
+const RESTORE_HOLD_MS = 15_000;
 
 /**
  * What Home shows unfolded: the rows opened on their steps and the one step
@@ -35,16 +41,38 @@ const CLOCK_SLACK_MS = 20;
  */
 export const unfolding = $state<{ rows: string[]; diff: string | null }>({ rows: [], diff: null });
 
+/** Who the core said it is on the last hello, when the client keeps it. */
+function coreOf(client: Client | null): ObservableClient['core'] {
+  return client && 'core' in client ? (client as ObservableClient).core : null;
+}
+
 export class Sessions {
   #rows = $state.raw<SessionRow[]>([]);
   /** The clock the elapsed times read: it moves only when a row's time would read differently (`clockDelay`). */
   now = $state(Date.now());
 
-  /** The rows Home lists, waiting ones first. */
+  /** The thread the pill follows (`followed.ts`), chosen on its Home row; one per core. */
+  readonly followed = new Followed(() => coreKey(coreOf(this.source.client())));
+  /** Read again as the thread list moves: the core it belongs to is known once the list is. */
+  readonly followedId = $derived.by(() => {
+    void this.source.threads();
+    return this.followed.id;
+  });
+  /** The archives that can still be undone, a line each in Home (`archive-undo.ts`). */
+  readonly undo = new ArchiveUndo({ client: () => this.source.client(), restore: (line) => this.#restore(line) });
+
+  /** The rows Home lists, waiting ones first; the followed thread has one, at rest when nothing else made it. */
   readonly rows = $derived.by(() => {
     const own = new Set(this.source.own());
-    return own.size === 0 ? this.#rows : this.#rows.filter((row) => !own.has(row.id));
+    const rows = own.size === 0 ? this.#rows : this.#rows.filter((row) => !own.has(row.id));
+    const id = this.followedId;
+    if (!id || own.has(id) || rows.some((row) => row.id === id)) return rows;
+    const thread = this.source.threads().find((entry) => entry.id === id);
+    const resting = thread ? restingRow(thread) : null;
+    return resting ? sortRows([...rows, resting]) : rows;
   });
+  /** The followed thread's row, for the pill. */
+  readonly followedRow = $derived(this.followedId ? (this.rows.find((row) => row.id === this.followedId) ?? null) : null);
   /** The session the peek speaks of. */
   readonly lead = $derived(leadOf(this.rows));
   /** The threads whose row shows them ended: their finished card folds into the row. */
@@ -56,6 +84,8 @@ export class Sessions {
 
   #followed = new Set<string>();
   #client: Client | null = null;
+  /** Rows an Undo gave back, held until the thread list has their threads out of the archive. */
+  #restoring = new Map<string, { row: SessionRow; until: number }>();
 
   constructor(private readonly source: SessionsSource) {}
 
@@ -78,7 +108,17 @@ export class Sessions {
       });
       $effect(() => {
         const threads = this.source.threads();
-        untrack(() => this.apply({ type: 'threads', threads, at: Date.now() }));
+        untrack(() => {
+          const at = Date.now();
+          this.apply({ type: 'threads', threads, at });
+          this.#holdRestored(threads, at);
+        });
+      });
+      // The followed thread archived or gone: the pill lets it go, unless an Undo just gave it back.
+      $effect(() => {
+        const id = this.followedId;
+        const threads = this.source.threads();
+        if (id && !this.#restoring.has(id) && followedGone(id, threads)) untrack(() => this.followed.set(null));
       });
       $effect(() => {
         void this.source.client();
@@ -91,7 +131,7 @@ export class Sessions {
         void this.now;
         if (page.hidden) return;
         const rows = this.#rows;
-        const keep = this.source.held?.() ?? [];
+        const keep = this.#keep();
         const delay = untrack(() => clockDelay(rows, Date.now(), keep));
         if (delay === null) return;
         const timer = setTimeout(() => this.#tick(keep), delay + CLOCK_SLACK_MS);
@@ -103,7 +143,36 @@ export class Sessions {
       detach?.();
       this.#follow([]);
       this.#client = null;
+      this.undo.dispose();
     };
+  }
+
+  /** Ended rows that stay past their two minutes: the ones carrying a finished card, and the followed thread's. */
+  #keep(): string[] {
+    const held = this.source.held?.() ?? [];
+    const id = this.followedId;
+    return id ? [...held, id] : [...held];
+  }
+
+  /** An archive undone: the row comes back where it was, counting its two minutes from now, and is followed again if it was. */
+  #restore(line: UndoLine): void {
+    const row = { ...line.row, endedAt: Date.now() };
+    this.#restoring.set(row.id, { row, until: Date.now() + RESTORE_HOLD_MS });
+    this.apply({ type: 'restore', row });
+    if (line.followed) this.followed.set(row.id);
+  }
+
+  /** A list read before the core unarchived a thread still has it archived: the row given back stays until the list catches up. */
+  #holdRestored(threads: readonly ThreadSummary[], at: number): void {
+    for (const [id, held] of this.#restoring) {
+      if (at > held.until) {
+        this.#restoring.delete(id);
+        continue;
+      }
+      if (!this.#rows.some((row) => row.id === id)) this.apply({ type: 'restore', row: held.row });
+      const thread = threads.find((entry) => entry.id === id);
+      if (thread && !thread.archived) this.#restoring.delete(id);
+    }
   }
 
   /** Moves the clock and lets the ended rows due go; the rows change only when one leaves. */
