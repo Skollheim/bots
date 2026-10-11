@@ -105,9 +105,17 @@ function withStep(steps: readonly SessionStep[], step: SessionStep): SessionStep
   return next.slice(-STEP_LIMIT);
 }
 
+/**
+ * A turn over with work the agent left running (a shell, a monitor): Boite
+ * lists the thread as still at work, and so does Home.
+ */
+function inBackground(thread: ThreadSummary): boolean {
+  return thread.status === 'idle' && (thread.backgroundWork?.kinds.length ?? 0) > 0;
+}
+
 function stateOf(thread: ThreadSummary): SessionState | null {
   if (thread.status === 'waiting' || (thread.openQuestions ?? 0) > 0) return 'waiting';
-  if (thread.status === 'running' || thread.status === 'queued') return 'working';
+  if (thread.status === 'running' || thread.status === 'queued' || inBackground(thread)) return 'working';
   if (thread.status === 'error') return 'failed';
   return null;
 }
@@ -174,16 +182,19 @@ function fromThread(row: SessionRow | undefined, thread: ThreadSummary, at: numb
   const state = ownLive ? own : helpers ? 'working' : own;
   const detail = ownLive ? (thread.progress?.detail ?? null) : null;
   if (state === 'working' || state === 'waiting') {
+    const background = inBackground(thread);
     const restarted = row !== undefined && !isLive(row);
     // A list read before the turn ended still says it runs: the row stays ended.
-    if (ownLive && restarted && listed && thread.runningSince != null && thread.runningSince <= (row.endedAt ?? 0)) return row;
+    if (ownLive && !background && restarted && listed && thread.runningSince != null && thread.runningSince <= (row.endedAt ?? 0)) return row;
     const fresh = row && !restarted ? row.since : at;
+    // Left at work in the background: the row keeps the time its turn started, else since that work began.
+    const since = background ? (row?.since ?? thread.backgroundWork?.since ?? fresh) : ownLive ? sinceOf(thread, fresh) : Math.min(helpers?.since ?? fresh, fresh);
     return {
       id: thread.id,
       title: thread.title,
       projectId: thread.projectId,
       state,
-      since: ownLive ? sinceOf(thread, fresh) : Math.min(helpers?.since ?? fresh, fresh),
+      since,
       endedAt: null,
       steps: restarted ? [] : (row?.steps ?? []),
       task: restarted ? null : (row?.task ?? null),

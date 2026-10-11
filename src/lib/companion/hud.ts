@@ -24,11 +24,17 @@ export interface HudThread {
   since: number | null;
 }
 
-type HudSource = Pick<ThreadSummary, 'id' | 'title' | 'projectId' | 'status' | 'runningSince' | 'requestSince' | 'progress' | 'updatedAt'> & Partial<Pick<ThreadSummary, 'parentThreadId'>>;
+type HudSource = Pick<ThreadSummary, 'id' | 'title' | 'projectId' | 'status' | 'runningSince' | 'requestSince' | 'progress' | 'updatedAt'> & Partial<Pick<ThreadSummary, 'parentThreadId' | 'backgroundWork'>>;
+
+/** At work, or its turn over with work left running (a shell, a monitor), as Boite's sidebar counts it. */
+function busy(thread: HudSource): boolean {
+  return isWorking(thread.status) || (thread.status === 'idle' && (thread.backgroundWork?.kinds.length ?? 0) > 0);
+}
 
 /** As a sidebar row counts it: from the user's request, never after the turn carrying it. */
 function sinceOf(thread: HudSource): number | null {
   const [request, running] = [thread.requestSince ?? null, thread.runningSince ?? null];
+  if (request === null && running === null) return thread.backgroundWork?.since ?? null;
   return request === null ? running : running === null ? request : Math.min(request, running);
 }
 
@@ -66,7 +72,7 @@ export function hudThreads(threads: HudSource[], projects: Map<string, string>, 
   const byId = new Map(threads.map((thread) => [thread.id, thread]));
   const roots = new Map<string, { root: HudSource; self: boolean; helpers: number; since: number | null }>();
   for (const thread of threads) {
-    if (!isWorking(thread.status) || own.includes(thread.id)) continue;
+    if (!busy(thread) || own.includes(thread.id)) continue;
     const root = rootOf(thread, byId);
     if (own.includes(root.id)) continue;
     const entry = roots.get(root.id) ?? { root, self: false, helpers: 0, since: null };

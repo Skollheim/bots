@@ -53,6 +53,18 @@ test('an open question the agent did not stop for makes the row wait', () => {
   expect(rows[0]?.state).toBe('waiting');
 });
 
+test('a turn over with work left in the background is still at work, as Boite lists it', () => {
+  const shell = { kinds: ['shell'], since: 1_500 } as ThreadSummary['backgroundWork'];
+  const rows = run(listed(2_000, thread('a', 'idle', { backgroundWork: shell }), thread('b', 'idle', { backgroundWork: null })));
+  expect(rows.map((row) => [row.id, row.state, row.since])).toEqual([['a', 'working', 1_500]]);
+  // The turn ends, then the update says a shell still runs: the row stays at work, from its turn's start.
+  const ended = run(listed(2_000, thread('c', 'running')), { type: 'turnFinished', turn: turn('c', 'done'), at: 4_500 }, { type: 'thread', thread: thread('c', 'idle', { backgroundWork: shell }), at: 4_600 });
+  expect(ended.map((row) => [row.state, row.since])).toEqual([['working', 1_000]]);
+  // The work in the background ends: the row is done.
+  const done = reduceSessions(ended, { type: 'thread', thread: thread('c', 'idle', { backgroundWork: null }), at: 9_000 });
+  expect(done.map((row) => [row.state, row.endedAt])).toEqual([['done', 9_000]]);
+});
+
 test('the elapsed time counts from the request, not the latest turn', () => {
   const rows = run(listed(9_000, thread('a', 'running', { requestSince: 400, runningSince: 8_000 })));
   expect(rows[0]?.since).toBe(400);
