@@ -492,7 +492,7 @@
     font: 13px/1.4 var(--island-font);
     /* Air for the glow and the shadow under it, which the window leaves room for. */
     margin-bottom: 28px;
-    /* The island over its drops, the halo under both, kept to the cluster. */
+    /* The island over its drops, the halo over its edge, kept to the cluster. */
     isolation: isolate;
     --island-shadow: 0 6px 16px color-mix(in srgb, var(--island-bg) 30%, transparent), 0 1px 3px color-mix(in srgb, var(--island-bg) 35%, transparent);
   }
@@ -504,14 +504,20 @@
     pointer-events: none;
   }
   /*
-   * The halo behind the island: it breathes while the user is waited on,
+   * The halo around the island: it breathes while the user is waited on,
    * flashes once when a turn finished, and stays calm while a reply comes.
+   * Over the island, or its shadow would hide it: a shadow outside its box
+   * never paints on the island. It swells and gives with the island.
    */
   .halo {
     position: absolute;
+    z-index: 2;
     inset: 0;
     opacity: 0;
-    transition: opacity 360ms ease;
+    transition:
+      opacity 360ms ease,
+      transform 280ms cubic-bezier(0.34, 1.4, 0.64, 1),
+      scale 90ms ease-out;
     pointer-events: none;
   }
   .halo::before {
@@ -551,19 +557,25 @@
     background: var(--island-bg);
     color: var(--island-text);
     box-shadow: var(--island-shadow);
-    transform-origin: 50% 0;
     transition:
       transform 280ms cubic-bezier(0.34, 1.4, 0.64, 1),
       scale 90ms ease-out;
   }
+  .island,
+  .halo {
+    transform-origin: 50% 0;
+  }
   /* Hovered, about to open: a small swell. Pressed: it gives a little. */
-  .island[data-swell] {
+  .island[data-swell],
+  .cluster:has(> .island[data-swell]) > .halo {
     transform: scale(1.03);
     transition:
+      opacity 360ms ease,
       transform 620ms cubic-bezier(0.3, 0.1, 0.3, 1),
       scale 90ms ease-out;
   }
-  .island:has(> .bar:active) {
+  .island:has(> .bar:active),
+  .cluster:has(> .island > .bar:active) > .halo {
     scale: 0.98;
   }
   /* The buttons inside give under a press. */
@@ -853,7 +865,14 @@
       transform: none;
       transition: none;
     }
-    .island:has(> .bar:active) {
+    /* The halo keeps its fade, without the swell. */
+    .halo,
+    .cluster:has(> .island[data-swell]) > .halo {
+      transform: none;
+      transition: opacity 360ms ease;
+    }
+    .island:has(> .bar:active),
+    .cluster:has(> .island > .bar:active) > .halo {
       scale: none;
     }
     .island :global(button:active:not(:disabled, .bar)) {
