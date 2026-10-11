@@ -259,6 +259,10 @@
       <input type="checkbox" role="switch" checked={prefs.music} onchange={(event) => save({ music: event.currentTarget.checked })} data-testid="companion-music" />
     </label>
     <label class="switch-row">
+      <span class="text ui-label-box"><span class="ui-label">{copy.lyrics}</span><InfoTip topic={copy.lyrics} text={copy.lyricsHint} /></span>
+      <input type="checkbox" role="switch" checked={prefs.lyrics} onchange={(event) => save({ lyrics: event.currentTarget.checked })} data-testid="companion-lyrics" />
+    </label>
+    <label class="switch-row">
       <span class="text ui-label-box"><span class="ui-label">{copy.quotas}</span><InfoTip topic={copy.quotas} text={copy.quotasHint} /></span>
       <input type="checkbox" role="switch" checked={prefs.quotas} onchange={(event) => save({ quotas: event.currentTarget.checked })} data-testid="companion-quotas" />
     </label>

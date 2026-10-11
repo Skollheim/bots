@@ -12,7 +12,11 @@
  * - `unfold=<threadId>,…` and `diff=<toolId>`: Home's session rows shown
  *   unfolded, and the Edit diff of one step open;
  * - `reply=<threadId>`: that finished thread's card answered from its row;
- * - `music=playing|paused`: a track in the music drop, its cover and meter;
+ * - `music=playing|paused|bare`: a track in the music drop, its cover and meter
+ *   (`bare`: playing, without a cover); `window.botsPose.next('cover' | 'bare')`
+ *   then moves to another track, with or without its cover;
+ * - `lyrics=1`: with `music=…`, synced lyrics on, the posed track's words
+ *   made up here, never asked online;
  * - `timer=1`: a pomodoro running, in its drop on the left;
  * - `memory=thread|budget|machine|stopped`: the memory warning, or what the
  *   guard stopped;
@@ -36,17 +40,55 @@ const COVER =
   encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5f8f"/><stop offset="1" stop-color="#5b3cc4"/></linearGradient></defs><rect width="96" height="96" fill="url(#g)"/><circle cx="34" cy="60" r="22" fill="#ffd36e" opacity=".85"/><circle cx="62" cy="38" r="16" fill="#fff" opacity=".35"/></svg>'
   );
+/** The next track's cover: a teal tide under a pale moon. */
+const COVER_NEXT =
+  'data:image/svg+xml,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#123a5c"/><stop offset="1" stop-color="#1fb3a3"/></linearGradient></defs><rect width="96" height="96" fill="url(#g)"/><circle cx="66" cy="30" r="14" fill="#f4f1d0" opacity=".9"/><path d="M0 70 Q24 58 48 70 T96 70 V96 H0Z" fill="#0b2235" opacity=".7"/></svg>'
+  );
 
-function poseMusic(companion: Companion, playing: boolean): void {
+/** Original words for the posed track, timed as LRCLIB gives them, with an instrumental break. */
+const LYRICS = `[ti:Midnight Circuit]
+[ar:Neon Tides]
+[00:14.20] Static on the skyline, the city hums in blue
+[00:18.60] Every light a heartbeat, every street a clue
+[00:23.10] We run the midnight circuit
+[00:26.40] Till the morning breaks in two
+[00:30.00]
+[00:58.30] Wires in the rain, they spell your name
+[01:02.40] Neon on the water, burning all the same
+[01:06.70] We run the midnight circuit
+[01:10.20] Hold on, hold on
+[01:13.50] Through the static and the glow
+[01:17.90] Take the long way home
+[01:21.60]
+[01:52.00] Static on the skyline, the city hums in blue
+[01:56.40] We run the midnight circuit
+[02:00.10] Till the morning breaks in two`;
+
+/** The track after the posed one, with or without its cover (`window.botsPose.next('cover' | 'bare')`). */
+const NEXT_TRACK = { title: 'Glass Harbor', artist: 'Neon Tides', app: 'Spotify.exe', position: 3_000, duration: 188_000, seekable: true };
+
+function poseMusic(companion: Companion, playing: boolean, art: string | null, lyrics: boolean): void {
   // The shell's reads stop, kept so a later write of the prefs keeps them off: the posed track stays.
-  companion.prefs = writeCompanionPrefs({ music: false });
+  companion.prefs = writeCompanionPrefs({ music: false, ...(lyrics ? { lyrics: true } : {}) });
   setTimeout(() => {
-    const media = { title: 'Midnight Circuit', artist: 'Neon Tides', app: 'Spotify.exe', playing, art: COVER, position: 74_000, duration: 213_000, seekable: true };
+    const media = { title: 'Midnight Circuit', artist: 'Neon Tides', app: 'Spotify.exe', playing, art, position: 74_000, duration: 213_000, seekable: true };
     companion.music.demo = true;
-    companion.music.accent = 'rgb(255 140 178)';
+    companion.music.demoLyrics = { 'Neon Tides\nMidnight Circuit': LYRICS };
+    companion.music.accent = art ? 'rgb(255 140 178)' : null;
     companion.media = media;
     companion.music.sync(media);
   }, 50);
+  // Captures move to the next track by hand, to show the change.
+  (window as { botsPose?: unknown }).botsPose = {
+    next(kind: 'cover' | 'bare') {
+      const media = { ...NEXT_TRACK, playing, art: kind === 'cover' ? COVER_NEXT : null };
+      companion.music.accent = kind === 'cover' ? 'rgb(120 230 214)' : null;
+      companion.media = media;
+      companion.music.sync(media);
+    }
+  };
 }
 
 function poseMemory(reason: PressureReason | 'stopped'): void {
@@ -87,7 +129,7 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     if (notice) companion.notes.answer(notice.id);
   }
   const music = params.get('music');
-  if (music === 'playing' || music === 'paused') poseMusic(companion, music === 'playing');
+  if (music === 'playing' || music === 'paused' || music === 'bare') poseMusic(companion, music !== 'paused', music === 'bare' ? null : COVER, params.get('lyrics') === '1');
   if (params.get('timer') === '1') companion.startTimer();
   const memory = params.get('memory');
   if (memory === 'thread' || memory === 'budget' || memory === 'machine' || memory === 'stopped') poseMemory(memory);

@@ -266,7 +266,11 @@ export const strings = {
       now: '{title} by {artist}',
       show: 'Show {app}',
       position: '{position} of {duration}',
-      seek: 'Track position'
+      seek: 'Track position',
+      lyrics: 'Lyrics',
+      lyricsShow: 'Show synced lyrics: the title and the artist are sent to LRCLIB (lrclib.net)',
+      lyricsHide: 'Hide the lyrics (the title and the artist are sent to LRCLIB)',
+      lyricsNone: 'No synced lyrics'
     },
     hud: {
       label: 'Threads at work and quotas',
@@ -415,6 +419,8 @@ export const strings = {
       },
       music: 'React to music',
       musicHint: 'Headphones and a little dance when something plays, and the player controls under B.O.T.S.',
+      lyrics: 'Synced lyrics',
+      lyricsHint: 'The words of the song in the player, line by line. They come from LRCLIB (lrclib.net), a free lyrics library: B.O.T.S sends it the title and the artist of each track you play, nothing else.',
       quotas: 'Show quotas',
       quotasHint: 'A small gauge per subscription of the proxy (Douane) beside B.O.T.S, with its provider’s logo, red when one nearly runs out. Turn off the ones you do not want to see in the list below.',
       quotasShown: 'Quotas shown beside B.O.T.S',

@@ -5,6 +5,7 @@
  */
 import { canShow, readLevel, type MediaState } from './media';
 import { accentOf, barOf, clockAfter, fallTo, heldClock, LEVEL_FLOOR, nextCeiling, positionAt, SEEK_HOLD_MS, seekTo, type MusicBase } from './music';
+import { fetchLyrics, lyricsKey, parseLrc, type LyricLine, type LyricsTrack } from './music-lyrics';
 
 /** How often a meter reads the level while it shows: about 15 times a second. */
 export const LEVEL_EVERY = 66;
@@ -12,6 +13,8 @@ export const LEVEL_EVERY = 66;
 export const LEVEL_HISTORY = 9;
 /** The covers whose colour is kept. */
 const ACCENTS_KEPT = 8;
+/** The tracks whose lyrics are kept, found or not. */
+const LYRICS_KEPT = 40;
 /** Spotify was seen once on this computer: the bubble offers to open it when nothing plays. */
 const SPOTIFY_KEY = 'bots.music.spotify';
 
@@ -29,12 +32,22 @@ export class Music {
   knowsSpotify = $state(false);
   /** Demo poses: the levels are made up, the colour given. */
   demo = false;
+  /**
+   * The synced lyrics the player shows, for the track `key` names
+   * (`lyricsKey`): its lines, null when it has none, undefined while LRCLIB
+   * is asked. Null while no lyrics are wanted.
+   */
+  lyrics = $state.raw<{ key: string; lines: LyricLine[] | null | undefined } | null>(null);
+  /** Demo poses: the posed tracks' LRC by `lyricsKey`, never asked online. */
+  demoLyrics: Record<string, string> = {};
 
   /** Until when a read that disagrees with a seek is taken for one sent before it. */
   private heldUntil = 0;
   private ceiling = LEVEL_FLOOR;
   private accents = new Map<string, string | null>();
   private reading: string | null = null;
+  /** Each track's lyrics, asked once: the answer is kept, "none" too. */
+  private lyricsAsked = new Map<string, Promise<LyricLine[] | null>>();
 
   constructor() {
     try {
@@ -100,6 +113,32 @@ export class Music {
       clearTimeout(timer);
       this.levels = rest();
     };
+  }
+
+  /**
+   * The lyrics of `track` for the player, or none with null (lyrics off,
+   * nothing playing). LRCLIB is asked once per track, its answer kept, "none"
+   * too, for the last `LYRICS_KEPT` tracks; a demo track's come from
+   * `demoLyrics`.
+   */
+  wantLyrics(track: LyricsTrack | null): void {
+    if (!track) {
+      if (this.lyrics) this.lyrics = null;
+      return;
+    }
+    const key = lyricsKey(track);
+    if (this.lyrics?.key === key) return;
+    let asked = this.lyricsAsked.get(key);
+    if (!asked) {
+      const demo = this.demoLyrics[key];
+      asked = this.demo ? Promise.resolve(demo ? parseLrc(demo) : null) : fetchLyrics(track);
+      this.lyricsAsked.set(key, asked);
+      if (this.lyricsAsked.size > LYRICS_KEPT) this.lyricsAsked.delete(this.lyricsAsked.keys().next().value!);
+    }
+    this.lyrics = { key, lines: undefined };
+    void asked.then((lines) => {
+      if (this.lyrics?.key === key) this.lyrics = { key, lines: lines && lines.length > 0 ? lines : null };
+    });
   }
 
   private colour(art: string | null): void {
