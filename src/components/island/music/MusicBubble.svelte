@@ -5,14 +5,20 @@
   pointer or the keyboard it unfolds into the player: the cover (which opens
   Spotify), the title and the artist, the meter, previous, play or pause, and
   next, and the timeline, where a click or a drag moves the track
-  (`MusicTimeline`). It wears the cover's colour. A sideways swipe skips a
+  (`MusicTimeline`). It wears the cover's colour, and open, the cover itself,
+  blurred and dark behind the player. Another track slides its cover and
+  names in, back after previous, forward otherwise. A sideways swipe skips a
   track. With nothing playing, it still opens Spotify where Spotify played.
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { backOut, cubicOut } from 'svelte/easing';
+  import { fade } from 'svelte/transition';
   import { Music2, Pause, Play, SkipBack, SkipForward, SquareArrowOutUpRight } from '@lucide/svelte';
   import type { Companion } from '../../../lib/companion/companion.svelte';
   import { appName, canShow, type MediaAction } from '../../../lib/companion/media';
+  import { isNewTrack, slideOf, type TrackFace } from '../../../lib/companion/music';
+  import { backdropOf } from '../../../lib/companion/music.svelte';
   import { inShell } from '../../../lib/companion/shell';
   import { fill, strings } from '../../../lib/strings';
   import Marquee from '../../companion/Marquee.svelte';
@@ -39,6 +45,8 @@
   /** A swipe this long skips a track, once until the swipe ends. */
   const SWIPE = 40;
   const SWIPE_REST_MS = 700;
+  /** A new track's cover and names slide in this long, and the background crosses over. */
+  const TRACK_MS = 260;
 
   const media = $derived(companion.media);
   const music = $derived(companion.music);
@@ -98,7 +106,63 @@
     return () => clearTimeout(read);
   });
 
+  // What the player shows of the track. Another track gets another `id`, and
+  // its cover and names slide in, the way `slide` tells; a cover that comes
+  // late changes in place.
+  let face = $state<(TrackFace & { art: string | null; id: number; slide: 1 | -1 }) | null>(null);
+  let changedAt = 0;
+  let skip: { action: 'previous' | 'next'; at: number } | null = null;
+  $effect.pre(() => {
+    const next = media ? { title: media.title || appName(media.app), artist: media.artist || appName(media.app), art: media.art ?? null } : null;
+    untrack(() => {
+      const now = Date.now();
+      if (!next || !face) {
+        if (next) changedAt = now;
+        face = next && { ...next, id: 0, slide: 1 };
+      } else if (isNewTrack(face, next, now - changedAt)) {
+        face = { ...next, id: face.id + 1, slide: slideOf(skip, now) };
+        changedAt = now;
+        skip = null;
+      } else if (face.title !== next.title || face.artist !== next.artist || face.art !== next.art) {
+        face = { ...face, ...next };
+      }
+    });
+  });
+
+  // The cover, blurred and dark, behind the open player; without one, the bubble's own black.
+  let backdrop = $state<string | null>(null);
+  $effect(() => {
+    const art = face?.art;
+    if (!art) {
+      untrack(() => (backdrop = null));
+      return;
+    }
+    let live = true;
+    void backdropOf(art).then((drawn) => {
+      if (live) backdrop = drawn;
+    });
+    return () => (live = false);
+  });
+
+  const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /**
+   * Track changes: the old track slides out and fades quickly, the new one
+   * slides in just after it, so the two barely overlap, in `TRACK_MS` in all;
+   * a plain crossfade with reduced motion.
+   */
+  function glide(_node: Element, { distance, away = false }: { distance: number; away?: boolean }) {
+    const way = untrack(() => face?.slide ?? 1) * (away ? -1 : 1);
+    const timing = away ? { duration: TRACK_MS * 0.6 } : { delay: TRACK_MS * 0.25, duration: TRACK_MS * 0.75 };
+    if (reduced()) return { ...timing, css: (t: number) => `opacity: ${t}` };
+    return {
+      ...timing,
+      easing: away ? cubicOut : backOut,
+      css: (t: number, u: number) => `opacity: ${Math.min(1, t)}; transform: translateX(${(u * way * distance).toFixed(2)}px)`,
+    };
+  }
+
   function press(action: MediaAction) {
+    if (action === 'previous' || action === 'next') skip = { action, at: Date.now() };
     companion.pressMediaKey(action);
   }
 
@@ -123,6 +187,7 @@
     class:open
     class:idle={!media}
     class:paused={media !== null && !media.playing}
+    class:covered={open && backdrop !== null}
     style:--music-accent={music.accent ?? undefined}
     style:--open-w="{Math.max(OPEN_LEAST, Math.min(OPEN_WIDTH, Math.floor(room)))}px"
     data-hit
@@ -140,6 +205,11 @@
       if (event.target === event.currentTarget && event.propertyName === 'width') onresize();
     }}
   >
+    {#if open && backdrop}
+      <span class="backdrop" aria-hidden="true">
+        {#key backdrop}<img src={backdrop} alt="" transition:fade={{ duration: TRACK_MS }} />{/key}
+      </span>
+    {/if}
     {#if !media}
       <button class="fold" aria-label={copy.openSpotify} title={copy.openSpotify} onclick={() => press('show')} data-testid="island-music-spotify">
         <span class="note"><Music2 size={14} strokeWidth={2} /></span>
@@ -152,17 +222,30 @@
       {#if duration > 0}<span class="line" aria-hidden="true"><i style:transform="scaleX({progress.toFixed(4)})"></i></span>{/if}
     {:else}
       <div class="player">
+        {#snippet art()}
+          {#key face?.id}
+            <span class="art" in:glide={{ distance: 22 }} out:glide={{ distance: 22, away: true }}>
+              {#if face?.art}<img src={face.art} alt="" />{:else}<span class="blank"><Music2 size={20} /></span>{/if}
+            </span>
+          {/key}
+        {/snippet}
         {#if showable}
           <button class="cover" aria-label={fill(copy.show, { app: appName(media.app) })} title={fill(copy.show, { app: appName(media.app) })} onclick={() => press('show')} data-testid="island-music-show">
-            {#if media.art}<img src={media.art} alt="" />{:else}<span class="blank"><Music2 size={20} /></span>{/if}
+            {@render art()}
             <span class="go" aria-hidden="true"><SquareArrowOutUpRight size={10} strokeWidth={2.4} /></span>
           </button>
         {:else}
-          <span class="cover">{#if media.art}<img src={media.art} alt="" />{:else}<span class="blank"><Music2 size={20} /></span>{/if}</span>
+          <span class="cover">{@render art()}</span>
         {/if}
         <div class="info">
-          <span class="title"><Marquee text={media.title || appName(media.app)} strong /></span>
-          <span class="artist"><Marquee text={media.artist || appName(media.app)} /></span>
+          <span class="names">
+            {#key face?.id}
+              <span class="name" in:glide={{ distance: 16 }} out:glide={{ distance: 16, away: true }}>
+                <span class="title"><Marquee text={face?.title ?? ''} strong fade={12} /></span>
+                <span class="artist"><Marquee text={face?.artist ?? ''} fade={12} /></span>
+              </span>
+            {/key}
+          </span>
           <div class="deck">
             <MusicMeter levels={music.levels} count={9} playing={media.playing && music.measured} height={16} />
             <span class="buttons">
@@ -279,8 +362,33 @@
     transform-origin: left;
   }
 
-  /* Unfolded: the player. */
+  /* Unfolded: the player, over the cover's blurred backdrop when it has one. */
+  .backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    /* The open size, not the bubble's: it never resizes while the bubble unfolds, the bubble clips it. */
+    width: var(--open-w);
+    height: 116px;
+    pointer-events: none;
+    animation: appear 220ms 60ms ease-out both;
+  }
+  .backdrop img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .paused .backdrop img {
+    opacity: 0.7;
+  }
+  /* The secondary text stays AA on the brightest backdrop a white cover gives. */
+  .covered {
+    --island-muted: color-mix(in srgb, var(--island-text) 76%, transparent);
+  }
   .player {
+    position: relative;
     display: grid;
     grid-template-columns: 60px minmax(0, 1fr);
     column-gap: 12px;
@@ -294,11 +402,17 @@
     display: block;
     width: 60px;
     height: 60px;
+    overflow: hidden;
     border-radius: 12px;
     box-shadow: 0 6px 20px color-mix(in srgb, var(--music-accent) 30%, transparent);
   }
-  .cover img,
-  .cover .blank {
+  /* The cover's picture: two of them cross while a track changes. */
+  .art {
+    position: absolute;
+    inset: 0;
+  }
+  .art img,
+  .art .blank {
     display: grid;
     width: 100%;
     height: 100%;
@@ -329,6 +443,20 @@
   .info {
     display: flex;
     flex-direction: column;
+    min-width: 0;
+  }
+  /* The names: two of them cross while a track changes, never over the cover
+     (the margin is the marquees' fade, in the column gap). */
+  .names {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: clip;
+    overflow-clip-margin: 12px;
+  }
+  .name {
+    display: flex;
+    flex-direction: column;
+    grid-area: 1 / 1;
     min-width: 0;
   }
   .title {
@@ -395,7 +523,8 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .bubble,
-    .player {
+    .player,
+    .backdrop {
       transition: none;
       animation: none;
     }

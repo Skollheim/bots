@@ -142,6 +142,42 @@ async function readAccent(src: string): Promise<string | null> {
   return accentOf(context.getImageData(0, 0, 16, 16).data);
 }
 
+/**
+ * The open player's background: the cover blurred, darkened and a little more
+ * vivid, drawn once into a small picture the bubble stretches. Blurred
+ * this much, a third of the size loses nothing, and the bubble shows a plain
+ * image: no filter runs while it shows. Null where the canvas cannot filter.
+ */
+export const BACKDROP = { width: 96, height: 40, filter: 'blur(9px) brightness(0.32) saturate(1.3)' };
+const backdrops = new Map<string, Promise<string | null>>();
+
+export function backdropOf(art: string): Promise<string | null> {
+  const kept = backdrops.get(art);
+  if (kept) return kept;
+  const drawn = drawBackdrop(art).catch(() => null);
+  backdrops.set(art, drawn);
+  if (backdrops.size > ACCENTS_KEPT) backdrops.delete(backdrops.keys().next().value!);
+  return drawn;
+}
+
+async function drawBackdrop(src: string): Promise<string | null> {
+  if (typeof document === 'undefined') return null;
+  const image = new Image();
+  image.src = src;
+  await image.decode();
+  const { width, height, filter } = BACKDROP;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context || typeof context.filter !== 'string') return null;
+  context.filter = filter;
+  // The cover overflows the picture on every side, so the blur finds no empty edge to fade into.
+  const side = width + 60;
+  context.drawImage(image, (width - side) / 2, (height - side) / 2, side, side);
+  return canvas.toDataURL('image/png');
+}
+
 /** A level that sounds like music, for the demo poses. */
 function demoPeak(now: number): number {
   const beat = Math.max(0, Math.sin(now / 115)) ** 3;

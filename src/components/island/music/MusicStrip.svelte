@@ -2,7 +2,8 @@
   The music in the open island's tab bar, between the tabs and the tools: the
   cover (which opens Spotify), the meter, the title running by, and previous,
   play or pause, next. With nothing playing where Spotify played, a button
-  that opens it. The music stays at hand at the top, open or not.
+  that opens it. The music stays at hand at the top, open or not. While it
+  plays, the strip wears an edge in the cover's colour.
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
@@ -67,6 +68,14 @@
     padding: 0 3px 0 3px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--music-accent) 9%, var(--island-pill));
+    /* While it plays: an edge and a soft glow in the cover's colour. */
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--music-accent) 30%, transparent),
+      0 0 12px color-mix(in srgb, var(--music-accent) 16%, transparent);
+    transition: box-shadow 400ms ease;
+  }
+  .strip.paused {
+    box-shadow: none;
   }
   button {
     padding: 0;
@@ -140,5 +149,10 @@
   .spotify:hover {
     background: var(--island-pill);
     color: var(--island-text);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .strip {
+      transition: none;
+    }
   }
 </style>

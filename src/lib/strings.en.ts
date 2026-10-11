@@ -117,7 +117,10 @@ export const strings = {
     /** Home's live sessions, the request card and the tab bar's count (`lib/island/sessions.ts`). */
     sessions: {
       title: 'Sessions',
-      none: 'No session at work right now.',
+      none: 'Nothing running',
+      noneHint: 'Your agents rest. A thread that starts shows here.',
+      /** How long a session has been at it (`lib/island/session-time.ts`): seconds under a minute only. */
+      duration: { seconds: '{n}s', minutes: '{n} min', hours: '{h}h {m}m', hoursOnly: '{h}h' },
       states: { working: 'Working', waiting: 'Waiting for you', done: 'Done a moment ago', failed: 'Failed' },
       tools: { command: 'Command', edit: 'Edit', write: 'Write', read: 'Read', search: 'Search', fetch: 'Fetch', web: 'Web', agent: 'Agent', other: 'Tool', done: 'Done' },
       stepStatus: { running: 'Running', done: 'Done', error: 'Failed', denied: 'Denied' },

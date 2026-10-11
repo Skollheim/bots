@@ -168,6 +168,7 @@
     border: 1px solid rgb(245 165 36 / 0.45);
     border-radius: 14px;
     background: linear-gradient(rgb(245 165 36 / 0.1), rgb(245 165 36 / 0.03) 64px), var(--island-card);
+    box-shadow: var(--island-card-edge);
     overflow: hidden;
     animation: arrive 320ms ease-out;
   }
