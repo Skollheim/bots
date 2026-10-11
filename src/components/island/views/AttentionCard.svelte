@@ -40,7 +40,8 @@
   let busy = $state<string | null>(null);
   let failure = $state<{ id: string; message: string } | null>(null);
   let picked = $state<string[]>([]);
-  let draft = $state('');
+  /** What was typed for each question: kept while the lists are read again and while other requests are browsed. */
+  let drafts = $state<Record<string, string>>({});
   /** The permission whose "Always…" is open, and once its scopes take a click. */
   let scoping = $state<string | null>(null);
   let armedScope = $state<string | null>(null);
@@ -57,11 +58,12 @@
     scoping = scoping === id ? null : id;
   }
 
-  // Another request in view starts with no pick and an empty field.
+  // Another request in view starts with no pick and its scopes closed. On the id, not the
+  // request: each read of the lists brings new objects for the same requests.
+  const currentId = $derived(current?.id ?? null);
   $effect(() => {
-    void current?.id;
+    void currentId;
     picked = [];
-    draft = '';
     scoping = null;
   });
 
@@ -77,6 +79,7 @@
     failure = null;
     try {
       await companion.act(action);
+      delete drafts[id];
     } catch (error) {
       failure = { id, message: error instanceof Error ? error.message : String(error) };
     } finally {
@@ -90,7 +93,7 @@
   }
 
   function sendText(question: QuestionRequest) {
-    const text = draft.trim();
+    const text = (drafts[question.id] ?? '').trim();
     if (text) void act(question.id, { kind: 'answer', question, optionIds: picked, text });
   }
 
@@ -211,8 +214,8 @@
           {/if}
           {#if question.allowText}
             <form class="free" onsubmit={(event) => { event.preventDefault(); sendText(question); }}>
-              <input type="text" placeholder={copy.answer} aria-label={copy.answer} disabled={waiting} bind:value={draft} />
-              <button class="button primary" type="submit" disabled={waiting || !draft.trim()}>{copy.send}</button>
+              <input type="text" placeholder={copy.answer} aria-label={copy.answer} disabled={waiting} bind:value={() => drafts[question.id] ?? '', (value) => (drafts[question.id] = value)} />
+              <button class="button primary" type="submit" disabled={waiting || !(drafts[question.id] ?? '').trim()}>{copy.send}</button>
             </form>
           {/if}
           <div class="actions">

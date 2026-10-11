@@ -62,6 +62,11 @@ export function provideView(context: ViewContext): void {
   setContext(KEY, context);
 }
 
+/** What `mount` takes as `context` to draw a view on its own, as its tests do. */
+export function viewContext(context: ViewContext): Map<symbol, ViewContext> {
+  return new Map([[KEY, context]]);
+}
+
 export function useView(): ViewContext {
   const context = getContext<ViewContext | undefined>(KEY);
   if (!context) throw new Error('An island view is drawn inside the island only.');
