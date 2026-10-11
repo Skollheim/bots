@@ -9,8 +9,8 @@
  *   the tab shows without the amber card over it;
  * - `answer=permissions`: only the permissions are answered first, so the
  *   card shows the question;
- * - `unfold=<threadId>,…` and `diff=<toolId>`: Home's session rows shown
- *   unfolded, and the Edit diff of one step open;
+ * - `unfold=<threadId>,…`: Home's session rows shown unfolded, their
+ *   sub-agents listed (`t-hud-team` has some in every state);
  * - `reply=<threadId>`: that finished thread's card answered from its row;
  * - `music=playing|paused|bare`: a track in the music drop, its cover and meter
  *   (`bare`: playing, without a cover); `window.botsPose.next('cover' | 'bare')`
@@ -130,7 +130,6 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
   }
   const unfold = params.get('unfold');
   if (unfold) unfolding.rows = unfold.split(',').filter(Boolean);
-  unfolding.diff = params.get('diff');
   const reply = params.get('reply');
   if (reply) {
     await until(() => companion.notes.notices.some((notice) => notice.threadId === reply));

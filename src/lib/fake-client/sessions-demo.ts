@@ -2,16 +2,19 @@
  * What Home's live sessions are looked at on, with `?fake=1`: on top of the
  * HUD demo, the thread running the tests works through its steps (a read, a
  * search, an Edit with its diff, a command) and keeps going, and a second one
- * finishes a moment after the island starts following it. The seed's waiting
- * permission and question make the attention card's "1 of 2".
+ * finishes a moment after the island starts following it. A third works with
+ * a team of sub-agents in every state (`t-hud-team`, unfold it with
+ * `unfold=t-hud-team`). The seed's waiting permission and question make the
+ * attention card's "1 of 2".
  */
-import type { Message, MessagePart, Thread } from '@boite/contracts';
+import type { Message, MessagePart, Thread, Turn } from '@boite/contracts';
 import type { FakeContext } from '@boite/ui/lib/fake-client/context';
 
 type ToolPart = Extract<MessagePart, { type: 'tool' }>;
 
 const WORKING = 't-hud-tests';
 const ENDING = 't-hud-readme';
+const TEAM = 't-hud-team';
 
 const OLD_QUEUE = `export function next(queue: Job[]): Job | undefined {
   return queue.shift();
@@ -126,4 +129,51 @@ export function seedSessionsDemo(ctx: FakeContext): void {
       ctx.touch(readme);
     }, 1_200);
   });
+
+  seedTeam(ctx, tests, now);
+}
+
+/**
+ * A thread at work with a team: Boite sub-agents done, at work (one with its
+ * own sub-agent under it) and failed, and two of the provider's own agents,
+ * one at work and one done.
+ */
+function seedTeam(ctx: FakeContext, base: Thread, now: number): void {
+  const started = now - 4 * 60_000;
+  const turnId = 'turn-hud-team';
+  const team: Thread = {
+    ...structuredClone(base),
+    id: TEAM,
+    projectId: 'p-boite',
+    title: 'Audit the sync engine',
+    cwd: 'C:\\src\\boite',
+    sessionId: 'sess-hud-team',
+    status: 'running',
+    createdAt: started - 1_000,
+    updatedAt: started,
+    turns: [{ id: turnId, threadId: TEAM, status: 'running', queuedAt: started - 500, startedAt: started, finishedAt: null, usage: null, error: null }],
+    messages: [],
+    background: [],
+    progress: { turnId, phase: 'tool', detail: 'Agent', at: now - 5_000, providerAt: now - 5_000 }
+  };
+  working(team, 'm-team-1', [
+    tool('tm-1', 'Agent', { prompt: 'Read the sync docs' }, 'done', started + 5_000, { nativeAgents: [{ id: 'native-docs', name: 'Read the sync docs', status: 'done' }] }),
+    tool('tm-2', 'Agent', { prompt: 'Explore the retry paths' }, 'running', started + 150_000, { nativeAgents: [{ id: 'native-retry', name: 'Explore the retry paths', status: 'running' }] })
+  ], started + 1_000);
+  ctx.threads.set(team.id, team);
+  ctx.scheduler.running.push({ turnId, threadId: team.id, startedAt: started });
+
+  const child = (id: string, parent: string, title: string, at: number, status: Thread['status'], ended: Turn['status'] | null, took = 70_000): Thread => {
+    const turn: Turn = { id: `turn-${id}`, threadId: id, status: ended ?? 'running', queuedAt: at, startedAt: at, finishedAt: ended ? at + took : null, usage: null, error: ended === 'error' ? 'The offline queue test timed out' : null };
+    const thread: Thread = { ...structuredClone(team), id, parentThreadId: parent, title, titleSource: 'user', status, sessionId: `sess-${id}`, createdAt: at, updatedAt: ended ? at + took : at, turns: [turn], messages: [], progress: null };
+    ctx.threads.set(id, thread);
+    return thread;
+  };
+  const kids = [
+    child('t-team-map', TEAM, 'Map the sync protocol', started + 10_000, 'idle', 'done'),
+    child('t-team-fuzz', TEAM, 'Fuzz the merge rules', started + 20_000, 'running', null),
+    child('t-team-queue', TEAM, 'Check the offline queue', started + 30_000, 'error', 'error', 95_000)
+  ];
+  child('t-team-shrink', 't-team-fuzz', 'Shrink the failing case', started + 60_000, 'running', null);
+  ctx.delegationAgents.set(team.id, kids.map((kid) => ({ threadId: kid.id, profileId: 'conversation', task: kid.title })));
 }

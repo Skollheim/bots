@@ -10,7 +10,7 @@ function row(extra: Partial<SessionRow> = {}): SessionRow {
 }
 
 test('a session does its last step, else its task, the core’s line, then its sub-agents', () => {
-  const step = { id: 's', kind: 'command', name: 'Bash', target: 'bun run build', status: 'running', diff: null } as const;
+  const step = { id: 's', kind: 'command', name: 'Bash', target: 'bun run build', status: 'running' } as const;
   expect(rowDoing(row({ steps: [step], task: 'Build' }))).toBe(`${strings.island.sessions.tools.command} bun run build`);
   expect(rowDoing(row({ task: 'Build', detail: 'Compiling' }))).toBe('Build');
   expect(rowDoing(row({ detail: 'Compiling' }))).toBe('Compiling');

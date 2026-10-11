@@ -47,8 +47,6 @@ export class IslandFrame {
   flashing = $state(false);
   /** The peek tells of a failure: it glows red rather than green. */
   flashFailed = $state(false);
-  /** The open island wants more height (a diff open in Home): its window grows for it, within the work area. */
-  tall = $state(false);
   /** What the views hold the island open for, and the attention they asked for, by key. */
   private holds = $state<Record<string, true>>({});
   private calls = $state<Record<string, true>>({});

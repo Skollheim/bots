@@ -25,8 +25,8 @@
   import Island from './components/island/Island.svelte';
 
   const HIT_PAD = 6;
-  /** The island's window: the open island (640 × 440 at most, 640 tall for a diff), its glow, a notice under it, and the drops on its sides (the music player, up to 276 wide). */
-  const ISLAND_WINDOW = { width: 920, open: 500, tall: 700, closed: 150 };
+  /** The island's window: the open island (640 × 440 at most), its glow, a notice under it, and the drops on its sides (the music player, up to 276 wide). */
+  const ISLAND_WINDOW = { width: 920, open: 500, closed: 150 };
   /** The window shrinks once the island's spring has closed it. */
   const SHRINK_AFTER = 450;
 
@@ -92,10 +92,10 @@
     void tick().then(() => requestAnimationFrame(() => setTimeout(sendRects)));
   });
 
-  // The island's window grows at once (open, or taller for a diff), and
+  // The island's window grows at once when it opens, and
   // shrinks once the island's spring has followed.
   $effect(() => {
-    const wanted = companion.open ? (frame.tall ? ISLAND_WINDOW.tall : ISLAND_WINDOW.open) : ISLAND_WINDOW.closed;
+    const wanted = companion.open ? ISLAND_WINDOW.open : ISLAND_WINDOW.closed;
     if (wanted >= untrack(() => islandHeight)) {
       islandHeight = wanted;
       return;

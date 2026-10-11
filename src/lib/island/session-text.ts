@@ -23,6 +23,13 @@ export function rowDoing(row: Pick<SessionRow, 'steps' | 'task' | 'detail' | 'he
   return null;
 }
 
+/** What a Home row's second line says after its state: its sub-agents at work ("2 sub-agents"); null when none works. */
+export function agentsText(count: number): string | null {
+  if (count <= 0) return null;
+  const copy = strings.island.sessions.agents;
+  return count === 1 ? copy.one : fill(copy.many, { count: String(count) });
+}
+
 export interface LiveLine {
   /** The project, else the conversation's title. */
   name: string;
