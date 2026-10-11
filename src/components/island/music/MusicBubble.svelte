@@ -145,12 +145,17 @@
   });
 
   const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  /** Track changes: a short slide and fade, `away` for the one that leaves; a plain fade with reduced motion. */
+  /**
+   * Track changes: the old track slides out and fades quickly, the new one
+   * slides in just after it, so the two barely overlap, in `TRACK_MS` in all;
+   * a plain crossfade with reduced motion.
+   */
   function glide(_node: Element, { distance, away = false }: { distance: number; away?: boolean }) {
     const way = untrack(() => face?.slide ?? 1) * (away ? -1 : 1);
-    if (reduced()) return { duration: TRACK_MS, css: (t: number) => `opacity: ${t}` };
+    const timing = away ? { duration: TRACK_MS * 0.6 } : { delay: TRACK_MS * 0.25, duration: TRACK_MS * 0.75 };
+    if (reduced()) return { ...timing, css: (t: number) => `opacity: ${t}` };
     return {
-      duration: TRACK_MS,
+      ...timing,
       easing: away ? cubicOut : backOut,
       css: (t: number, u: number) => `opacity: ${Math.min(1, t)}; transform: translateX(${(u * way * distance).toFixed(2)}px)`,
     };
@@ -236,8 +241,8 @@
           <span class="names">
             {#key face?.id}
               <span class="name" in:glide={{ distance: 16 }} out:glide={{ distance: 16, away: true }}>
-                <span class="title"><Marquee text={face?.title ?? ''} strong /></span>
-                <span class="artist"><Marquee text={face?.artist ?? ''} /></span>
+                <span class="title"><Marquee text={face?.title ?? ''} strong fade={12} /></span>
+                <span class="artist"><Marquee text={face?.artist ?? ''} fade={12} /></span>
               </span>
             {/key}
           </span>
@@ -440,10 +445,13 @@
     flex-direction: column;
     min-width: 0;
   }
-  /* The names: two of them cross while a track changes. */
+  /* The names: two of them cross while a track changes, never over the cover
+     (the margin is the marquees' fade, in the column gap). */
   .names {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+    overflow: clip;
+    overflow-clip-margin: 12px;
   }
   .name {
     display: flex;
