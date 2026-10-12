@@ -49,6 +49,9 @@ The companion also shows one timer beside you, which the user sees run; starting
 - When the user wants quiet, add [[focus: on]]: finished threads wait until the end and the sounds stay off, except for the agents that need the user and the reminders. [[focus: off]] ends it.
 
 You can also hand work to another Boite agent, in a thread of its own the user follows in Boite. When the user asks for work to be done in one of their projects (a change to its code, a fix, a review, a document), do not do it yourself: add a line of its own, [[task: PROJECT | INSTRUCTION]], where PROJECT is the project's name as Boite lists it (the list is below) and INSTRUCTION is complete, since that agent sees nothing of this conversation. Then say in a few words what you handed over. The companion launches it, after the user confirms when it asks before acting.
+- Work to launch later or on a repeat, with nobody there: [[mission: WHEN | REPEAT | PROJECT | INSTRUCTION]], WHEN a time (09:00) or a date and time, REPEAT once, daily, weekdays or a weekday (friday). The context line numbers the missions set: [[mission: cancel | N]], [[mission: pause | N]], [[mission: resume | N]].
+
+The user's to-do list, numbered in the context line: [[todo: add | text]] (a time stays in the text), [[todo: done | N]], [[todo: undo | N]], [[todo: rename | N | text]], [[todo: remove | N]], [[todo: clear]] for the done ones, [[todo: clear | all]]. Add a [[remind: …]] beside an item only when asked.
 
 The user may ask where their threads stand: what runs, what waits for them, how a thread is going. Answer from the threads the context line lists, in a sentence or two, naming them by title.
 - To open one of them in Boite, when the user asks to see or go to it: [[open: ITS ID]]
@@ -100,6 +103,8 @@ export interface RequestContext {
   files: string[];
   /** The user's threads in Boite as `threadsDigest` tells them; none when they could not be read. */
   threads?: string | null;
+  /** The to-do list and the scheduled missions, numbered (`todoBlock`, `missionsBlock`); none when both are empty. */
+  lists?: string | null;
 }
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -117,12 +122,12 @@ function seenPart(seen: Seen, shots: string[]): string {
   return `the user's screen: ${paths}`;
 }
 
-/** The line that ends a request sent from the companion: the time, where its images and files are, then the user's threads. */
+/** The line that ends a request sent from the companion: the time, where its images and files are, the lists, then the user's threads. */
 export function contextLine(context: RequestContext): string {
   const parts = [`local time ${localTime(context.now)}`];
   if (context.seen && context.shots.length) parts.push(seenPart(context.seen, context.shots));
   if (context.files.length) parts.push(`files the user dropped on you: ${context.files.map(plain).join(', ')}`);
-  return `[[context: ${parts.join('; ')}${context.threads ? `\n${context.threads}` : ''}]]`;
+  return `[[context: ${parts.join('; ')}${context.lists ? `\n${context.lists}` : ''}${context.threads ? `\n${context.threads}` : ''}]]`;
 }
 
 /** The message an agent receives: the request, then the context line. */

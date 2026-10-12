@@ -24,6 +24,7 @@
   import { readStatus, subscribeCompanionData } from '../lib/companion/memory';
   import { companionMonitors, inShell, type CompanionMonitor } from '../lib/companion/shell';
   import CompanionReminders from './companion/CompanionReminders.svelte';
+  import CompanionMissions from './companion/CompanionMissions.svelte';
   import CompanionAllowRules from './companion/CompanionAllowRules.svelte';
   import CompanionCrewSettings from './companion/CompanionCrewSettings.svelte';
 
@@ -306,6 +307,7 @@
   </section>
 
   <CompanionReminders />
+  <CompanionMissions {store} />
   <CompanionAllowRules />
 </div>
 

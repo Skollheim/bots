@@ -28,6 +28,8 @@ export interface LaunchedTask {
   threadId: string;
   project: string;
   title: string;
+  /** Launched by a scheduled mission (`missions.svelte.ts`), on time or late; none for a task. */
+  mission?: 'on-time' | 'late';
 }
 
 export interface TasksHost {
@@ -124,11 +126,16 @@ export class Tasks {
     if (this.launched.some((task) => threadIds.includes(task.threadId))) this.launched = this.launched.filter((task) => !threadIds.includes(task.threadId));
   }
 
+  /** A scheduled mission's run: it goes at once, on the same choice as a task, its card saying it was a mission. */
+  run(entry: Omit<PendingTask, 'id'>, mission: 'on-time' | 'late'): Promise<string | null> {
+    return this.launch({ ...entry, id: `mission-${++this.sequence}` }, mission);
+  }
+
   /**
    * A new thread in the project on what the main window opens a new prompt
    * on, then the instruction as its first turn. A string says why it did not go.
    */
-  private async launch(entry: PendingTask): Promise<string | null> {
+  private async launch(entry: PendingTask, mission?: 'on-time' | 'late'): Promise<string | null> {
     const client = this.host.client();
     if (!client) return strings.companion.unreachable;
     try {
@@ -153,7 +160,7 @@ export class Tasks {
       });
       this.host.created(thread);
       await client.call('turns.start', { threadId: thread.id, prompt: entry.prompt });
-      this.launched = [...this.launched, { threadId: thread.id, project: entry.project, title: thread.title || title }].slice(-LAUNCHED_MAX);
+      this.launched = [...this.launched, { threadId: thread.id, project: entry.project, title: thread.title || title, ...(mission ? { mission } : {}) }].slice(-LAUNCHED_MAX);
       return null;
     } catch (error) {
       return fill(strings.companion.task.failed, { reason: reasonOf(error) });

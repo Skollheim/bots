@@ -35,10 +35,14 @@
  *   « Corriger le gameplay » thread works among this machine's (`ask`: it
  *   asks to push two seconds in); read by the companion, the fake side in
  *   `fake-client/machines-demo.ts`.
+ * - `todo=1`: a to-do list in Home, one item ticked;
+ * - `mission=ask|list`: a mission waiting for the user's word, or three set
+ *   (one paused, one whose project is gone) for Settings.
  *
  * A wallpaper goes under the transparent window, so the black island shows.
  */
 import type { Companion } from '../companion/companion.svelte';
+import { nextAt, type Repeat } from '../companion/missions';
 import { PILL_RESTS, writeCompanionPrefs, type PillRest } from '../companion/prefs';
 import { DEMO_COMMAND, DEMO_THREAD } from '../fake-client/allow-demo';
 import { ISLAND_TABS, type IslandFrame, type IslandTab } from './frame.svelte';
@@ -113,6 +117,32 @@ function poseMemory(reason: PressureReason | 'stopped'): void {
   posed.pressure = { reason, threadId: 'thr-demo', title: 'Unity build', bytes: 3.6 * GB, used: limits[0]!, limit: limits[1]! };
 }
 
+/** A short to-do list, the second item ticked. */
+function poseTodo(companion: Companion): void {
+  const texts = ['Relire la PR du lecteur audio', 'Répondre à Léa sur le planning', 'Tester la build Windows', 'Préparer la démo de vendredi'];
+  companion.todos.apply([{ kind: 'clear', all: true }, ...texts.map((text) => ({ kind: 'add' as const, text }))]);
+  companion.todos.apply([{ kind: 'done', index: 2 }]);
+}
+
+/** A mission waiting for the user's word (`ask`), or three set, one paused and one whose project is gone (`list`, for Settings). */
+function poseMissions(companion: Companion, kind: 'ask' | 'list'): void {
+  const found = [...companion.projects].find(([, name]) => companion.projectNames?.includes(name));
+  if (!found) return;
+  const project = { id: found[0], name: found[1] };
+  const now = Date.now();
+  const at = (repeat: Repeat, minutes: number) => ({ minutes, repeat, due: nextAt(repeat, minutes, now) });
+  const entries = [
+    { ...at({ kind: 'weekdays' }, 9 * 60), projectId: project.id, project: project.name, prompt: 'Lance les tests et résume les échecs de la nuit.' },
+    { ...at({ kind: 'weekly', day: 5 }, 17 * 60 + 30), projectId: project.id, project: project.name, prompt: 'Prépare les notes de version de la semaine.' },
+    { ...at({ kind: 'once' }, 22 * 60), projectId: 'p-gone', project: 'ancien-site', prompt: 'Archive les vieux journaux.' }
+  ];
+  companion.missions.pending = (kind === 'ask' ? entries.slice(0, 1) : entries).map((entry, index) => ({ ...entry, id: `mission-pose-${index}` }));
+  if (kind === 'ask') return;
+  for (const entry of entries.map((_, index) => `mission-pose-${index}`)) companion.missions.confirm(entry, now);
+  const weekly = companion.missions.list.findIndex((mission) => mission.repeat.kind === 'weekly');
+  if (weekly >= 0) void companion.missions.request([{ kind: 'pause', index: weekly + 1 }], now);
+}
+
 const WALLPAPER = 'html[data-companion] body { background: linear-gradient(160deg, #34466e, #7d6797 55%, #d49c78) !important; }';
 
 async function until(ready: () => boolean, tries = 60): Promise<void> {
@@ -151,6 +181,9 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     posed.release = { version, track: update, url: '', publishedAt: null };
   }
   if (params.get('sessions') === 'none') posed.idle = true;
+  if (params.get('todo') === '1') poseTodo(companion);
+  const mission = params.get('mission');
+  if (mission === 'ask' || mission === 'list') poseMissions(companion, mission);
   const rest = params.get('rest') as PillRest | null;
   if (rest && PILL_RESTS.includes(rest)) companion.prefs = { ...companion.prefs, pillRest: rest };
   if (params.get('rule') === '1') {

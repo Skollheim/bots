@@ -391,6 +391,34 @@ export const strings = {
       noAgent: 'No agent can take the thread. Sign in to one in Boite.',
       failed: 'The thread could not be launched: {reason}'
     },
+    mission: {
+      confirmTitle: 'Schedule a mission in {project}?',
+      schedule: 'Schedule',
+      cancel: 'Cancel',
+      scheduled: 'Mission scheduled in {project}: {when}.',
+      launched: 'Mission launched in {project}',
+      late: 'Late mission launched in {project}',
+      missed: 'A mission was skipped while B.O.T.S was off: {prompt}',
+      gone: 'A mission did not run, its project {project} is gone: {prompt}',
+      past: 'That time has already passed: no mission was scheduled.',
+      noSuch: 'There is no mission {index}.',
+      failed: 'The mission could not be scheduled: {reason}',
+      once: 'Once, {when}',
+      daily: 'Every day at {time}',
+      weekdays: 'Weekdays at {time}',
+      weekly: 'Every {day} at {time}'
+    },
+    todo: {
+      title: 'To do',
+      count: '{done}/{total}',
+      countLabel: '{done} of {total} done',
+      placeholder: 'Add an item, or ask B.O.T.S',
+      add: 'Add',
+      check: 'Mark done: {text}',
+      uncheck: 'Mark not done: {text}',
+      remove: 'Remove {text}',
+      clearDone: 'Clear done'
+    },
     reply: {
       action: 'Reply from here',
       label: 'Your reply to {title}',
@@ -526,6 +554,15 @@ export const strings = {
       reminders: 'Reminders',
       remindersEmpty: 'No reminder set. Ask B.O.T.S, for example: remind me at 6 pm to call Paul.',
       removeReminder: 'Cancel this reminder',
+      missions: 'Scheduled missions',
+      missionsHint: 'Threads B.O.T.S launches by itself at a set time, in the project named. Ask it, for example: every day at 9 am, sum up the night’s pull requests in boite.',
+      missionsEmpty: 'No mission scheduled.',
+      missionNext: 'Next: {when}',
+      missionPaused: 'Paused',
+      missionGone: 'Project gone: this mission will not run',
+      pauseMission: 'Pause this mission',
+      resumeMission: 'Resume this mission',
+      removeMission: 'Delete this mission',
       warmOff: 'Each answer starts the agent again, which takes a few seconds. To keep it loaded between answers, set Warm process minutes in Boite’s Settings, Advanced.',
       warmOn: 'Agents stay loaded {minutes} min after an answer, so the next one comes sooner.'
     }

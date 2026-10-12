@@ -371,6 +371,34 @@ export const fr: Messages = {
       noAgent: 'Aucun agent ne peut prendre ce fil. Connectez-en un dans Boite.',
       failed: 'Le fil n’a pas pu être lancé : {reason}'
     },
+    mission: {
+      confirmTitle: 'Programmer une mission dans {project} ?',
+      schedule: 'Programmer',
+      cancel: 'Annuler',
+      scheduled: 'Mission programmée dans {project} : {when}.',
+      launched: 'Mission lancée dans {project}',
+      late: 'Mission en retard lancée dans {project}',
+      missed: 'Une mission a été sautée pendant que B.O.T.S était éteint : {prompt}',
+      gone: 'Une mission n’a pas tourné, son projet {project} n’existe plus : {prompt}',
+      past: 'Cette heure est déjà passée : aucune mission n’a été programmée.',
+      noSuch: 'Il n’y a pas de mission {index}.',
+      failed: 'La mission n’a pas pu être programmée : {reason}',
+      once: 'Une fois, {when}',
+      daily: 'Tous les jours à {time}',
+      weekdays: 'En semaine à {time}',
+      weekly: 'Chaque {day} à {time}'
+    },
+    todo: {
+      title: 'À faire',
+      count: '{done}/{total}',
+      countLabel: '{done} sur {total} terminées',
+      placeholder: 'Ajoutez une tâche, ou demandez à B.O.T.S',
+      add: 'Ajouter',
+      check: 'Marquer comme faite : {text}',
+      uncheck: 'Marquer comme à faire : {text}',
+      remove: 'Retirer {text}',
+      clearDone: 'Effacer les terminées'
+    },
     reply: {
       action: 'Répondre d’ici',
       label: 'Votre réponse à {title}',
@@ -506,6 +534,15 @@ export const fr: Messages = {
       reminders: 'Rappels',
       remindersEmpty: 'Aucun rappel. Demandez à B.O.T.S, par exemple : rappelle-moi à 18 h d’appeler Paul.',
       removeReminder: 'Annuler ce rappel',
+      missions: 'Missions programmées',
+      missionsHint: 'Des fils que B.O.T.S lance seul à l’heure dite, dans le projet nommé. Demandez-le-lui, par exemple : tous les jours à 9 h, résume les PR de la nuit dans boite.',
+      missionsEmpty: 'Aucune mission programmée.',
+      missionNext: 'Prochaine : {when}',
+      missionPaused: 'En pause',
+      missionGone: 'Projet disparu : cette mission ne tournera pas',
+      pauseMission: 'Mettre cette mission en pause',
+      resumeMission: 'Reprendre cette mission',
+      removeMission: 'Supprimer cette mission',
       warmOff: 'Chaque réponse redémarre l’agent, ce qui prend quelques secondes. Pour le garder chargé entre deux réponses, réglez Minutes de processus gardé chaud dans les réglages de Boite, section Avancé.',
       warmOn: 'Les agents restent chargés {minutes} min après une réponse, la suivante arrive donc plus vite.'
     }

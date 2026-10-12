@@ -42,6 +42,10 @@ import type { Directives } from './directives';
 import { Reactions } from './reactions.svelte';
 import { Dropped, joinScreen } from './drop.svelte';
 import { Tasks } from './tasks.svelte';
+import { Missions } from './missions.svelte';
+import { Todos } from './todo.svelte';
+import { contextLine } from './brain';
+import { coreKey } from '../island/followed';
 import { digestFor, Finder, Radar, replyInThread, ThreadReader } from './watch.svelte';
 import { fold, type WatchInput } from './watch';
 import { Assistant } from '../island/assistant.svelte';
@@ -160,7 +164,8 @@ export class Companion {
       this.attached.clear();
       this.shot = null;
     },
-    giveBack: (files) => void (this.attached.held.length === 0 && (this.attached.held = files))
+    giveBack: (files) => void (this.attached.held.length === 0 && (this.attached.held = files)),
+    context: () => contextLine({ now: new Date(), seen: null, shots: [], files: [], lists: this.lists() })
   });
 
   private disposed = false;
@@ -186,6 +191,8 @@ export class Companion {
   readonly focus: Focus;
   readonly crew: Crew;
   readonly tasks: Tasks;
+  readonly missions: Missions;
+  readonly todos: Todos;
   readonly finder: Finder;
   readonly radar: Radar;
   readonly reactions: Reactions;
@@ -263,6 +270,14 @@ export class Companion {
       created: (thread) => this.acceptThread(thread),
       say: (text) => this.speaker().aside(text)
     });
+    this.missions = new Missions({
+      client: () => this.client,
+      control: () => this.prefs.control,
+      core: () => this.coreName(),
+      run: (entry, mission) => this.tasks.run(entry, mission),
+      say: (text) => this.speaker().aside(text)
+    });
+    this.todos = new Todos(() => this.coreName());
     this.finder = new Finder({ client: () => this.client, reader: this.reader, own: () => this.ownThreads, projects: () => this.projects, opened: (threadId) => void showMain(threadId) });
     // The threads that have waited on the user a while; in focus, only those that stop an agent.
     this.radar = new Radar({
@@ -317,6 +332,7 @@ export class Companion {
         snapshot: () => this.crew.snapshot,
         hovering: () => this.hover,
         digest: () => digestFor(this.reader, this.watchInput()),
+        lists: () => this.lists(),
         missing: () => {
           this.crew.retry();
           return this.crew.problem ?? strings.companion.noAgent;
@@ -336,6 +352,17 @@ export class Companion {
     return this.talkCache.get(this.answerer ?? '') ?? this.active.talk;
   }
 
+  /** The core the to-do list and the missions belong to: the host it runs on (`coreKey`). */
+  private coreName(): string {
+    const client = this.client as { core?: { hostname?: string } | null } | null;
+    return coreKey(client?.core && typeof client.core.hostname === 'string' ? { hostname: client.core.hostname } : null);
+  }
+
+  /** The to-do list and the missions, numbered, as a request carries them; null when both are empty. */
+  private lists(): string | null {
+    return [this.todos.block(), this.missions.block()].filter(Boolean).join('\n') || null;
+  }
+
   // ---------------------------------------------------------------------
   // What a reply asks for
   // ---------------------------------------------------------------------
@@ -346,9 +373,11 @@ export class Companion {
     this.timer.start({ workMs, breakMs: this.prefs.breakMinutes * 60_000, label });
   }
 
-  /** The timer, the focus and the threads a reply asks for ([[timer: …]], [[pomodoro: …]], [[focus: …]], [[task: …]], [[find: …]], [[open: …]]). */
-  private obey({ timer: asked, focus: on, task, find, open: wanted }: Directives): void {
+  /** The timer, the focus, the threads, the missions and the to-do list a reply asks for ([[timer: …]], [[pomodoro: …]], [[focus: …]], [[task: …]], [[find: …]], [[open: …]], [[mission: …]], [[todo: …]]). */
+  private obey({ timer: asked, focus: on, task, find, open: wanted, mission, todo }: Directives): void {
     if (task.length > 0) void this.tasks.request(task);
+    if (mission.length > 0) void this.missions.request(mission);
+    this.todos.apply(todo);
     if (find) void this.finder.find(find);
     if (wanted) this.openThread(wanted);
     if (asked === 'stop') this.timer.stop();
@@ -686,6 +715,9 @@ export class Companion {
       started = true;
       this.connected = true;
       await this.readProjects().catch(() => {});
+      // The core is known now: its lists, and the missions due while Bots was off.
+      this.todos.reload();
+      this.missions.reload();
       await this.refresh();
       this.assistant.open(assistantAgent);
       await this.crew.load();
@@ -757,6 +789,8 @@ export class Companion {
       this.crew.dispose();
       this.talkCache.forEach((talk) => talk.dispose());
       this.notes.dispose();
+      this.missions.dispose();
+      this.todos.dispose();
       this.radar.dispose();
       this.finder.clear();
       this.timer.dispose();
