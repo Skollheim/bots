@@ -23,6 +23,7 @@
   import CompanionZone from './components/companion/CompanionZone.svelte';
   import DesktopCompanion from './components/desktop/DesktopCompanion.svelte';
   import Island from './components/island/Island.svelte';
+  import { clipboardHistory } from './lib/windows/clipboard.svelte';
 
   const HIT_PAD = 6;
   /** The island's window: the open island (640 × 440 at most), its glow, a notice under it, and the drops on its sides (the music player, up to 276 wide). */
@@ -129,7 +130,8 @@
 
   onMount(() => {
     document.documentElement.dataset.companion = '';
-    const off: (() => void)[] = [startTheme(), companion.start(), () => frame.dispose()];
+    // The clipboard history records while the setting is on, deck open or not.
+    const off: (() => void)[] = [startTheme(), companion.start(), () => frame.dispose(), clipboardHistory.start()];
     const rects = setInterval(sendRects, 500);
     // Demo poses for captures (`?fake=1&pose=…`), in the dev bundle only.
     if (import.meta.env.DEV && new URLSearchParams(location.search).has('pose')) {

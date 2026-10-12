@@ -26,6 +26,7 @@
   import CompanionReminders from './companion/CompanionReminders.svelte';
   import CompanionAllowRules from './companion/CompanionAllowRules.svelte';
   import CompanionCrewSettings from './companion/CompanionCrewSettings.svelte';
+  import { readWindowsPrefs, subscribeWindowsPrefs, writeWindowsPrefs } from '../lib/windows/prefs';
 
   let { store }: { store: CoreLink } = $props();
 
@@ -41,6 +42,9 @@
   let status = $state(readStatus());
 
   $effect(() => subscribeCompanionPrefs((next) => (prefs = next)));
+  // The deck's computer tabs keep their own prefs (`lib/windows/prefs.ts`).
+  let windowsPrefs = $state(readWindowsPrefs());
+  $effect(() => subscribeWindowsPrefs((next) => (windowsPrefs = next)));
   $effect(() => subscribeCompanionData(() => (status = readStatus())));
   $effect(() => {
     void companionMonitors().then((list) => (monitors = list)).catch(() => {});
@@ -293,6 +297,13 @@
       <input type="checkbox" role="switch" checked={prefs.sounds} onchange={(event) => save({ sounds: event.currentTarget.checked })} data-testid="companion-sounds" />
     </label>
     {@render picker(copy.radar, copy.radarHint, radarItems, radarLabel(prefs.radarMinutes), (id) => save({ radarMinutes: Number(id) }), 'companion-radar-minutes')}
+  </section>
+
+  <section class="card">
+    <label class="switch-row">
+      <span class="text ui-label-box"><span class="ui-label">{copy.clipboardHistory}</span><InfoTip topic={copy.clipboardHistory} text={copy.clipboardHistoryHint} /></span>
+      <input type="checkbox" role="switch" checked={windowsPrefs.clipboard} onchange={(event) => writeWindowsPrefs({ clipboard: event.currentTarget.checked })} data-testid="companion-clipboard-history" />
+    </label>
   </section>
 
   <section class="card">

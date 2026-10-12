@@ -35,6 +35,10 @@
  *   « Corriger le gameplay » thread works among this machine's (`ask`: it
  *   asks to push two seconds in); read by the companion, the fake side in
  *   `fake-client/machines-demo.ts`.
+ * - `pose=decktab&tab=apps|clipboard|wallpaper|system`: one of the deck's
+ *   computer tabs alone, in a deck-wide black frame, on a fake computer; its
+ *   own states (`q`, `clip`, `source`, `engine`, `press`) in
+ *   `lib/windows/pose.ts`.
  *
  * A wallpaper goes under the transparent window, so the black island shows.
  */
@@ -164,5 +168,6 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     companion.pointerOn = true;
   } else if (pose === 'open') frame.show(tab && ISLAND_TABS.includes(tab) ? tab : 'home');
   else if (pose === 'desktop') companion.prefs = { ...companion.prefs, robots: 'desktop' };
+  else if (pose === 'decktab') await import('../windows/pose').then(({ poseDeckTab }) => poseDeckTab(companion, params));
   await (await import('./assistant-pose')).strikeAssistantPose(companion, params);
 }
