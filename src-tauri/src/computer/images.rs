@@ -126,7 +126,9 @@ pub(crate) fn cached(dir: &Path, file: &Path, side: u32, format: Format, make: i
     Some(data_url(format, &bytes))
 }
 
-pub(crate) use imp::{decode_png, encode, shell_image, Com};
+pub(crate) use imp::{encode, shell_image, Com};
+#[cfg(windows)]
+pub(crate) use imp::decode_png;
 
 #[cfg(windows)]
 mod imp {
@@ -263,7 +265,6 @@ mod imp {
 
     pub(crate) fn shell_image(_path: &str, _side: u32, _flags: i32) -> Option<Pixels> { None }
     pub(crate) fn encode(_image: &Pixels, _format: Format) -> Option<Vec<u8>> { None }
-    pub(crate) fn decode_png(_bytes: &[u8]) -> Option<Pixels> { None }
 }
 
 #[cfg(test)]

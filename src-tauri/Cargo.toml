@@ -25,6 +25,8 @@ tauri = { version = "2", features = ["tray-icon", "unstable"] }
 tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# The track's cover and the deck's pictures reach the page as base64 data URLs.
+base64 = "0.22"
 
 [dev-dependencies]
 tauri = { version = "2", features = ["test"] }
@@ -53,8 +55,6 @@ windows = { version = "0.61", features = [
   "Win32_UI_Shell",
   "Win32_UI_Shell_Common",
 ] }
-# The track's cover reaches the page as a base64 data URL.
-base64 = "0.22"
 # The system tab's numbers: CPU, memory, uptime and the processes.
 sysinfo = { version = "0.38", default-features = false, features = ["system"] }
 windows-sys = { version = "0.61", features = [
