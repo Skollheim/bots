@@ -73,7 +73,7 @@
           {/if}
         </button>
         <div class="track">
-          <p class="app">{appName(media.app)}</p>
+          <p class="source">{appName(media.app)}</p>
           <p class="title"><Marquee text={title} strong fade={16} /></p>
           <p class="artist"><Marquee text={artist} fade={16} /></p>
           <div class="meter"><MusicMeter levels={music.levels} count={16} playing={media.playing && music.measured} height={22} /></div>
@@ -163,7 +163,7 @@
     gap: 4px;
     min-width: 0;
   }
-  .app {
+  .source {
     color: var(--island-muted);
     font-size: 12px;
   }

@@ -394,6 +394,7 @@
   }
   .row {
     display: flex;
+    justify-content: flex-start;
     width: 100%;
     height: auto;
     padding: 3px 6px;
