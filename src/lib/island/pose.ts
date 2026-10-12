@@ -55,6 +55,7 @@
  * A wallpaper goes under the transparent window, so the black island shows.
  */
 import type { MemoryStatus } from '@boite/contracts';
+import { activeLocale } from '@boite/ui/lib/i18n.svelte';
 import type { Companion } from '../companion/companion.svelte';
 import { nextAt, type Repeat } from '../companion/missions';
 import { PILL_RESTS, writeCompanionPrefs, type PillRest } from '../companion/prefs';
@@ -134,9 +135,12 @@ function poseMemory(reason: PressureReason | 'stopped'): void {
   posed.pressure = { reason, threadId: 'thr-demo', title: 'Unity build', bytes: 3.6 * GB, used: limits[0]!, limit: limits[1]! };
 }
 
-/** A short to-do list, the second item ticked. */
+/** A short to-do list, the second item ticked, in the interface's language. */
 function poseTodo(companion: Companion): void {
-  const texts = ['Relire la PR du lecteur audio', 'Répondre à Léa sur le planning', 'Tester la build Windows', 'Préparer la démo de vendredi'];
+  const texts =
+    activeLocale() === 'fr'
+      ? ['Relire la PR du lecteur audio', 'Répondre à Léa sur le planning', 'Tester la build Windows', 'Préparer la démo de vendredi']
+      : ['Review the audio player PR', 'Answer Lea about the schedule', 'Test the Windows build', "Prepare Friday's demo"];
   companion.todos.apply([{ kind: 'clear', all: true }, ...texts.map((text) => ({ kind: 'add' as const, text }))]);
   companion.todos.apply([{ kind: 'done', index: 2 }]);
 }
@@ -148,10 +152,14 @@ function poseMissions(companion: Companion, kind: 'ask' | 'list'): void {
   const project = { id: found[0], name: found[1] };
   const now = Date.now();
   const at = (repeat: Repeat, minutes: number) => ({ minutes, repeat, due: nextAt(repeat, minutes, now) });
+  const [tests, notes, logs, gone] =
+    activeLocale() === 'fr'
+      ? ['Lance les tests et résume les échecs de la nuit.', 'Prépare les notes de version de la semaine.', 'Archive les vieux journaux.', 'ancien-site']
+      : ["Run the tests and sum up the night's failures.", "Write the week's release notes.", 'Archive the old logs.', 'old-site'];
   const entries = [
-    { ...at({ kind: 'weekdays' }, 9 * 60), projectId: project.id, project: project.name, prompt: 'Lance les tests et résume les échecs de la nuit.' },
-    { ...at({ kind: 'weekly', day: 5 }, 17 * 60 + 30), projectId: project.id, project: project.name, prompt: 'Prépare les notes de version de la semaine.' },
-    { ...at({ kind: 'once' }, 22 * 60), projectId: 'p-gone', project: 'ancien-site', prompt: 'Archive les vieux journaux.' }
+    { ...at({ kind: 'weekdays' }, 9 * 60), projectId: project.id, project: project.name, prompt: tests },
+    { ...at({ kind: 'weekly', day: 5 }, 17 * 60 + 30), projectId: project.id, project: project.name, prompt: notes },
+    { ...at({ kind: 'once' }, 22 * 60), projectId: 'p-gone', project: gone, prompt: logs }
   ];
   companion.missions.pending = (kind === 'ask' ? entries.slice(0, 1) : entries).map((entry, index) => ({ ...entry, id: `mission-pose-${index}` }));
   if (kind === 'ask') return;
