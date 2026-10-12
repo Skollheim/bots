@@ -24,6 +24,7 @@
   import { readStatus, subscribeCompanionData } from '../lib/companion/memory';
   import { companionMonitors, inShell, type CompanionMonitor } from '../lib/companion/shell';
   import CompanionReminders from './companion/CompanionReminders.svelte';
+  import CompanionMissions from './companion/CompanionMissions.svelte';
   import CompanionAllowRules from './companion/CompanionAllowRules.svelte';
   import CompanionCrewSettings from './companion/CompanionCrewSettings.svelte';
   import { readWindowsPrefs, subscribeWindowsPrefs, writeWindowsPrefs } from '../lib/windows/prefs';
@@ -296,6 +297,10 @@
       <span class="text ui-label-box"><span class="ui-label">{copy.sounds}</span><InfoTip topic={copy.sounds} text={copy.soundsHint} /></span>
       <input type="checkbox" role="switch" checked={prefs.sounds} onchange={(event) => save({ sounds: event.currentTarget.checked })} data-testid="companion-sounds" />
     </label>
+    <label class="switch-row">
+      <span class="text ui-label-box"><span class="ui-label">{copy.awayRecap}</span><InfoTip topic={copy.awayRecap} text={copy.awayRecapHint} /></span>
+      <input type="checkbox" role="switch" checked={prefs.awayRecap} onchange={(event) => save({ awayRecap: event.currentTarget.checked })} data-testid="companion-away-recap" />
+    </label>
     {@render picker(copy.radar, copy.radarHint, radarItems, radarLabel(prefs.radarMinutes), (id) => save({ radarMinutes: Number(id) }), 'companion-radar-minutes')}
   </section>
 
@@ -317,6 +322,7 @@
   </section>
 
   <CompanionReminders />
+  <CompanionMissions {store} />
   <CompanionAllowRules />
 </div>
 

@@ -141,6 +141,18 @@ test('a CI that never settles is let go at the cap, and errors in a row stop it 
   broken.stop();
 });
 
+test('the board lists the pull request with its CI as last read, and drops it once merged', async () => {
+  const { watch, stop, emit } = stub([pending, red]);
+  emit();
+  expect(watch.board).toEqual([{ threadId: 't1', url: URL_12, number: 12, ci: 'pending' }]);
+  await vi.advanceTimersByTimeAsync(20_000);
+  // Settled: no longer followed, still on the board with its verdict.
+  expect(watch.board.map((card) => card.ci)).toEqual(['failed']);
+  emit('MERGED');
+  expect(watch.board).toEqual([]);
+  stop();
+});
+
 test('stopping the watch stops its timers', async () => {
   const { stop, emit } = stub([pending]);
   emit();

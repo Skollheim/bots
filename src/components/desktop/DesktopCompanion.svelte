@@ -23,6 +23,7 @@
   import CompanionNotes from '../companion/CompanionNotes.svelte';
   import CompanionPanel from '../companion/CompanionPanel.svelte';
   import CompanionRadar from '../companion/CompanionRadar.svelte';
+  import CompanionMissionCards from '../companion/CompanionMissionCards.svelte';
   import CompanionTaskCards from '../companion/CompanionTaskCards.svelte';
   import CompanionTimer from '../companion/CompanionTimer.svelte';
   import CompanionTools from '../companion/CompanionTools.svelte';
@@ -55,7 +56,7 @@
   const { notes, timer, focus, attached, tasks } = $derived(companion);
 
   $effect(() => {
-    void [companion.open, companion.members.length, companion.talks.map((talk) => [talk.shown, talk.phase]), companion.media, mediaShown, notes.notices, notes.alarms, companion.mood.blocking, layout, hudOpen, timer.phase, focus.recap, focus.active, companion.history, attached.held, attached.over, attached.reading, attached.problem, tasks.pending, tasks.launched];
+    void [companion.open, companion.members.length, companion.talks.map((talk) => [talk.shown, talk.phase]), companion.media, mediaShown, notes.notices, notes.alarms, companion.mood.blocking, layout, hudOpen, timer.phase, focus.recap, focus.active, companion.history, attached.held, attached.over, attached.reading, attached.problem, tasks.pending, tasks.launched, companion.missions.pending];
     void tick().then(() => requestAnimationFrame(onresize));
   });
 </script>

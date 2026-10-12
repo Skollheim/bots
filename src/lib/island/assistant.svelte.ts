@@ -255,6 +255,8 @@ export interface AssistantHost {
   sent(): void;
   /** A message that could not go: its files come back to the tray. */
   giveBack(attachments: Attachment[]): void;
+  /** The context line a message ends with (`brain.ts`): the time, the to-do list and the missions. None leaves it out. */
+  context?(): string | null;
 }
 
 export class Assistant {
@@ -444,7 +446,9 @@ export class Assistant {
     try {
       const paths = attachments.length > 0 ? await this.host.keep(attachments) : [];
       if (paths === null) return giveBack(copy().notKept);
-      const message = await client.call('agents.message.send', { scope: directScope(agent.id), text: withFiles(prompt, paths), recipientIds: [agent.id], requestId: requestId() });
+      const context = this.host.context?.() ?? null;
+      const text = context ? `${withFiles(prompt, paths)}\n\n${context}` : withFiles(prompt, paths);
+      const message = await client.call('agents.message.send', { scope: directScope(agent.id), text, recipientIds: [agent.id], requestId: requestId() });
       this.awaiting = [...this.awaiting.filter((id) => !settled(this.snapshot, agent.id, id)), message.id];
       this.host.reload();
     } catch (error) {

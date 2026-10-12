@@ -16,17 +16,22 @@
  * - `hold(key, on)`: the view wants the island to stay open while the pointer
  *   is away (a field with the keyboard, a menu, a drag over it); `false` lets it go.
  * - `reveal(threadId)`: shows a thread in Boite's window.
- * - `show(tab)`: turns the island to another tab.
- * - `sessions`: the live sessions Home lists and the peek speaks of, read-only.
+ * - `show(tab)`: turns the deck to another of its tabs (`deck-tabs.ts`).
+ * - `sessions`: the live sessions the threads tab lists and the peek speaks of, read-only.
  * - `memory`: how near Boite's memory guard is to stopping an agent, and the
  *   stop that comes first (`pressure.svelte.ts`).
  * - `update`: a newer Boite out on its track (`update.svelte.ts`).
+ * - `recap`: the day's finished threads, read once for every tab that shows
+ *   them (`recap.svelte.ts`); a tab calls `load()` as it shows.
+ * - `prs`: the pull requests the threads opened and their CI (`pr-watch.svelte.ts`).
  */
 import { getContext, setContext } from 'svelte';
 import type { Client } from '@boite/ui/lib/client';
 import type { Companion } from '../companion/companion.svelte';
 import type { IslandGlow, IslandSize, IslandTab } from './frame.svelte';
+import type { PrWatch } from './pr-watch.svelte';
 import type { MemoryWatch } from './pressure.svelte';
+import type { RecapReader } from './recap.svelte';
 import type { Sessions } from './sessions.svelte';
 import type { UpdateWatch } from './update.svelte';
 
@@ -54,6 +59,8 @@ export interface ViewContext {
   readonly sessions: Sessions;
   readonly memory: MemoryWatch;
   readonly update: UpdateWatch;
+  readonly recap: RecapReader;
+  readonly prs: PrWatch;
 }
 
 const KEY = Symbol('island-view');

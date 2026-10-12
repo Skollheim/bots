@@ -2,9 +2,10 @@
  * What the companion senses around it, from the shell's watch
  * (`companion_window.rs`): where the pointer is, whether the user is typing
  * or away, whether the pointer is on one of its areas, whether an app fills
- * the screen. In a browser, where there is no shell, the page's own pointer
+ * the screen, and how long the last absence lasted. In a browser, where there is no shell, the page's own pointer
  * stands in, so the character still follows it on the dev page.
  */
+import { absenceStart, sleptThrough, type Absence } from './absence';
 import { inShell, listenShell } from './shell';
 
 /** A minute without the pointer moving or a key, at night: the character dozes. */
@@ -28,6 +29,11 @@ export class Senses {
   private now = $state(Date.now());
   /** When the user last showed a sign (a pointer move, a key), at most once a second. */
   private input = 0;
+  /** The absence that just ended, by the wall clock (`absence.ts`): what the island's recap reads. */
+  absence = $state.raw<Absence | null>(null);
+  /** Since when nobody is at the keyboard, while `away`. */
+  private awayFrom: number | null = null;
+  private tick = Date.now();
 
   readonly asleep = $derived(this.away || (isNight(new Date(this.now).getHours()) && this.now - this.signed > DROWSY_MS));
 
@@ -35,7 +41,13 @@ export class Senses {
   private disposed = false;
 
   constructor(private readonly handlers: { hover(over: boolean): void; outside(): void; summon(): void; input?(at: number): void }) {
-    const clock = setInterval(() => (this.now = Date.now()), CLOCK_EVERY);
+    const clock = setInterval(() => {
+      this.now = Date.now();
+      // Woken from a sleep the shell had no time to call `away`.
+      const slept = sleptThrough(this.tick, this.now);
+      this.tick = this.now;
+      if (slept && !this.away) this.absence = slept;
+    }, CLOCK_EVERY);
     this.off.push(() => clearInterval(clock));
     if (!inShell()) {
       const move = (event: PointerEvent) => this.saw({ x: event.clientX, y: event.clientY });
@@ -52,7 +64,12 @@ export class Senses {
     });
     hear<boolean>('away', (away) => {
       this.away = away;
-      if (!away) this.sign();
+      if (away) this.awayFrom ??= absenceStart(Date.now());
+      else {
+        if (this.awayFrom !== null) this.absence = { from: this.awayFrom, to: Date.now() };
+        this.awayFrom = null;
+        this.sign();
+      }
     });
     hear<boolean>('fullscreen', (full) => (this.fullscreen = full));
     hear<boolean>('hover', (over) => {
