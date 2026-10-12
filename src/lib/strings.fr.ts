@@ -22,7 +22,6 @@ export const fr: Messages = {
 
   island: {
     label: 'B.O.T.S',
-    tabs: { home: 'Accueil', chat: 'Discussion', drop: 'Dépôt' },
     settings: 'Réglages',
     mute: 'Couper les sons',
     unmute: 'Remettre les sons',
@@ -72,12 +71,6 @@ export const fr: Messages = {
     },
     talking: '{name} répond…',
     robot: '{name}. Cliquez pour le taquiner, faites-le glisser hors de l’île pour le poser sur le bureau.',
-    home: {
-      busy: 'Au travail',
-      none: 'Aucun agent au travail pour l’instant.',
-      reminders: 'Rappels et nouvelles',
-      focus: 'Concentration'
-    },
     chat: {
       empty: 'Demandez ce que vous voulez à vos bots : ils répondent ici.',
       to: 'Parler à',
@@ -233,6 +226,71 @@ export const fr: Messages = {
       openTitle: 'Ouvre Boite sur ses mises à jour, d’où elle s’installe',
       manual: 'Installez-la depuis Boite : Réglages › Machines et mises à jour › Mises à jour de l’application.',
       later: 'Plus tard'
+    },
+    deck: {
+      tablist: 'Onglets du panneau',
+      tabs: {
+        threads: 'Fils',
+        today: 'Aujourd’hui',
+        chat: 'Chat',
+        stats: 'Stats',
+        music: 'Musique',
+        apps: 'Applis',
+        clipboard: 'Presse-papiers',
+        wallpaper: 'Fonds d’écran',
+        system: 'Système'
+      },
+      playing: 'Musique en cours',
+      drop: 'Déposez-les pour les joindre à votre prochain message',
+      threads: {
+        prs: 'Pull requests',
+        ci: { pending: 'CI en cours', passed: 'CI au vert', failed: 'CI en échec', none: 'Aucune vérification' },
+        machines: 'Machines',
+        here: 'Ce PC',
+        working: '{count} au travail',
+        idle: 'Rien en cours',
+        offline: 'Non connectée'
+      },
+      today: {
+        clock: '{time}, {date}',
+        week: 'Cette semaine',
+        focus: 'Minuteur de concentration',
+        idle: 'Choisissez une durée pour démarrer',
+        preset: '{minutes} min',
+        presetTitle: 'Démarrer {minutes} min de travail, puis {rest} min de pause',
+        reset: 'Réinitialiser',
+        recap: 'Aujourd’hui',
+        threadsOne: 'fil terminé',
+        threadsMany: 'fils terminés',
+        filesOne: 'fichier modifié',
+        filesMany: 'fichiers modifiés',
+        time: 'temps d’agent',
+        none: 'Aucun fil terminé aujourd’hui pour l’instant.',
+        missionDay: 'une mission prévue',
+        nextMission: 'Prochaine mission',
+        nextMissionLine: 'Prochaine mission {when} : {prompt}'
+      },
+      chat: {
+        attach: 'Fichiers et captures'
+      },
+      stats: {
+        quotas: 'Quotas',
+        noQuotas: 'Aucun quota lu pour l’instant.',
+        resets: 'repart dans {time}',
+        day: 'Agents aujourd’hui',
+        memory: 'Mémoire',
+        memoryWaiting: 'Pas encore lue.',
+        used: 'utilisés par les agents',
+        of: 'sur {budget}',
+        noBudget: 'Aucun budget fixé',
+        free: '{size} libres sur ce PC',
+        tokens: 'jetons utilisés par vos fils'
+      },
+      music: {
+        empty: 'Rien en lecture',
+        emptyHint: 'Lancez quelque chose dans Spotify ou un autre lecteur : cela s’affiche ici.',
+        lyricsOff: 'Les paroles sont désactivées.'
+      }
     },
     /** Ce qui s’est passé pendant que personne n’était au clavier (`views/AwayCard.svelte`, `away.ts`). */
     away: {

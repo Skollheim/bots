@@ -6,6 +6,7 @@
  * manager does), and says so when the guard stopped something itself
  * (`resources.memory`). Pure thresholds: `pressure.ts`.
  */
+import type { MemoryStatus } from '@boite/contracts';
 import type { Client } from '@boite/ui/lib/client';
 import { CALM_SHARE, guardOff, heaviest, NEAR_SHARE, nearness, pressureOf, samePressure, stoppedOf, WARN_SHARE, type AgentLoad, type Pressure, type Stopped } from './pressure';
 
@@ -21,6 +22,8 @@ const MB = 1024 * 1024;
 export class MemoryWatch {
   pressure = $state.raw<Pressure | null>(null);
   stopped = $state.raw<Stopped | null>(null);
+  /** The last reading, for the deck's gauge; null until read. */
+  status = $state.raw<MemoryStatus | null>(null);
   stopping = $state(false);
   problem = $state('');
   /** A warning set aside: it stays hidden until the memory calms down or another conversation is the cause. */
@@ -64,6 +67,7 @@ export class MemoryWatch {
   /** One read; returns how long to wait before the next. */
   async read(client: Client): Promise<number> {
     const status = await client.call('resources.memoryStatus', {});
+    this.status = status;
     if (guardOff(status)) {
       this.pressure = null;
       this.#ignored = null;
@@ -108,9 +112,10 @@ export class MemoryWatch {
     this.stopped = null;
   }
 
-  /** A capture pose's warning (`pose.ts`). */
-  pose(pressure: Pressure | null, stopped: Stopped | null = null): void {
+  /** A capture pose's warning and reading (`pose.ts`). */
+  pose(pressure: Pressure | null, stopped: Stopped | null = null, status: MemoryStatus | null = null): void {
     this.pressure = pressure;
     this.stopped = stopped;
+    this.status = status;
   }
 }

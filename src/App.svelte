@@ -20,13 +20,14 @@
   import { companionHitRects, configureCompanion, coverScreen, inShell, layoutOf, placeCompanion, placeIsland, type CompanionLayout, type HitRect } from './lib/companion/shell';
   import { Companion } from './lib/companion/companion.svelte';
   import { IslandFrame } from './lib/island/frame.svelte';
+  import { readDeckTab, writeDeckTab } from './lib/island/deck-tabs';
   import CompanionZone from './components/companion/CompanionZone.svelte';
   import DesktopCompanion from './components/desktop/DesktopCompanion.svelte';
   import Island from './components/island/Island.svelte';
 
   const HIT_PAD = 6;
-  /** The island's window: the open island (640 × 440 at most), its glow, a notice under it, and the drops on its sides (the music player, up to 276 wide). */
-  const ISLAND_WINDOW = { width: 920, open: 500, closed: 150 };
+  /** The island's window: the open island, the deck (860 × 470 at most), its glow, a notice under it, and the drops on its sides (the music player, up to 276 wide). */
+  const ISLAND_WINDOW = { width: 940, open: 530, closed: 150 };
   /** The window shrinks once the island's spring has closed it. */
   const SHRINK_AFTER = 450;
 
@@ -46,7 +47,9 @@
     setOpen: (open) => (open ? companion.show() : companion.close()),
     openOnHover: () => companion.prefs.openOnHover,
     waiting: () => companion.blocking > 0,
-    talking: () => companion.talking
+    talking: () => companion.talking,
+    lastTab: () => readDeckTab(localStorage),
+    keepTab: (tab) => writeDeckTab(localStorage, tab)
   });
 
   const island = $derived(companion.prefs.robots === 'island');

@@ -15,7 +15,8 @@
   import { compactCount, QuotaWatch, resetIn, tokensOf, type QuotaAccount } from '../../../lib/island/quotas.svelte';
   import { fill, strings } from '../../../lib/strings';
 
-  let { open = $bindable(false) }: { open?: boolean } = $props();
+  /** `compact`: the percent alone, for the deck's tab bar, where room is short. */
+  let { open = $bindable(false), compact = false }: { open?: boolean; compact?: boolean } = $props();
 
   const view = useView();
   const copy = strings.island.assistant.quotas;
@@ -90,6 +91,7 @@
     <button
       bind:this={trigger}
       class="pill"
+      class:compact
       data-tone={top.bar.tone}
       aria-expanded={open}
       aria-label={fill(copy.label, { percent: String(top.bar.left), name: top.account.name, window: top.bar.label })}
@@ -97,7 +99,7 @@
       data-testid="island-quotas"
       onclick={() => (open = !open)}
     >
-      <Gauge size={13} strokeWidth={2} />
+      {#if !compact}<Gauge size={13} strokeWidth={2} />{/if}
       <span>{fill(copy.left, { percent: String(top.bar.left) })}</span>
     </button>
 
@@ -135,6 +137,9 @@
     font-size: 12px;
     font-variant-numeric: tabular-nums;
     cursor: pointer;
+  }
+  .pill.compact {
+    padding: 0 8px;
   }
   .pill:hover,
   .pill[aria-expanded='true'] {

@@ -39,6 +39,24 @@
   --island-quota-amber: var(--island-attention);
   --island-quota-red: var(--island-danger);
   --island-quota-track: var(--island-pill);
+
+  /*
+   * The deck: the open island as a wide panel of tabs and tiles. Tiles sit a
+   * step above the black; the selected tab and the chosen things wear the
+   * robot's violet, the states keep their glows above.
+   */
+  --deck-width: 860px;
+  --deck-radius: 28px;
+  --deck-gap: 8px;
+  --deck-tile: #111116;
+  --deck-tile-hover: #18181f;
+  --deck-tile-radius: 18px;
+  --deck-tile-pad: 14px;
+  --deck-field: #1b1b22;
+  --deck-accent: var(--island-talking);
+  --deck-accent-soft: rgb(139 124 246 / 0.18);
+  --deck-accent-ink: #d9d3ff;
+  --deck-numeral-font: 'Segoe UI Variable Display', var(--island-font);
 }
 
 /*

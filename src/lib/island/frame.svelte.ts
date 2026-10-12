@@ -10,14 +10,17 @@
  * - `flash()` peeks green a few seconds: a turn finished; red when it failed.
  * - `hush(key, on)`: while something in the pill is being read (a request to
  *   answer, a dot's name), a hover peeks but does not open.
+ * - The tab is the deck's (`deck-tabs.ts`): it opens on the last one used,
+ *   which `FrameSource.keepTab` stores.
  */
+import { FIRST_TAB, type DeckTab } from './deck-tabs';
 
 export type IslandSize = 'collapsed' | 'peek' | 'open';
-export type IslandTab = 'home' | 'chat' | 'drop';
+/** The open island is the deck: its tab is one of the deck's. */
+export type IslandTab = DeckTab;
 /** Amber: the user is waited on. Green: done; red: failed. Blue-violet: the assistant talks. */
 export type IslandGlow = 'none' | 'attention' | 'done' | 'failed' | 'talking';
 
-export const ISLAND_TABS: readonly IslandTab[] = ['home', 'chat', 'drop'];
 /** How long after the pointer leaves the island collapses. */
 export const LEAVE_MS = 400;
 /** How long a hover lasts before it opens the island, when it may. */
@@ -36,10 +39,14 @@ export interface FrameSource {
   waiting(): boolean;
   /** A reply is on its way. */
   talking(): boolean;
+  /** The tab the deck opens on: the last one used. */
+  lastTab?(): DeckTab;
+  /** A tab was chosen: kept for the next opening. */
+  keepTab?(tab: DeckTab): void;
 }
 
 export class IslandFrame {
-  tab = $state<IslandTab>('home');
+  tab = $state<IslandTab>(FIRST_TAB);
   pinned = $state(false);
   /** The pointer is on the island. */
   hovering = $state(false);
@@ -65,7 +72,9 @@ export class IslandFrame {
   private leaveTimer: ReturnType<typeof setTimeout> | undefined;
   private flashTimer: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(private readonly source: FrameSource) {}
+  constructor(private readonly source: FrameSource) {
+    this.tab = source.lastTab?.() ?? FIRST_TAB;
+  }
 
   /** The pointer came onto the island, or left it. */
   hover(over: boolean): void {
@@ -103,9 +112,16 @@ export class IslandFrame {
     if (!this.source.isOpen()) this.source.setOpen(true);
   }
 
+  /** Turns the deck to a tab, kept for the next opening. */
+  pick(tab: IslandTab): void {
+    if (tab === this.tab) return;
+    this.tab = tab;
+    this.source.keepTab?.(tab);
+  }
+
   /** Opens on a tab: the shortcut opens on Chat. */
   show(tab: IslandTab): void {
-    this.tab = tab;
+    this.pick(tab);
     clearTimeout(this.openTimer);
     if (!this.source.isOpen()) this.source.setOpen(true);
   }

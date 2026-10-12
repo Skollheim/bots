@@ -8,14 +8,14 @@
     under it (the wheel goes through the ones at work);
   - peek, on hover or when a thread ended, one line of status; a permission
     waiting is answered from the pill (`IslandBar.svelte`);
-  - open, the tab bar (Home, Chat, Drop; pin, Settings, sound), the robot the
-    view talks about on the left, and the view, with the requests waiting
-    laid over it.
+  - open, the deck (`deck/Deck.svelte`): a tab bar with the robot, the
+    deck's tabs and the island's controls, and the tab chosen under it, the
+    requests waiting and the memory warning laid above it.
 
   Beside the pill and the peek hang two drops: the timer on the left while
   one runs, the music on the right (`music/MusicBubble.svelte`). Each is born
   from the island's edge on a black neck that snaps, and is taken back the
-  same way (`lib/island/motion.ts`). Open, the music moves into the tab bar.
+  same way (`lib/island/motion.ts`). Open, the music has its own tab.
 
   A halo behind it breathes amber while the user is waited on, flashes green
   once when a turn finished (red when a thread failed), and stays a calm blue-violet while a reply
@@ -25,48 +25,35 @@
   The views read what they need from the
   view contract (`lib/island/contract.ts`). A press on a robot that moves
   sets it loose on the desktop (`Companion.onpress`).
-
-  Back at the keyboard after a long absence, the island opens on a recap of
-  what happened meanwhile (`views/AwayCard.svelte`), once the requests are
-  answered.
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
   import { prefersReducedMotion, Spring } from 'svelte/motion';
-  import { House, MessageCircle, Pin, PinOff, Plus, Settings, Volume2, VolumeX } from '@lucide/svelte';
   import type { Absence } from '../../lib/companion/absence';
   import type { Companion } from '../../lib/companion/companion.svelte';
-  import { writeCompanionPrefs } from '../../lib/companion/prefs';
-  import { openSettings, showMain } from '../../lib/companion/shell';
+  import { showMain } from '../../lib/companion/shell';
   import { waitingOnUser } from '../../lib/companion/watch';
   import { awayLines, awaySpan, awayWorth, type AwayEvent, type AwayFacts, type AwayLine, type AwaySpan } from '../../lib/island/away';
   import { AwayWatch } from '../../lib/island/away.svelte';
   import { provideView } from '../../lib/island/contract';
-  import { HOVER_OPEN_MS, ISLAND_TABS, type IslandFrame, type IslandGlow, type IslandTab } from '../../lib/island/frame.svelte';
+  import { HOVER_OPEN_MS, type IslandFrame, type IslandGlow } from '../../lib/island/frame.svelte';
   import { bloom, blurAway, GOO_FILTER } from '../../lib/island/motion';
   import { threadLabel } from '../../lib/companion/describe';
-  import { gazeOf, moodOf } from '../../lib/island/face';
   import { FinishWatch } from '../../lib/island/finished.svelte';
   import { posed } from '../../lib/island/posed.svelte';
   import { PrWatch } from '../../lib/island/pr-watch.svelte';
   import { MemoryWatch } from '../../lib/island/pressure.svelte';
   import { QuotaWatch } from '../../lib/island/quotas.svelte';
+  import { RecapReader } from '../../lib/island/recap.svelte';
   import { Sessions } from '../../lib/island/sessions.svelte';
   import { UpdateWatch } from '../../lib/island/update.svelte';
-  import { fill, strings } from '../../lib/strings';
-  import CompanionCharacter from '../companion/CompanionCharacter.svelte';
+  import { strings } from '../../lib/strings';
+  import Deck from './deck/Deck.svelte';
   import IslandBar from './IslandBar.svelte';
   import IslandDrop from './IslandDrop.svelte';
   import MusicBubble from './music/MusicBubble.svelte';
-  import MusicStrip from './music/MusicStrip.svelte';
   import TimerBubble from './TimerBubble.svelte';
-  import AttentionCard from './views/AttentionCard.svelte';
   import AwayCard from './views/AwayCard.svelte';
-  import QuotasPill from './assistant/QuotasPill.svelte';
-  import ChatView from './views/ChatView.svelte';
-  import DropView from './views/DropView.svelte';
-  import HomeView from './views/HomeView.svelte';
-  import MemoryCard from './views/MemoryCard.svelte';
 
   interface Props {
     companion: Companion;
@@ -78,22 +65,22 @@
   let { companion, frame, onresize }: Props = $props();
 
   const copy = strings.island;
-  /** The open island's width, and the most its content takes before it scrolls. */
-  const OPEN_WIDTH = 640;
-  const OPEN_MAX = 440;
-  /** The tabs above the view. */
-  const TABS_HEIGHT = 48;
+  /** The deck's width (`--deck-width`), and the most it takes before its tab scrolls. */
+  const OPEN_WIDTH = 860;
+  const OPEN_MAX = 470;
+  /** The deck's tab bar above the tab. */
+  const TABS_HEIGHT = 52;
   const COLLAPSED = { w: 200, h: 32 };
   const RADIUS = 22;
+  /** The deck's corners, bigger than the pill's (`--deck-radius`). */
+  const DECK_RADIUS = 28;
   const CHEER_MS = 1200;
-  const ICONS = { home: House, chat: MessageCircle, drop: Plus } as const;
 
   let measured = $state(0);
   let windowWidth = $state(0);
   /** The pointer is on a drop beside the island: the island itself does not peek for it. */
   let onSide = $state(false);
   let cheering = $state(false);
-  let robotButton = $state<HTMLButtonElement | null>(null);
   /** The size the pill wants (`IslandBar`). */
   let pill = $state({ ...COLLAPSED });
   /** The pill's line tells the timer: its drop shows the ring alone. */
@@ -138,7 +125,7 @@
   });
   if (posing) {
     $effect(() => {
-      memory.pose(posed.pressure, posed.stopped);
+      memory.pose(posed.pressure, posed.stopped, posed.memory);
       update.pose(posed.release);
     });
   }
@@ -149,11 +136,15 @@
   });
   /** The warning's cause, not its numbers: a warning calls the island once, not on every read. */
   const memoryCause = $derived(memory.warning ? `${memory.warning.reason}:${memory.warning.threadId ?? ''}` : null);
+  /** The day's finished threads, read for the tabs that show them, as they show. */
+  const recap = new RecapReader({ client: () => companion.client, projects: () => companion.projects, leftOut: () => companion.ownThreads });
   /** The room between a drop and the island. */
   const SIDE_GAP = 8;
   // Settles within a quarter pixel: the last frames of a smaller step would move nothing one can see.
   const box = new Spring({ ...COLLAPSED }, { stiffness: 0.18, damping: 0.72, precision: 0.25 });
-  const radius = $derived(Math.min(RADIUS, box.current.h / 2));
+  /** The corners grow with the island, from the pill's to the deck's. */
+  const opened = $derived(Math.min(1, Math.max(0, (box.current.w - COLLAPSED.w) / (OPEN_WIDTH - COLLAPSED.w))));
+  const radius = $derived(Math.min(RADIUS + (DECK_RADIUS - RADIUS) * opened, box.current.h / 2));
   const target = $derived(frame.size === 'open' ? { w: OPEN_WIDTH, h: Math.min(Math.max(measured, 120), OPEN_MAX) } : pill);
   /** What the drops beside the island have, up to the window's edge. */
   const sideRoom = $derived(Math.max(0, (windowWidth - box.current.w) / 2 - SIDE_GAP));
@@ -213,7 +204,9 @@
     show: (tab) => frame.show(tab),
     sessions,
     memory,
-    update
+    update,
+    recap,
+    prs
   });
 
   $effect(() => {
@@ -253,10 +246,11 @@
     return () => clearTimeout(cheerTimer);
   });
 
-  // A reminder rang: the island opens on Home, where it shows, until it is dealt with.
+  // A reminder rang: the island opens on the threads, where it shows, until it is dealt with.
+  // Turned to for the reminder, not chosen: the deck still opens on the last tab picked next time.
   $effect(() => {
     if (companion.notes.alarms.length === 0) return;
-    untrack(() => (frame.tab = 'home'));
+    untrack(() => (frame.tab = 'threads'));
     return untrack(() => frame.call('alarm'));
   });
 
@@ -268,9 +262,10 @@
   });
 
   /*
-   * Back at the keyboard after a long absence (`lib/island/away.ts`): the island
-   * opens on what happened meanwhile. The requests come first, and nothing
-   * shows over a full-screen app or during focus: the card waits for them.
+   * Back at the keyboard after a long absence (`lib/island/away.ts`): the deck
+   * opens, on the tab last picked, with what happened meanwhile over it. The
+   * requests come first, and nothing shows over a full-screen app or during
+   * focus: the card waits for them.
    */
   const away = new AwayWatch({ rows: () => sessions.rows, pr: () => prs.told, warning: () => memory.warning, stopped: () => memory.stopped });
   $effect(() => away.start());
@@ -325,7 +320,7 @@
     if (!awayShown) return;
     untrack(() => {
       awayNow = Date.now();
-      frame.show('home');
+      frame.show(frame.tab);
       frame.hold('away', true);
       // The robot says hello once per absence told.
       if (awayGreeted !== away.pending) {
@@ -340,28 +335,16 @@
     };
   });
 
+  /** A line of the recap: its thread in Boite, or the threads tab, where the reminders and the waiting threads show. */
   function awayOpen(line: AwayLine) {
     if (line.target?.kind === 'thread') void showMain(line.target.threadId).catch(() => {});
-    else if (line.target?.kind === 'home') frame.tab = 'home';
+    else if (line.target?.kind === 'home') frame.pick('threads');
     away.open(line.key);
   }
 
-  function robotClick() {
-    if (companion.dropped) return;
-    companion.poke(companion.active.id);
-  }
-
-  function pickTab(tab: IslandTab) {
-    frame.tab = tab;
-    if (tab === 'chat') void companion.focusInput();
-  }
-
-  function toggleSounds() {
-    companion.prefs = writeCompanionPrefs({ sounds: !companion.prefs.sounds });
-  }
-
+  /** Files dropped on any tab go with the next message: the deck turns to the chat. */
   function drop(event: DragEvent) {
-    if (companion.dropFiles(event)) frame.tab = 'chat';
+    if (companion.dropFiles(event)) frame.pick('chat');
   }
 </script>
 
@@ -406,88 +389,13 @@
     <IslandBar {companion} {frame} {sessions} told={prs.told ?? finishes.line} {cheering} {reduced} bind:want={pill} bind:timerInLine />
   {:else}
     <div class="open" in:bloom={{ reduced }} out:blurAway={{ reduced }} style:max-height="{OPEN_MAX}px" bind:offsetHeight={measured}>
-      <nav class="tabs" aria-label={copy.label}>
-        <div class="group" role="tablist">
-          {#each ISLAND_TABS as tab (tab)}
-            {@const Icon = ICONS[tab]}
-            <button
-              class="tab"
-              class:on={frame.tab === tab}
-              role="tab"
-              aria-selected={frame.tab === tab}
-              aria-label={copy.tabs[tab]}
-              title={copy.tabs[tab]}
-              data-testid="island-tab-{tab}"
-              onclick={() => pickTab(tab)}
-            >
-              <Icon size={15} strokeWidth={1.9} />
-            </button>
-          {/each}
-          {#if companion.blocking > 0}
-            <span class="waiting" role="status" title={fill(copy.sessions.waitingCount, { count: String(companion.blocking) })} data-testid="island-waiting">
-              <span aria-hidden="true">{companion.blocking}</span>
-              <span class="sr">{fill(copy.sessions.waitingCount, { count: String(companion.blocking) })}</span>
-            </span>
-          {/if}
-        </div>
-        <div class="middle"><MusicStrip {companion} /></div>
-        <div class="group">
-          <QuotasPill />
-          <button class="tab" class:on={frame.pinned} aria-pressed={frame.pinned} aria-label={frame.pinned ? copy.unpin : copy.pin} title={frame.pinned ? copy.unpin : copy.pin} onclick={() => frame.togglePin()}>
-            {#if frame.pinned}<PinOff size={15} strokeWidth={1.9} />{:else}<Pin size={15} strokeWidth={1.9} />{/if}
-          </button>
-          <button class="tab" aria-label={copy.settings} title={copy.settings} data-testid="island-settings" onclick={() => void openSettings().catch(() => {})}>
-            <Settings size={15} strokeWidth={1.9} />
-          </button>
-          <button class="tab" aria-pressed={!companion.prefs.sounds} aria-label={companion.prefs.sounds ? copy.mute : copy.unmute} title={companion.prefs.sounds ? copy.mute : copy.unmute} data-testid="island-sound" onclick={toggleSounds}>
-            {#if companion.prefs.sounds}<Volume2 size={15} strokeWidth={1.9} />{:else}<VolumeX size={15} strokeWidth={1.9} />{/if}
-          </button>
-        </div>
-      </nav>
-      <div class="body">
-        <div class="robot">
-          <button
-            bind:this={robotButton}
-            class="character"
-            aria-label={fill(copy.robot, { name: companion.active.name ?? copy.label })}
-            title={companion.active.name ?? undefined}
-            data-testid="island-robot"
-            onclick={robotClick}
-            onpointerdown={(event) => companion.onpress(event, true)}
-            onpointermove={companion.onmove}
-            onpointerup={companion.onrelease}
-          >
-            <!-- Its eyes follow the pointer while it is on the island (nothing to follow elsewhere), and it cheers when any thread finishes. -->
-            <CompanionCharacter
-              mood={moodOf(companion, companion.active.talk.thinking, companion.active.id === lead.id)}
-              busy={companion.active.id === lead.id && companion.mood.busy}
-              alarm={companion.notes.alarms.length > 0}
-              cheer={cheering}
-              boing={companion.boings[companion.active.id] ?? 0}
-              dizzy={companion.dizzy[companion.active.id] ?? false}
-              gaze={companion.pointerOn ? gazeOf(companion, robotButton) : null}
-              skin={companion.active.skin}
-              size={60}
-              {...companion.look}
-            />
-            {#if companion.blocking > 0}<span class="badge" aria-hidden="true">{companion.blocking}</span>{/if}
-          </button>
-        </div>
-        <div class="view island-fade" data-tab={frame.tab} style:max-height="{OPEN_MAX - TABS_HEIGHT}px">
-          <MemoryCard />
-          {#if companion.blocking > 0}<AttentionCard />{/if}
+      <Deck {companion} {frame} {lead} {cheering} {reduced} room={OPEN_MAX - TABS_HEIGHT}>
+        {#snippet notice()}
           {#if awayShown && away.pending}
             <AwayCard lines={awayList} span={awaySpan(away.pending.back - away.pending.from)} onopen={awayOpen} ondismiss={() => away.dismiss()} />
           {/if}
-          {#if frame.tab === 'home'}
-            <HomeView />
-          {:else if frame.tab === 'chat'}
-            <ChatView />
-          {:else}
-            <DropView />
-          {/if}
-        </div>
-      </div>
+        {/snippet}
+      </Deck>
     </div>
   {/if}
 </div>
@@ -609,130 +517,11 @@
     position: absolute;
     top: 0;
     left: 0;
-    width: 640px;
+    width: var(--deck-width);
     display: flex;
     flex-direction: column;
     transform-origin: 50% 0;
   }
-  .tabs {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px 6px;
-  }
-  .middle {
-    display: flex;
-    flex: 1;
-    justify-content: center;
-    min-width: 0;
-  }
-  .group {
-    display: flex;
-    gap: 2px;
-  }
-  .tab {
-    display: grid;
-    place-items: center;
-    width: 34px;
-    height: 28px;
-    padding: 0;
-    border: none;
-    border-radius: 999px;
-    background: none;
-    color: var(--island-muted);
-    cursor: pointer;
-    transition: background 160ms ease, color 160ms ease;
-  }
-  .tab:hover {
-    color: var(--island-text);
-  }
-  .tab.on {
-    background: var(--island-pill);
-    color: var(--island-text);
-  }
-  .tab:focus-visible {
-    outline: 2px solid var(--island-talking);
-    outline-offset: 1px;
-  }
-  /* Requests waiting: a small amber count beside the tabs, gone at zero. */
-  .waiting {
-    align-self: center;
-    min-width: 16px;
-    height: 16px;
-    margin-left: 4px;
-    padding: 0 5px;
-    border-radius: 999px;
-    background: var(--island-attention);
-    color: var(--island-attention-ink);
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 16px;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-  }
-  .sr {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-  .body {
-    display: flex;
-    gap: 12px;
-    min-height: 0;
-    padding: 4px 12px 12px;
-  }
-  .robot {
-    flex: none;
-    width: 76px;
-    display: flex;
-    justify-content: center;
-    padding-top: 10px;
-  }
-  .character {
-    position: relative;
-    align-self: flex-start;
-    padding: 0;
-    border: none;
-    background: none;
-    cursor: pointer;
-    touch-action: none;
-  }
-  .character:focus-visible {
-    outline: 2px solid var(--island-talking);
-    outline-offset: 2px;
-    border-radius: 12px;
-  }
-  .badge {
-    position: absolute;
-    top: -2px;
-    right: -6px;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
-    border-radius: 999px;
-    background: var(--island-attention);
-    color: #000;
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 18px;
-    text-align: center;
-  }
-  .view {
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    scrollbar-width: thin;
-    scrollbar-color: rgb(255 255 255 / 0.15) transparent;
-  }
-
   @keyframes breathe {
     0%,
     100% {

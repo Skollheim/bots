@@ -9,6 +9,9 @@
  * it to the threads the island follows) or a thread's summary
  * (`ThreadSummary.pullRequest`). One already settled on its first read is
  * let go quietly: it is news only when the island saw it run.
+ *
+ * `board` lists the pull requests met and their CI as last read, the newest
+ * first, for the deck's tile; one merged, closed or unlinked leaves it.
  */
 import { untrack } from 'svelte';
 import type { LinkedPullRequest, ThreadSummary } from '@boite/contracts';
@@ -46,8 +49,20 @@ interface Follow {
 
 type Linked = Pick<LinkedPullRequest, 'url' | 'number' | 'state'>;
 
+/** A pull request on the deck's tile: its thread, its number and its CI as last read. */
+export interface PrCard {
+  threadId: string;
+  url: string;
+  number: number;
+  ci: CiVerdict;
+}
+
+/** The tile shows this many pull requests at most. */
+export const BOARD_MAX = 6;
+
 export class PrWatch {
   told = $state.raw<PrTold | null>(null);
+  board = $state.raw<PrCard[]>([]);
   /** Every pull request met, by its address in lower case: each is followed once. */
   readonly #met = new Set<string>();
   readonly #follows = new Map<string, Follow>();
@@ -92,11 +107,11 @@ export class PrWatch {
     for (const pr of freshPullRequests(list, this.#met)) this.#follow(threadId, pr);
     // The full list says when a pull request followed was merged, closed, or unlinked.
     if (!whole) return;
-    for (const [key, follow] of this.#follows) {
-      if (follow.threadId !== threadId) continue;
-      const now = list.find((pr) => pr.url.toLowerCase() === key);
-      if (!now || now.state !== 'OPEN') this.#drop(key);
-    }
+    const open = new Set(list.filter((pr) => pr.state === 'OPEN').map((pr) => pr.url.toLowerCase()));
+    // Followed or settled: the board's cards of this thread go with their pull request.
+    const keys = new Set([...this.#follows].filter(([, follow]) => follow.threadId === threadId).map(([key]) => key));
+    for (const card of this.board) if (card.threadId === threadId) keys.add(card.url.toLowerCase());
+    for (const key of keys) if (!open.has(key)) this.#unlist(key);
   }
 
   #follow(threadId: string, pr: Linked): void {
@@ -104,12 +119,27 @@ export class PrWatch {
     this.#met.add(key);
     const follow: Follow = { threadId, url: pr.url, number: pr.number, startedAt: Date.now(), reads: 0, errors: 0, timer: undefined };
     this.#follows.set(key, follow);
+    this.#mark(key, follow, 'pending');
     void this.#read(key, follow);
   }
 
   #drop(key: string): void {
     clearTimeout(this.#follows.get(key)?.timer);
     this.#follows.delete(key);
+  }
+
+  /** Merged, closed or unlinked: no longer followed, nor on the tile. */
+  #unlist(key: string): void {
+    this.#drop(key);
+    if (this.board.some((card) => card.url.toLowerCase() === key)) this.board = this.board.filter((card) => card.url.toLowerCase() !== key);
+  }
+
+  /** The tile's line for a pull request, the newest first. */
+  #mark(key: string, follow: Follow, ci: CiVerdict): void {
+    const card: PrCard = { threadId: follow.threadId, url: follow.url, number: follow.number, ci };
+    const known = this.board.findIndex((entry) => entry.url.toLowerCase() === key);
+    if (known >= 0) this.board = this.board.map((entry, index) => (index === known ? card : entry));
+    else this.board = [card, ...this.board].slice(0, BOARD_MAX);
   }
 
   /** The next read, unless the pull request was followed long enough. */
@@ -134,8 +164,9 @@ export class PrWatch {
     const first = follow.reads === 0;
     follow.reads += 1;
     follow.errors = 0;
-    if (review.state !== 'OPEN') return this.#drop(key);
+    if (review.state !== 'OPEN') return this.#unlist(key);
     const verdict = ciVerdict(review.checks);
+    this.#mark(key, follow, verdict.state);
     if (verdict.state === 'pending' || verdict.state === 'none') return this.#schedule(key, follow, verdict.state);
     this.#drop(key);
     if (!first) this.#tell(follow, verdict.state, verdict.failed?.name ?? null);
