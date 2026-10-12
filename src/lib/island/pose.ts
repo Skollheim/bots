@@ -23,8 +23,8 @@
  * - `update=nightly|stable`: a newer Boite in Home;
  * - `sessions=none`: Home's sessions shown empty, the robot napping (pair it
  *   with `calm=1`);
- * - `rest=live|quota|music|robot`: what the pill shows at rest (pair `music`
- *   with `music=playing`). A thread followed in the pill is chosen through
+ * - `rest=live|quota|music|timer|robot`: what the pill shows at rest (pair `music`
+ *   with `music=playing`, `timer` with `timer=1`). A thread followed in the pill is chosen through
  *   `localStorage` (`bots.followed`, `followed.ts`) before the page loads.
  * - `rule=1`: an "always allow" rule for the tests thread's command, which
  *   the fake core asks again a moment later: Bots answers it, the pill's

@@ -20,9 +20,9 @@ export type CompanionControl = 'ask' | 'auto';
 export type CompanionScreenScope = 'all' | 'here' | 'zone';
 /** Where the robots live: in the island at the top of the screen, or loose on the desktop. */
 export type CompanionRobots = 'island' | 'desktop';
-/** What the island's pill shows when nothing else claims it: the live line, the tightest quota, the music, or the robot alone. */
-export type PillRest = 'live' | 'quota' | 'music' | 'robot';
-export const PILL_RESTS = ['live', 'quota', 'music', 'robot'] as const satisfies readonly PillRest[];
+/** What the island's pill shows when nothing else claims it: the live line, the tightest quota, the music, the running timer, or the robot alone. */
+export type PillRest = 'live' | 'quota' | 'music' | 'timer' | 'robot';
+export const PILL_RESTS = ['live', 'quota', 'music', 'timer', 'robot'] as const satisfies readonly PillRest[];
 /** The character's centre, in fractions of the screen's work area. */
 export interface CompanionSpot { x: number; y: number }
 /** The families the island's mascot may come from: Boîte, the box, or a Jelly. */

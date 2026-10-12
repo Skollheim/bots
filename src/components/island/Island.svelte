@@ -96,6 +96,8 @@
   $effect(() => {
     if (!frame.flashing)
       untrack(() => {
+  /** The pill's line tells the timer: its drop shows the ring alone. */
+  let timerInLine = $state(false);
         finishes.clear();
         prs.clear();
       });
@@ -284,7 +286,7 @@
 <span class="halo" data-glow={frame.glow} data-tone={haloTone} style:border-radius="0 0 {radius}px {radius}px" aria-hidden="true"></span>
 {#if sides && companion.timer.current}
   <IslandDrop side="left" {reduced} {onresize} onside={(on) => (onSide = on)}>
-    <TimerBubble timer={companion.timer} hover={companion.hover} {onresize} />
+    <TimerBubble timer={companion.timer} hover={companion.hover} compact={timerInLine} {onresize} />
   </IslandDrop>
 {/if}
 <div
@@ -309,7 +311,7 @@
   ondrop={drop}
 >
   {#if frame.size !== 'open'}
-    <IslandBar {companion} {frame} {sessions} told={prs.told ?? finishes.line} {cheering} {reduced} bind:want={pill} />
+    <IslandBar {companion} {frame} {sessions} told={prs.told ?? finishes.line} {cheering} {reduced} bind:want={pill} bind:timerInLine />
   {:else}
     <div class="open" in:bloom={{ reduced }} out:blurAway={{ reduced }} style:max-height="{OPEN_MAX}px" bind:offsetHeight={measured}>
       <nav class="tabs" aria-label={copy.label}>
