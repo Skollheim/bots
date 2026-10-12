@@ -5,7 +5,7 @@
   click. Each card takes clicks (`data-hit`).
 -->
 <script lang="ts">
-  import { GitBranch, Rocket, X } from '@lucide/svelte';
+  import { CalendarClock, GitBranch, Rocket, X } from '@lucide/svelte';
   import type { Tasks } from '../../lib/companion/tasks.svelte';
   import { fill, strings } from '../../lib/strings';
 
@@ -42,9 +42,9 @@
 {#each tasks.launched as task (task.threadId)}
   <div class="card launched" data-hit role="status" data-testid="companion-task-launched">
     <button class="ghost row" title={copy.task.openHint} onclick={() => open(task.threadId)}>
-      <span class="mark" aria-hidden="true"><Rocket size={14} /></span>
+      <span class="mark" aria-hidden="true">{#if task.mission}<CalendarClock size={14} />{:else}<Rocket size={14} />{/if}</span>
       <span class="body">
-        <span class="title">{fill(copy.task.launched, { project: task.project })}</span>
+        <span class="title">{fill(task.mission === 'late' ? copy.mission.late : task.mission ? copy.mission.launched : copy.task.launched, { project: task.project })}</span>
         <span class="hint">{task.title || copy.untitled}</span>
       </span>
     </button>

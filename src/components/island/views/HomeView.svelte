@@ -2,13 +2,15 @@
   The island's Home: the live sessions (`sessions/SessionsList.svelte`), the
   reminders and what finished, the focus timer and its tools, the threads
   that waited a while, the tasks launched, and the day's recap
-  (`assistant/RecapCard.svelte`), and a newer Boite when one is out
+  (`assistant/RecapCard.svelte`) with the to-do list (`TodoCard.svelte`), the
+  missions waiting for a word, and a newer Boite when one is out
   (`UpdateCard.svelte`). The quotas and the music show in the tab bar.
 -->
 <script lang="ts">
   import { useView } from '../../../lib/island/contract';
   import { strings } from '../../../lib/strings';
   import CompanionFocusCards from '../../companion/CompanionFocusCards.svelte';
+  import CompanionMissionCards from '../../companion/CompanionMissionCards.svelte';
   import CompanionNotes from '../../companion/CompanionNotes.svelte';
   import CompanionRadar from '../../companion/CompanionRadar.svelte';
   import CompanionTaskCards from '../../companion/CompanionTaskCards.svelte';
@@ -17,6 +19,7 @@
 
   import RecapCard from '../assistant/RecapCard.svelte';
   import SessionsList from '../sessions/SessionsList.svelte';
+  import TodoCard from './TodoCard.svelte';
   import UpdateCard from './UpdateCard.svelte';
 
   const view = useView();
@@ -43,11 +46,14 @@
 
   <RecapCard />
 
+  <TodoCard />
+
   {#if companion.radar.shown}
     <CompanionRadar radar={companion.radar} onopen={open} onreply={(threadId, text) => companion.replyFromRadar(threadId, text)} />
   {/if}
   <CompanionFocusCards timer={companion.timer} focus={companion.focus} onopen={open} />
   <CompanionTaskCards tasks={companion.tasks} onopen={open} />
+  <CompanionMissionCards missions={companion.missions} />
 
   <section class="island-card focus">
     <h3 class="island-heading">{copy.focus}</h3>

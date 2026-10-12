@@ -94,7 +94,9 @@ test('the directives of a reply are read, and the bubble never shows them', () =
     focus: null,
     task: [],
     find: null,
-    open: null
+    open: null,
+    mission: [],
+    todo: []
   });
   expect(visibleReply(reply)).toBe('Noted, Chris.');
   expect(visibleReply('Sure.\n[[REMIND: +5m | tea]]\nIt rings at 14:10.')).toBe('Sure.\n\nIt rings at 14:10.');

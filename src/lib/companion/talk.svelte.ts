@@ -26,6 +26,8 @@ export interface TalkHost {
   missing(): string;
   /** The user's threads, as a request tells them (`watch.svelte.ts`); null when they cannot be read. */
   digest(): Promise<string | null>;
+  /** The to-do list and the missions, numbered (`brain.ts`, `RequestContext.lists`); null when both are empty. */
+  lists?(): string | null;
   /** The answer came, or the request failed. */
   settled(outcome: 'done' | 'error'): void;
 }
@@ -104,7 +106,7 @@ export class Talk {
         this.fail(strings.companion.cannotShow);
         return false;
       }
-      const text = messageFor(request, { now: new Date(), seen: shot?.seen ?? null, shots, files: kept, threads: await digest });
+      const text = messageFor(request, { now: new Date(), seen: shot?.seen ?? null, shots, files: kept, threads: await digest, lists: this.host.lists?.() ?? null });
       const message = await client.call('agents.message.send', { scope: directScope(this.agentId), text, recipientIds: [this.agentId], requestId: crypto.randomUUID() });
       this.sentId = message.id;
       return true;
