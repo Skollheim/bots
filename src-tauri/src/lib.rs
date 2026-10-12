@@ -7,6 +7,7 @@
 #[cfg(test)]
 mod acl;
 mod companion_window;
+mod computer;
 mod endpoint;
 mod island;
 mod platform;
@@ -40,6 +41,7 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| companion_window::summon(app)))
         .manage(companion_window::CompanionState::default())
         .manage(island::IslandState::default())
+        .manage(computer::ComputerState::default())
         .invoke_handler(tauri::generate_handler![
             endpoint::core_endpoint,
             companion_window::companion_monitors,
@@ -57,6 +59,27 @@ pub fn run() {
             island::island_place,
             tray::bots_settings,
             tray::bots_tray_labels,
+            computer::computer_system,
+            computer::computer_close,
+            computer::computer_power,
+            computer::computer_apps,
+            computer::computer_app_icon,
+            computer::computer_app_open,
+            computer::computer_clipboard_watch,
+            computer::computer_clipboard_list,
+            computer::computer_clipboard_copy,
+            computer::computer_clipboard_remove,
+            computer::computer_clipboard_item,
+            computer::computer_wallpapers,
+            computer::computer_wallpaper_folder,
+            computer::computer_wallpaper_pick,
+            computer::computer_wallpaper_thumb,
+            computer::computer_wallpaper_set,
+            computer::computer_engine,
+            computer::computer_engine_thumb,
+            computer::computer_engine_apply,
+            computer::computer_engine_current,
+            computer::computer_engine_control,
         ])
         .setup(|app| {
             let handle = app.handle();
