@@ -3,7 +3,9 @@
   that empties with the phase and the time left (or the time so far, for a
   stopwatch). Under the pointer or the keyboard it shows what the timer is for
   and its controls: pause or resume, skip the break, stop. Hidden without a
-  timer; Home shows the same timer once the island opens.
+  timer; Home shows the same timer once the island opens. While the pill's
+  line tells the timer (`compact`), the drop keeps the ring and leaves the
+  time to the line, so it is not read twice.
 -->
 <script lang="ts">
   import { Pause, Play, SkipForward, Square } from '@lucide/svelte';
@@ -16,11 +18,13 @@
     timer: PomodoroTimer;
     /** The shell's word that the pointer is on the island's window. */
     hover: boolean;
+    /** The pill's line tells the time: the ring alone. */
+    compact?: boolean;
     /** The drop changed size, for the page to send its hit areas again. */
     onresize: () => void;
   }
 
-  let { timer, hover, onresize }: Props = $props();
+  let { timer, hover, compact = false, onresize }: Props = $props();
 
   const copy = strings.companion.pomodoro;
   const RING = 2 * Math.PI * 6;
@@ -54,7 +58,7 @@
   const label = $derived(timer.current?.label && !resting ? timer.current.label : phaseName);
 
   $effect(() => {
-    void [open, timer.current === null];
+    void [open, compact, timer.current === null];
     const read = setTimeout(onresize);
     return () => clearTimeout(read);
   });
@@ -64,6 +68,7 @@
   <div
     class="drop"
     class:open
+    class:compact
     class:resting
     class:paused={timer.paused}
     data-hit
@@ -91,7 +96,7 @@
         <circle cx="8" cy="8" r="6" class="track" />
         <circle cx="8" cy="8" r="6" class="left" stroke-dasharray={RING.toFixed(2)} stroke-dashoffset={(RING * (1 - share)).toFixed(2)} />
       </svg>
-      <span class="time" aria-hidden="true">{time}</span>
+      {#if !compact}<span class="time" aria-hidden="true">{time}</span>{/if}
     </div>
     {#if open}
       <div class="more">
@@ -129,6 +134,13 @@
   }
   .drop.open {
     border-radius: 0 0 18px 18px;
+  }
+  /* The ring alone: the pill's line tells the time. */
+  .drop.compact:not(.open) {
+    min-width: 0;
+  }
+  .compact .line {
+    padding: 0 10px;
   }
   .line {
     display: flex;

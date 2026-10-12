@@ -4,6 +4,9 @@
  *
  * - `pose=collapsed|peek|open|desktop`: the island's size, or the robots loose
  *   on the desktop;
+ * - `pose=away`: back at the keyboard after 52 minutes, the island opens on
+ *   the recap of the absence (`views/AwayCard.svelte`), made up here (pair it
+ *   with `calm=1`: the requests come first);
  * - `tab=home|chat|drop`: the tab the open island shows;
  * - `calm=1`: the requests the fake core starts with are answered first, so
  *   the tab shows without the amber card over it;
@@ -23,8 +26,8 @@
  * - `update=nightly|stable`: a newer Boite in Home;
  * - `sessions=none`: Home's sessions shown empty, the robot napping (pair it
  *   with `calm=1`);
- * - `rest=live|quota|music|robot`: what the pill shows at rest (pair `music`
- *   with `music=playing`). A thread followed in the pill is chosen through
+ * - `rest=live|quota|music|timer|robot`: what the pill shows at rest (pair `music`
+ *   with `music=playing`, `timer` with `timer=1`). A thread followed in the pill is chosen through
  *   `localStorage` (`bots.followed`, `followed.ts`) before the page loads.
  * - `rule=1`: an "always allow" rule for the tests thread's command, which
  *   the fake core asks again a moment later: Bots answers it, the pill's
@@ -47,10 +50,12 @@ import { PILL_RESTS, writeCompanionPrefs, type PillRest } from '../companion/pre
 import { DEMO_COMMAND, DEMO_THREAD } from '../fake-client/allow-demo';
 import { ISLAND_TABS, type IslandFrame, type IslandTab } from './frame.svelte';
 import { posed } from './posed.svelte';
+import { prLine } from './pr-checks';
 import type { PressureReason } from './pressure';
 import { unfolding } from './sessions.svelte';
 
 const GB = 1024 * 1024 * 1024;
+const MINUTE = 60_000;
 /** An original cover for the music poses: two soft circles on a dusk gradient. */
 const COVER =
   'data:image/svg+xml,' +
@@ -143,6 +148,26 @@ function poseMissions(companion: Companion, kind: 'ask' | 'list'): void {
   if (weekly >= 0) void companion.missions.request([{ kind: 'pause', index: weekly + 1 }], now);
 }
 
+/** Back after 52 minutes: three threads ended (one failed), a PR went green, the guard warned, a reminder rang, the quota is low. */
+function poseAway(): void {
+  const back = Date.now();
+  const from = back - 52 * MINUTE;
+  const at = (minutes: number) => from + minutes * MINUTE;
+  posed.away = {
+    span: { from, back },
+    events: [
+      { kind: 'finish', at: at(9), threadId: 'thr-away-audio', title: 'Fix the audio player', failed: false },
+      { kind: 'memory', at: at(14), threadId: 'thr-demo', title: 'Unity build', program: null, machine: false },
+      { kind: 'finish', at: at(23), threadId: 'thr-away-docs', title: 'Translate the docs', failed: true },
+      { kind: 'pr', at: at(31), threadId: 'thr-away-audio', url: 'https://example.invalid/pr/12', text: prLine(12, 'passed', 'Fix the audio player', null).text, failed: false },
+      { kind: 'finish', at: at(40), threadId: 'thr-away-logs', title: 'Tidy the logs', failed: false }
+    ],
+    waiting: [{ threadId: 'thr-away-tests', title: 'Run the test suite', kind: 'question', since: at(18) }],
+    alarms: [{ id: 'rem-away', text: 'Call the bank', at: at(45) }],
+    quota: { name: 'Claude', left: 12 }
+  };
+}
+
 const WALLPAPER = 'html[data-companion] body { background: linear-gradient(160deg, #34466e, #7d6797 55%, #d49c78) !important; }';
 
 async function until(ready: () => boolean, tries = 60): Promise<void> {
@@ -197,5 +222,6 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     companion.pointerOn = true;
   } else if (pose === 'open') frame.show(tab && ISLAND_TABS.includes(tab) ? tab : 'home');
   else if (pose === 'desktop') companion.prefs = { ...companion.prefs, robots: 'desktop' };
+  else if (pose === 'away') poseAway();
   await (await import('./assistant-pose')).strikeAssistantPose(companion, params);
 }

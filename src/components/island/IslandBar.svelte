@@ -3,13 +3,17 @@
   per session (`lib/island/dots.ts`).
 
   - The line: the peek's status (`lib/island/status.ts`), or collapsed, the
-    live line of the lead session (`session-text.ts`; the wheel goes through
-    the ones at work). A thread that just ended is told in it for a few
+    live line of the lead session (`session-text.ts`). A thread that just ended is told in it for a few
     seconds (`finished.svelte.ts`). When the text changes it rolls, counter-
     like (`motion.ts`'s `rollIn` and `rollOut`); the same text moves nothing.
     A thread followed from Home (`followed.ts`) keeps the live line, ended or
-    at rest too. At rest, Settings may show the quota, the music or the robot
+    at rest too. At rest, Settings may show the quota, the music, the timer or the robot
     alone instead (`pill-rest.ts`); the width follows through the spring.
+  - The wheel goes through what the pill can show at rest, each conversation
+    at work its own stop (`pill-stops.ts`), and rolls the line its way; where
+    it lands becomes the setting. While it turns, the pill shows the stop
+    rather than the hover's status, and the hover does not open the island.
+    A request, a flash or a dot's name keeps the line: the wheel does nothing.
   - A dot hovered names its thread and state in the line. Over the dots, and
     while a request shows, a hover peeks without opening the island
     (`frame.hush`): the pill would otherwise open under the pointer of someone
@@ -28,17 +32,19 @@
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { Gauge, Music, ShieldCheck, X } from '@lucide/svelte';
+  import { Gauge, Music, ShieldCheck, Timer, X } from '@lucide/svelte';
   import type { Companion } from '../../lib/companion/companion.svelte';
   import { describePermission, threadLabel } from '../../lib/companion/describe';
+  import { writeCompanionPrefs } from '../../lib/companion/prefs';
   import { showMain } from '../../lib/companion/shell';
   import { ruleTarget, ruleText, type RuleScope } from '../../lib/island/allow-rules';
   import { dotLine, pillDots } from '../../lib/island/dots';
   import { gazeOf, moodOf } from '../../lib/island/face';
   import type { FinishLine } from '../../lib/island/finished';
   import type { IslandFrame } from '../../lib/island/frame.svelte';
-  import { bloom, blurAway, rollIn, rollOut } from '../../lib/island/motion';
-  import { restLine, robotWidth, sessionLine } from '../../lib/island/pill-rest';
+  import { bloom, blurAway, ROLL_MS, rollIn, rollOut } from '../../lib/island/motion';
+  import { restLine, robotWidth, sessionLine, type TimerSource } from '../../lib/island/pill-rest';
+  import { pillStops, stepStop, stopAt, WHEEL_STILL, wheelStep } from '../../lib/island/pill-stops';
   import { QuotaWatch } from '../../lib/island/quotas.svelte';
   import { requestQueue } from '../../lib/island/requests';
   import { isLive } from '../../lib/island/sessions';
@@ -58,9 +64,11 @@
     reduced: boolean;
     /** The size the pill wants; the island's spring goes there. */
     want?: { w: number; h: number };
+    /** The line tells the timer: its drop beside the island leaves the time out. */
+    timerInLine?: boolean;
   }
 
-  let { companion, frame, sessions, told, cheering, reduced, want = $bindable() }: Props = $props();
+  let { companion, frame, sessions, told, cheering, reduced, want = $bindable(), timerInLine = $bindable(false) }: Props = $props();
 
   const copy = strings.island;
   const card = strings.island.sessions.card;
@@ -72,7 +80,6 @@
   const LIVE = { min: 200, max: 360, chrome: 74 };
   /** Each dot's hover target: wider than the dot. */
   const DOT_STEP = 12;
-  const WHEEL_REST_MS = 220;
   /** How long the answers take no click once a request shows. */
   const ARM_MS = 400;
 
@@ -91,7 +98,22 @@
   /** What the pill shows at rest, as Settings chose (`pill-rest.ts`); null for the robot alone. */
   const rest = $derived(companion.prefs.pillRest);
   const quotas = new QuotaWatch(() => ({ shown: companion.prefs.quotas, hidden: companion.prefs.hiddenQuotas }));
-  const live = $derived(restLine(rest, { live: session, media: companion.media, quota: quotas.tightest }));
+  /** The timer while one runs: its line counts the time left, or so far for a stopwatch. */
+  const timerSource = $derived.by((): TimerSource | null => {
+    const { current, elapsed, left, paused } = companion.timer;
+    return current ? { kind: current.kind, phase: current.phase, label: current.label, ms: current.kind === 'stopwatch' ? elapsed : left, paused } : null;
+  });
+  const live = $derived(restLine(rest, { live: session, media: companion.media, quota: quotas.tightest, timer: timerSource }));
+  /** The views the wheel goes through (`pill-stops.ts`). */
+  const stops = $derived(
+    pillStops({
+      live: liveRows.map((row) => row.id),
+      followed: sessions.followedRow?.id ?? null,
+      quota: quotas.tightest !== null,
+      music: Boolean(companion.media?.playing && companion.media.title),
+      timer: timerSource !== null
+    })
+  );
   const status = $derived(
     islandStatus({
       blocking: companion.blocking,
@@ -141,7 +163,9 @@
     if (told && frame.flashing) return told;
     return traceLine ?? status;
   });
-  const peeking = $derived(frame.size === 'peek' || asking || hoveredDot !== null || trace !== null);
+  /** While the wheel turns, the hover's peek gives way to where the wheel lands; flashes, requests and a dot's name do not. */
+  let wheeling = $state(false);
+  const peeking = $derived((frame.size === 'peek' && (!wheeling || frame.flashing)) || asking || hoveredDot !== null || trace !== null);
 
   const dotsWidth = $derived((dots.length + (trace ? 1 : 0)) * DOT_STEP);
   const peekWidth = $derived(Math.round(Math.min(PEEK.max, Math.max(PEEK.min, statusWidth + PEEK.chrome + dotsWidth))));
@@ -171,15 +195,22 @@
     return () => frame.hush('dot', false);
   });
 
-  // The quota at rest: read as the pill shows, then as the core pushes it. No clock of its own.
+  // The quota, at rest or as a stop of the wheel: read as the pill shows, then as the core pushes it. No clock of its own.
   $effect(() => {
     const client = companion.client;
-    if (rest !== 'quota' || !client) return;
+    if (!(rest === 'quota' || companion.prefs.quotas) || !client) return;
     return untrack(() => {
       void quotas.refresh(client);
       return client.on('quotas.updated', (rows) => quotas.accept(rows));
     });
   });
+
+  // The timer's drop leaves its time to the line while the line tells it.
+  $effect(() => {
+    const inLine = !peeking && live?.kind === 'timer';
+    untrack(() => (timerInLine = inLine));
+  });
+  $effect(() => () => (timerInLine = false));
 
   // The answers wake `ARM_MS` after their request shows, and the scopes after "Always…".
   $effect(() => {
@@ -203,16 +234,39 @@
     }
   }
 
-  let wheelAt = 0;
-  /** The wheel on the pill goes through the conversations at work. */
+  let pace = WHEEL_STILL;
+  /** The wheel turned back: the line rolls down, for a moment. */
+  let back = $state(false);
+  let backTimer: ReturnType<typeof setTimeout> | undefined;
+  /** How long the pill keeps showing the wheel's stop after the last turn, the hover's opening held meanwhile. */
+  const WHEEL_SHOW_MS = 1500;
+  let wheelTimer: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => () => {
+    clearTimeout(backTimer);
+    clearTimeout(wheelTimer);
+  });
+  // The island does not open under a pointer that is turning the wheel.
+  $effect(() => {
+    if (!wheeling) return;
+    untrack(() => frame.hush('wheel', true));
+    return () => frame.hush('wheel', false);
+  });
+  /** The wheel on the pill goes through its views; where it lands becomes the setting. Not over a request, a flash or a dot's name. */
   function wheel(event: WheelEvent) {
-    if (sessions.followedRow || liveRows.length < 2 || event.deltaY === 0) return;
-    const at = performance.now();
-    if (at - wheelAt < WHEEL_REST_MS) return;
-    wheelAt = at;
-    const index = Math.max(0, liveRows.findIndex((row) => row.id === leadSession?.id));
-    const next = (index + (event.deltaY > 0 ? 1 : -1) + liveRows.length) % liveRows.length;
-    picked = liveRows[next]!.id;
+    if (asking || hoveredDot !== null || trace !== null || frame.flashing) return;
+    wheeling = true;
+    clearTimeout(wheelTimer);
+    wheelTimer = setTimeout(() => (wheeling = false), WHEEL_SHOW_MS);
+    const turned = wheelStep(pace, event.deltaY, event.deltaMode, performance.now());
+    pace = turned.pace;
+    if (turned.step === 0) return;
+    const stop = stepStop(stops, stopAt(stops, rest, shown?.id ?? null), turned.step);
+    if (!stop) return;
+    back = turned.step < 0;
+    clearTimeout(backTimer);
+    backTimer = setTimeout(() => (back = false), ROLL_MS);
+    if (stop.view === 'live' && stop.threadId !== null && !sessions.followedRow) picked = stop.threadId;
+    if (stop.view !== rest) companion.prefs = writeCompanionPrefs({ pillRest: stop.view });
   }
 
   /** The dot under the pointer, if any: its hover target is the column it stands in. */
@@ -237,7 +291,7 @@
 
 <div class="pill" class:asking in:bloom={{ reduced }} out:blurAway={{ reduced }}>
   <span class="measure" aria-hidden="true" bind:offsetWidth={statusWidth}>{line.text}</span>
-  {#if live}<span class="measure live-measure" aria-hidden="true" bind:offsetWidth={liveWidth}>{#if live.kind !== 'live'}<i class="kind"></i>{/if}<b>{live.name}</b> {live.doing}</span>{/if}
+  {#if live}<span class="measure live-measure" aria-hidden="true" data-kind={live.kind} bind:offsetWidth={liveWidth}>{#if live.kind !== 'live'}<i class="kind"></i>{/if}<b>{live.name}</b> <span class="doing">{live.doing}</span></span>{/if}
   <button
     class="bar"
     data-testid="island-bar"
@@ -269,8 +323,9 @@
         {#key line.text}<span class="line" in:rollIn={{ reduced }} out:rollOut={{ reduced }}>{line.text}</span>{/key}
       </span>
     {:else if live}
-      <span class="live roll" in:bloom={{ reduced }} data-kind={live.kind} data-tone={live.tone} data-testid="island-live">
-        {#key `${live.name}\n${live.doing}`}<span class="line" in:rollIn={{ reduced }} out:rollOut={{ reduced }}>{#if live.kind === 'quota'}<Gauge class="kind" size={12} strokeWidth={2} aria-hidden="true" />{:else if live.kind === 'music'}<Music class="kind" size={12} strokeWidth={2} aria-hidden="true" />{/if}<b>{live.name}</b> {live.doing}</span>{/key}
+      <!-- The timer's clock ticks in place: only its name rolls the line. -->
+      <span class="live roll" in:bloom={{ reduced }} data-kind={live.kind} data-tone={live.tone} data-paused={live.paused || undefined} data-testid="island-live">
+        {#key live.kind === 'timer' ? `timer\n${live.name}` : `${live.name}\n${live.doing}`}<span class="line" in:rollIn={{ reduced, back }} out:rollOut={{ reduced, back }}>{#if live.kind === 'quota'}<Gauge class="kind" size={12} strokeWidth={2} aria-hidden="true" />{:else if live.kind === 'music'}<Music class="kind" size={12} strokeWidth={2} aria-hidden="true" />{:else if live.kind === 'timer'}<Timer class="kind" size={12} strokeWidth={2} aria-hidden="true" />{/if}<b>{live.name}</b> <span class="doing">{live.doing}</span></span>{/key}
       </span>
     {/if}
     <span class="dots" aria-hidden="true">
@@ -404,6 +459,14 @@
   .live[data-tone='failed'] b,
   .live[data-tone='red'] b {
     color: var(--island-danger);
+  }
+  /* The timer's clock: its digits keep their width, so the pill does not twitch each second. */
+  .live[data-kind='timer'] .doing,
+  .live-measure[data-kind='timer'] .doing {
+    font-variant-numeric: tabular-nums;
+  }
+  .live[data-paused] .doing {
+    opacity: 0.55;
   }
   .progress {
     position: absolute;

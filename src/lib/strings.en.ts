@@ -253,6 +253,34 @@ export const strings = {
       openTitle: 'Opens Boite on its app updates, where it installs',
       manual: 'Install it from Boite: Settings › Machines and updates › App updates.',
       later: 'Later'
+    },
+    /** What happened while nobody was at the keyboard (`views/AwayCard.svelte`, `away.ts`). */
+    away: {
+      title: 'While you were away',
+      gone: 'Away {span}',
+      ok: 'OK',
+      okTitle: 'Dismiss the recap',
+      lines: 'What happened',
+      waiting: {
+        permission: '“{title}” has been waiting for your go-ahead for {time}',
+        question: '“{title}” has had a question for you for {time}',
+        answer: '“{title}” answered {time} ago, unread',
+        failed: '“{title}” failed {time} ago, unread'
+      },
+      othersWaiting: '{count} more threads are waiting for you',
+      finishedOne: '“{title}” finished',
+      failedOne: '“{title}” failed',
+      finishedMany: '{count} threads finished: {titles}',
+      failedMany: '{count} threads failed: {titles}',
+      more: '+{count}',
+      alarm: 'Reminder: {text}',
+      quotaLow: '{name}: {left}% left',
+      quotaOut: '{name}: quota used up',
+      memoryWarned: 'Memory guard: “{title}” came near its cap',
+      memoryMachine: 'Memory guard: your PC ran low on memory',
+      memoryStopped: 'Memory guard: Boite stopped {program} in “{title}”',
+      open: 'Open',
+      span: { minutes: '{m} min', hours: '{h} h', hoursMinutes: '{h} h {m} min' }
     }
   },
 
@@ -514,6 +542,8 @@ export const strings = {
       hideFullscreenHint: 'B.O.T.S steps aside while a game or a video fills its screen, and comes back after. The shortcut still calls it.',
       sounds: 'Sounds',
       soundsHint: 'Short chimes when an answer comes, an agent needs you or a reminder rings.',
+      awayRecap: 'Recap when you come back',
+      awayRecapHint: 'Back after 15 minutes or more away, the island tells what finished, what waits for you and what rang meanwhile.',
       radar: 'Waiting threads',
       radarHint: 'When threads have waited for you this long (a permission, a question, an answer you have not read), B.O.T.S says so and opens the first on a click.',
       radarOff: 'Off',
@@ -528,8 +558,8 @@ export const strings = {
       openOnHoverHint: 'Resting the pointer on the island a moment opens it. Off, only a click does.',
       pillRest: 'Pill at rest',
       pillRestHint: 'What the closed island shows when nothing else needs it. Requests and finished threads still show over it.',
-      pillRests: { live: 'Live line', quota: 'Quota', music: 'Music', robot: 'Robot only' },
-      pillRestHints: { live: 'The thread at work and what it does', quota: 'The quota with the least left', music: 'Title and artist of what plays, else the live line', robot: 'A short pill, no text' },
+      pillRests: { live: 'Live line', quota: 'Quota', music: 'Music', timer: 'Timer', robot: 'Robot only' },
+      pillRestHints: { live: 'The thread at work and what it does', quota: 'The quota with the least left', music: 'Title and artist of what plays, else the live line', timer: 'The running timer or pomodoro, else the live line', robot: 'A short pill, no text' },
       mascot: 'Mascot',
       mascotHint: 'The island’s robot, and the first agent’s on the desktop. Pick a style, then make it yours.',
       mascotReset: 'Use the first agent’s own look',

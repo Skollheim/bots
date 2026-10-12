@@ -25,14 +25,22 @@
   The views read what they need from the
   view contract (`lib/island/contract.ts`). A press on a robot that moves
   sets it loose on the desktop (`Companion.onpress`).
+
+  Back at the keyboard after a long absence, the island opens on a recap of
+  what happened meanwhile (`views/AwayCard.svelte`), once the requests are
+  answered.
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
   import { prefersReducedMotion, Spring } from 'svelte/motion';
   import { House, MessageCircle, Pin, PinOff, Plus, Settings, Volume2, VolumeX } from '@lucide/svelte';
+  import type { Absence } from '../../lib/companion/absence';
   import type { Companion } from '../../lib/companion/companion.svelte';
   import { writeCompanionPrefs } from '../../lib/companion/prefs';
   import { openSettings, showMain } from '../../lib/companion/shell';
+  import { waitingOnUser } from '../../lib/companion/watch';
+  import { awayLines, awaySpan, awayWorth, type AwayEvent, type AwayFacts, type AwayLine, type AwaySpan } from '../../lib/island/away';
+  import { AwayWatch } from '../../lib/island/away.svelte';
   import { provideView } from '../../lib/island/contract';
   import { HOVER_OPEN_MS, ISLAND_TABS, type IslandFrame, type IslandGlow, type IslandTab } from '../../lib/island/frame.svelte';
   import { bloom, blurAway, GOO_FILTER } from '../../lib/island/motion';
@@ -42,6 +50,7 @@
   import { posed } from '../../lib/island/posed.svelte';
   import { PrWatch } from '../../lib/island/pr-watch.svelte';
   import { MemoryWatch } from '../../lib/island/pressure.svelte';
+  import { QuotaWatch } from '../../lib/island/quotas.svelte';
   import { Sessions } from '../../lib/island/sessions.svelte';
   import { UpdateWatch } from '../../lib/island/update.svelte';
   import { fill, strings } from '../../lib/strings';
@@ -52,6 +61,7 @@
   import MusicStrip from './music/MusicStrip.svelte';
   import TimerBubble from './TimerBubble.svelte';
   import AttentionCard from './views/AttentionCard.svelte';
+  import AwayCard from './views/AwayCard.svelte';
   import QuotasPill from './assistant/QuotasPill.svelte';
   import ChatView from './views/ChatView.svelte';
   import DropView from './views/DropView.svelte';
@@ -86,6 +96,8 @@
   let robotButton = $state<HTMLButtonElement | null>(null);
   /** The size the pill wants (`IslandBar`). */
   let pill = $state({ ...COLLAPSED });
+  /** The pill's line tells the timer: its drop shows the ring alone. */
+  let timerInLine = $state(false);
 
   const lead = $derived(companion.members[0]!);
   const sessions = new Sessions({ client: () => companion.client, threads: () => companion.threads, own: () => companion.ownThreads, held: () => companion.notes.notices.map((notice) => notice.threadId) });
@@ -224,16 +236,19 @@
   // A turn finished: the lead jumps for joy and the island peeks green.
   let seenDone = -1;
   let cheerTimer: ReturnType<typeof setTimeout> | undefined;
+  function cheer() {
+    companion.bounce(lead.id);
+    cheering = true;
+    clearTimeout(cheerTimer);
+    cheerTimer = setTimeout(() => (cheering = false), CHEER_MS);
+  }
   $effect(() => {
     const done = companion.done;
     untrack(() => {
       if (seenDone === -1 || done === seenDone) return void (seenDone = done);
       seenDone = done;
       frame.flash();
-      companion.bounce(lead.id);
-      cheering = true;
-      clearTimeout(cheerTimer);
-      cheerTimer = setTimeout(() => (cheering = false), CHEER_MS);
+      cheer();
     });
     return () => clearTimeout(cheerTimer);
   });
@@ -251,6 +266,85 @@
     untrack(() => companion.cue('call'));
     return untrack(() => frame.call('memory'));
   });
+
+  /*
+   * Back at the keyboard after a long absence (`lib/island/away.ts`): the island
+   * opens on what happened meanwhile. The requests come first, and nothing
+   * shows over a full-screen app or during focus: the card waits for them.
+   */
+  const away = new AwayWatch({ rows: () => sessions.rows, pr: () => prs.told, warning: () => memory.warning, stopped: () => memory.stopped });
+  $effect(() => away.start());
+  const awayQuotas = new QuotaWatch(() => ({ shown: companion.prefs.quotas, hidden: companion.prefs.hiddenQuotas }));
+  /** A return older than this was told before the island was drawn again. */
+  const AWAY_FRESH_MS = 60_000;
+  /** Now, for how long what waits has waited: read again each minute while the card shows. */
+  let awayNow = $state(Date.now());
+  let awayGreeted: AwaySpan | null = null;
+
+  function awayFacts(span: AwaySpan, events: readonly AwayEvent[], now: number): AwayFacts {
+    const pose = posing ? posed.away : null;
+    const tight = awayQuotas.tightest;
+    const input = { threads: companion.threads, permissions: companion.permissions, questions: companion.questions, projects: companion.projects, own: companion.ownThreads };
+    return {
+      from: span.from,
+      back: span.back,
+      now,
+      events,
+      waiting: pose?.waiting ?? waitingOnUser(input, new Map(), now, 0, false).map(({ threadId, title, kind, since }) => ({ threadId, title, kind, since })),
+      alarms: pose?.alarms ?? companion.notes.alarms,
+      quota: pose ? pose.quota : tight && { name: tight.account.name, left: tight.bar.left },
+      seen: away.seen
+    };
+  }
+
+  async function awayBack(absence: Absence) {
+    if (!companion.prefs.awayRecap || Date.now() - absence.to > AWAY_FRESH_MS) return;
+    const span = away.span(absence);
+    const client = companion.client;
+    if (client && companion.prefs.quotas) await awayQuotas.refresh(client);
+    if (awayWorth(awayFacts(span, away.logged, Date.now()))) away.show(span);
+  }
+
+  $effect(() => {
+    const absence = companion.senses.absence;
+    if (absence) untrack(() => void awayBack(absence));
+  });
+  if (posing) {
+    $effect(() => {
+      const pose = posed.away;
+      if (pose) untrack(() => away.pose(pose.span, pose.events));
+    });
+  }
+  const awayList = $derived(away.pending ? awayLines(awayFacts(away.pending, away.events, awayNow)) : []);
+  const awayShown = $derived(awayList.length > 0 && companion.blocking === 0 && !companion.senses.fullscreen && !companion.focus.active);
+  // Everything it told was dealt with, or the recap was turned off: the card goes.
+  $effect(() => {
+    if (away.pending && (awayList.length === 0 || !companion.prefs.awayRecap)) untrack(() => away.dismiss());
+  });
+  $effect(() => {
+    if (!awayShown) return;
+    untrack(() => {
+      awayNow = Date.now();
+      frame.show('home');
+      frame.hold('away', true);
+      // The robot says hello once per absence told.
+      if (awayGreeted !== away.pending) {
+        awayGreeted = away.pending;
+        cheer();
+      }
+    });
+    const tick = setInterval(() => (awayNow = Date.now()), 60_000);
+    return () => {
+      clearInterval(tick);
+      untrack(() => frame.hold('away', false));
+    };
+  });
+
+  function awayOpen(line: AwayLine) {
+    if (line.target?.kind === 'thread') void showMain(line.target.threadId).catch(() => {});
+    else if (line.target?.kind === 'home') frame.tab = 'home';
+    away.open(line.key);
+  }
 
   function robotClick() {
     if (companion.dropped) return;
@@ -284,7 +378,7 @@
 <span class="halo" data-glow={frame.glow} data-tone={haloTone} style:border-radius="0 0 {radius}px {radius}px" aria-hidden="true"></span>
 {#if sides && companion.timer.current}
   <IslandDrop side="left" {reduced} {onresize} onside={(on) => (onSide = on)}>
-    <TimerBubble timer={companion.timer} hover={companion.hover} {onresize} />
+    <TimerBubble timer={companion.timer} hover={companion.hover} compact={timerInLine} {onresize} />
   </IslandDrop>
 {/if}
 <div
@@ -309,7 +403,7 @@
   ondrop={drop}
 >
   {#if frame.size !== 'open'}
-    <IslandBar {companion} {frame} {sessions} told={prs.told ?? finishes.line} {cheering} {reduced} bind:want={pill} />
+    <IslandBar {companion} {frame} {sessions} told={prs.told ?? finishes.line} {cheering} {reduced} bind:want={pill} bind:timerInLine />
   {:else}
     <div class="open" in:bloom={{ reduced }} out:blurAway={{ reduced }} style:max-height="{OPEN_MAX}px" bind:offsetHeight={measured}>
       <nav class="tabs" aria-label={copy.label}>
@@ -382,6 +476,9 @@
         <div class="view island-fade" data-tab={frame.tab} style:max-height="{OPEN_MAX - TABS_HEIGHT}px">
           <MemoryCard />
           {#if companion.blocking > 0}<AttentionCard />{/if}
+          {#if awayShown && away.pending}
+            <AwayCard lines={awayList} span={awaySpan(away.pending.back - away.pending.from)} onopen={awayOpen} ondismiss={() => away.dismiss()} />
+          {/if}
           {#if frame.tab === 'home'}
             <HomeView />
           {:else if frame.tab === 'chat'}

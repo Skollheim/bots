@@ -84,6 +84,12 @@ test('a changed line rolls in from below and the old one up and out, transform a
   expect(eased.at(-1)).toBeCloseTo(1, 6);
 });
 
+test('turned back, the lines roll the other way: the new one from above, the old one down', () => {
+  const line = { previousElementSibling: {}, nextElementSibling: null } as unknown as Element;
+  expect(rollIn(line, { reduced: false, back: true }).css!(0, 1)).toBe('opacity: 0; transform: translateY(-100%)');
+  expect(rollOut(line, { reduced: false, back: true }).css!(0, 1)).toBe('opacity: 0; transform: translateY(100%)');
+});
+
 test('the first line does not roll, and reduced motion crossfades', () => {
   const alone = { previousElementSibling: null, nextElementSibling: null } as unknown as Element;
   expect(rollIn(alone, { reduced: false }).duration).toBe(0);

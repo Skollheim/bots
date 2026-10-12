@@ -147,18 +147,25 @@ export const ROLL_MS = 240;
 /** Eases out past the mark a little and settles: a counter's wheel clicking into place. */
 const springOut = (value: number) => 1 + 2.2 * (value - 1) ** 3 + 1.2 * (value - 1) ** 2;
 
+export interface RollParams extends BloomParams {
+  /** The wheel turned back: the lines roll the other way, the new one in from above. */
+  back?: boolean;
+}
+
 /**
  * A line of text taking the place of the one before: in from below with a small click, faded in. A crossfade with
  * reduced motion. A line with no other beside it is the first one, shown with its container: it does not roll.
  */
-export function rollIn(node: Element, { reduced }: BloomParams): TransitionConfig {
+export function rollIn(node: Element, { reduced, back = false }: RollParams): TransitionConfig {
   if (!node.previousElementSibling && !node.nextElementSibling) return { duration: 0 };
   if (reduced) return { duration: 160, css: (t) => `opacity: ${round(t, 3)}` };
-  return { duration: ROLL_MS, easing: springOut, css: (t, u) => `opacity: ${round(clamp01(t * 1.4), 3)}; transform: translateY(${round(u * 100, 2)}%)` };
+  const way = back ? -1 : 1;
+  return { duration: ROLL_MS, easing: springOut, css: (t, u) => `opacity: ${round(clamp01(t * 1.4), 3)}; transform: translateY(${round(way * u * 100, 2)}%)` };
 }
 
-/** The line it replaces: up and out, faded. */
-export function rollOut(_node: Element, { reduced }: BloomParams): TransitionConfig {
+/** The line it replaces: up and out, faded (down and out when the wheel turned back). */
+export function rollOut(_node: Element, { reduced, back = false }: RollParams): TransitionConfig {
   if (reduced) return { duration: 160, css: (t) => `opacity: ${round(t, 3)}` };
-  return { duration: ROLL_MS, easing: easeOut, css: (t, u) => `opacity: ${round(t, 3)}; transform: translateY(${round(-u * 100, 2)}%)` };
+  const way = back ? 1 : -1;
+  return { duration: ROLL_MS, easing: easeOut, css: (t, u) => `opacity: ${round(t, 3)}; transform: translateY(${round(way * u * 100, 2)}%)` };
 }

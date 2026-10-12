@@ -293,6 +293,10 @@
       <span class="text ui-label-box"><span class="ui-label">{copy.sounds}</span><InfoTip topic={copy.sounds} text={copy.soundsHint} /></span>
       <input type="checkbox" role="switch" checked={prefs.sounds} onchange={(event) => save({ sounds: event.currentTarget.checked })} data-testid="companion-sounds" />
     </label>
+    <label class="switch-row">
+      <span class="text ui-label-box"><span class="ui-label">{copy.awayRecap}</span><InfoTip topic={copy.awayRecap} text={copy.awayRecapHint} /></span>
+      <input type="checkbox" role="switch" checked={prefs.awayRecap} onchange={(event) => save({ awayRecap: event.currentTarget.checked })} data-testid="companion-away-recap" />
+    </label>
     {@render picker(copy.radar, copy.radarHint, radarItems, radarLabel(prefs.radarMinutes), (id) => save({ radarMinutes: Number(id) }), 'companion-radar-minutes')}
   </section>
 
