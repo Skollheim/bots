@@ -3,7 +3,7 @@ name = "bots"
 version = "0.1.0"
 description = "Bots: the desktop companion for Boite"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.88"
 publish = false
 license = "MIT"
 repository = "https://github.com/beboite/bots"
@@ -25,6 +25,8 @@ tauri = { version = "2", features = ["tray-icon", "unstable"] }
 tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# The track's cover and the deck's pictures reach the page as base64 data URLs.
+base64 = "0.22"
 
 [dev-dependencies]
 tauri = { version = "2", features = ["test"] }
@@ -46,16 +48,32 @@ windows = { version = "0.61", features = [
   "Win32_System_Com",
   "Win32_System_Com_StructuredStorage",
   "Win32_System_Variant",
+  # The deck's computer tabs (src/computer): the apps' icons and the
+  # wallpapers' thumbnails from the shell, the folder dialog, the wallpaper.
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_UI_Shell",
+  "Win32_UI_Shell_Common",
 ] }
-# The track's cover reaches the page as a base64 data URL.
-base64 = "0.22"
+# The system tab's numbers: CPU, memory, uptime and the processes.
+sysinfo = { version = "0.38", default-features = false, features = ["system"] }
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_Globalization",
     "Win32_Graphics_Dwm",
     "Win32_Graphics_Gdi",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_DataExchange",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_Ole",
+    "Win32_System_Power",
+    "Win32_System_Registry",
+    "Win32_System_Shutdown",
     "Win32_System_SystemInformation",
     "Win32_System_Threading",
     "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }

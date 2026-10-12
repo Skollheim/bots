@@ -382,7 +382,7 @@ impl Senses {
         }
         self.pressed = down;
         self.point = Some(point);
-        if tick % 2 == 0 && self.sent.is_none_or(|sent| distance(sent, point) >= 2.0) {
+        if tick.is_multiple_of(2) && self.sent.is_none_or(|sent| distance(sent, point) >= 2.0) {
             self.sent = Some(point);
             let _ = window.emit("companion://cursor", Pointer { x: point.0, y: point.1 });
         }
@@ -404,18 +404,18 @@ fn watch<R: Runtime>(app: AppHandle<R>, shared: Shared, mine: u64) {
             if shared.generation.load(Ordering::Acquire) != mine { break; }
             let Some(window) = app.get_webview_window(LABEL) else { break };
             tick = tick.wrapping_add(1);
-            if tick % SCREEN_EVERY_TICKS == 0 {
+            if tick.is_multiple_of(SCREEN_EVERY_TICKS) {
                 senses.screen(&window, &shared);
                 // Read while hidden too: the shortcut can call the companion over a game.
-                senses.front(&window, tick % (SCREEN_EVERY_TICKS * FRONT_AGAIN_SCREENS) == 0);
+                senses.front(&window, tick.is_multiple_of(SCREEN_EVERY_TICKS * FRONT_AGAIN_SCREENS));
             }
             if shared.hidden.load(Ordering::Acquire) { continue; }
-            if tick % RAISE_EVERY_TICKS == 0 {
+            if tick.is_multiple_of(RAISE_EVERY_TICKS) {
                 crate::platform::keep_on_top(&window);
                 senses.presence(&window);
             }
             follow_cover(&window, &shared);
-            if tick % SCREEN_EVERY_TICKS == 0 && shared.covering.lock().unwrap_or_else(PoisonError::into_inner).is_none() {
+            if tick.is_multiple_of(SCREEN_EVERY_TICKS) && shared.covering.lock().unwrap_or_else(PoisonError::into_inner).is_none() {
                 crate::island::follow(&app, &window);
             }
             let (Ok(cursor), Ok(origin), Ok(scale)) = (window.cursor_position(), window.inner_position(), window.scale_factor()) else { continue };

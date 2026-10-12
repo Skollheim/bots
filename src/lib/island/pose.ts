@@ -46,7 +46,11 @@
  *   `fake-client/machines-demo.ts`.
  * - `todo=1`: a to-do list in the today tab, one item ticked;
  * - `mission=ask|list`: a mission waiting for the user's word, or three set
- *   (one paused, one whose project is gone) for Settings.
+ *   (one paused, one whose project is gone) for Settings;
+ * - `pose=decktab&tab=apps|clipboard|wallpaper|system`: one of the deck's
+ *   computer tabs alone, in a deck-wide black frame, on a fake computer; its
+ *   own states (`q`, `clip`, `source`, `engine`, `press`), in
+ *   `lib/windows/pose.ts`, also apply to `pose=deck`.
  *
  * A wallpaper goes under the transparent window, so the black island shows.
  */
@@ -236,8 +240,11 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
   if (pose === 'peek') {
     companion.prefs = { ...companion.prefs, openOnHover: false };
     companion.pointerOn = true;
-  } else if (pose === 'open' || deck) frame.show(isDeckTab(tab) ? tab : 'threads');
-  else if (pose === 'desktop') companion.prefs = { ...companion.prefs, robots: 'desktop' };
+  } else if (pose === 'open' || deck) {
+    if (deck) await import('../windows/pose').then(({ poseComputer }) => poseComputer(params));
+    frame.show(isDeckTab(tab) ? tab : 'threads');
+  } else if (pose === 'desktop') companion.prefs = { ...companion.prefs, robots: 'desktop' };
+  else if (pose === 'decktab') await import('../windows/pose').then(({ poseDeckTab }) => poseDeckTab(companion, params));
   else if (pose === 'away') poseAway();
   await (await import('./assistant-pose')).strikeAssistantPose(companion, params);
 }

@@ -1,6 +1,6 @@
 [[permission]]
 identifier = "allow-companion-ui"
-description = "Allows the companion to connect to the core, place its window on the desktop or as the island, take clicks where it draws, read the music playing, register its shortcut, see the screen when asked, take the keyboard when files are dropped on it, open its settings and name the tray."
+description = "Allows the companion to connect to the core, place its window on the desktop or as the island, take clicks where it draws, read the music playing, register its shortcut, see the screen when asked, take the keyboard when files are dropped on it, open its settings and name the tray; and, for the deck's computer tabs, read the system's numbers, close a process, lock, sleep, restart or shut down the computer, list and open the Start menu's apps, keep a clipboard history in memory and copy an entry back, list and set wallpapers, and drive Wallpaper Engine."
 commands.allow = [
   "core_endpoint",
   "companion_monitors",
@@ -18,6 +18,27 @@ commands.allow = [
   "companion_keep",
   "bots_settings",
   "bots_tray_labels",
+  "computer_system",
+  "computer_close",
+  "computer_power",
+  "computer_apps",
+  "computer_app_icon",
+  "computer_app_open",
+  "computer_clipboard_watch",
+  "computer_clipboard_list",
+  "computer_clipboard_copy",
+  "computer_clipboard_remove",
+  "computer_clipboard_item",
+  "computer_wallpapers",
+  "computer_wallpaper_folder",
+  "computer_wallpaper_pick",
+  "computer_wallpaper_thumb",
+  "computer_wallpaper_set",
+  "computer_engine",
+  "computer_engine_thumb",
+  "computer_engine_apply",
+  "computer_engine_current",
+  "computer_engine_control",
 ]
 
 [[permission]]
