@@ -1,9 +1,11 @@
 /*
  * What the deck's tiles show, worked out without the page: the week around a
  * day, when the clock next turns, how many threads each machine of the group
- * runs, and how far the focus timer went. Pure, so tested with fixed dates.
+ * runs, how far the focus timer went, and the missions of the week. Pure, so
+ * tested with fixed dates.
  */
 import type { ThreadSummary } from '@boite/contracts';
+import { nextAt, type Mission } from '../companion/missions';
 import type { Pomodoro } from '../companion/pomodoro';
 
 export interface WeekDay {
@@ -85,4 +87,48 @@ export function timerShare(timer: Pick<Pomodoro, 'kind' | 'phase' | 'workMs' | '
   if (timer.kind === 'stopwatch') return (elapsed % 3_600_000) / 3_600_000;
   const total = timer.phase === 'break' ? timer.breakMs : timer.workMs;
   return total > 0 ? Math.min(1, Math.max(0, 1 - left / total)) : 0;
+}
+
+type Planned = Pick<Mission, 'repeat' | 'minutes' | 'due' | 'paused' | 'missing'>;
+const planned = (mission: Planned) => !mission.paused && !mission.missing;
+
+/** Midnight of a `YYYY-MM-DD` day, moved by `days`. */
+function midnight(key: string, days = 0): number {
+  const [year = 0, month = 1, date = 1] = key.split('-').map(Number);
+  return new Date(year, month - 1, date + days).getTime();
+}
+
+/**
+ * The days of `week` a mission runs on, from each one's next run on: the
+ * week's dots. Paused missions and the ones whose project is gone are left out.
+ */
+export function missionDays(missions: readonly Planned[], week: readonly Pick<WeekDay, 'key'>[]): Set<string> {
+  const days = new Set<string>();
+  const first = week[0];
+  const last = week[week.length - 1];
+  if (!first || !last) return days;
+  const start = midnight(first.key);
+  const end = midnight(last.key, 1);
+  for (const mission of missions) {
+    if (!planned(mission)) continue;
+    let at = mission.due;
+    if (at < start) {
+      if (mission.repeat.kind === 'once') continue;
+      at = nextAt(mission.repeat, mission.minutes, start - 1);
+    }
+    // A week holds seven runs at most.
+    for (let runs = 0; at < end && runs < 7; runs++) {
+      days.add(dayKey(new Date(at)));
+      if (mission.repeat.kind === 'once') break;
+      at = nextAt(mission.repeat, mission.minutes, at);
+    }
+  }
+  return days;
+}
+
+/** The mission that runs next, paused and lost ones left out; null without any. */
+export function nextMission<T extends Planned>(missions: readonly T[]): T | null {
+  let soonest: T | null = null;
+  for (const mission of missions) if (planned(mission) && (!soonest || mission.due < soonest.due)) soonest = mission;
+  return soonest;
 }

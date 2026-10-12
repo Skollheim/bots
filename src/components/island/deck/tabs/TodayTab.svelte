@@ -1,21 +1,26 @@
 <!--
   The deck's today tab: a big clock with the date, the week with today
-  marked, the focus timer (a ring, quick lengths, start, pause and reset,
-  the focus mode, and the break and focus cards), and the day's recap in big
-  numbers with the threads it counts. The music playing, if any, in a strip
-  at the bottom. The clock turns once a minute, only while the tab shows.
+  marked, a dot on each day a mission runs and the next mission under it, the
+  to-do list (`views/TodoCard.svelte`) with a ring counting the done ones, the
+  focus timer (a ring, quick lengths, start, pause and reset, the focus mode,
+  and the break and focus cards), and the day's recap in big numbers with the
+  threads it counts. The music playing, if any, in a strip at the bottom. The
+  clock turns once a minute, only while the tab shows.
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { Focus as FocusIcon, Pause, Play, RotateCcw } from '@lucide/svelte';
+  import { CalendarClock, Focus as FocusIcon, Pause, Play, RotateCcw } from '@lucide/svelte';
   import { formatLocale } from '@boite/ui/lib/i18n.svelte';
+  import { clockOf, whenText } from '../../../../lib/companion/mission-text';
   import { clock } from '../../../../lib/companion/pomodoro';
+  import { todoCount } from '../../../../lib/companion/todo';
   import { useView } from '../../../../lib/island/contract';
-  import { FOCUS_PRESETS, timerShare, untilNextMinute, weekOf } from '../../../../lib/island/deck-data';
+  import { dayKey, FOCUS_PRESETS, missionDays, nextMission, timerShare, untilNextMinute, weekOf } from '../../../../lib/island/deck-data';
   import { duration } from '../../../../lib/island/recap.svelte';
   import { fill, strings } from '../../../../lib/strings';
   import CompanionFocusCards from '../../../companion/CompanionFocusCards.svelte';
   import MusicStrip from '../../music/MusicStrip.svelte';
+  import TodoCard from '../../views/TodoCard.svelte';
   import DeckTile from '../DeckTile.svelte';
 
   const view = useView();
@@ -27,6 +32,7 @@
   /** The ring's radius, in the 100 × 100 box it is drawn in. */
   const RING = 44;
   const ROUND = 2 * Math.PI * RING;
+  const TODO_ROUND = 2 * Math.PI * 8;
 
   // The clock: read now, then again as each minute turns.
   let now = $state(Date.now());
@@ -48,6 +54,18 @@
   const period = $derived(parts.find((part) => part.type === 'dayPeriod')?.value ?? '');
   const date = $derived(new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(now));
   const week = $derived(weekOf(new Date(now), locale));
+
+  // The missions: a dot on the days they run, and the next one in a line.
+  const missionList = $derived(companion.missions.list);
+  const dotted = $derived(missionDays(missionList, week));
+  const coming = $derived(nextMission(missionList));
+  const comingWhen = $derived(coming ? (dayKey(new Date(coming.due)) === dayKey(new Date(now)) ? clockOf(coming.minutes) : whenText(coming.due)) : '');
+
+  // The to-do list's count, for the ring beside its heading.
+  const todoCopy = strings.companion.todo;
+  const todos = $derived(companion.todos);
+  const todo = $derived(todoCount(todos.items));
+  const todoText = $derived({ done: String(todo.done), total: String(todo.total) });
 
   // The focus timer.
   let chosen = $state<number>(untrack(() => (FOCUS_PRESETS as readonly number[]).includes(companion.prefs.workMinutes) ? companion.prefs.workMinutes : 25));
@@ -91,9 +109,39 @@
         <li class:today={day.today} aria-current={day.today ? 'date' : undefined}>
           <span class="day">{day.name}</span>
           <span class="number">{day.date}</span>
+          <i class="mission" class:on={dotted.has(day.key)} aria-hidden="true"></i>
+          {#if dotted.has(day.key)}<span class="unseen">{copy.missionDay}</span>{/if}
         </li>
       {/each}
     </ol>
+    {#if coming}
+      <p class="next" title={fill(copy.nextMissionLine, { when: comingWhen, prompt: coming.prompt })} data-testid="deck-next-mission">
+        <CalendarClock size={13} aria-hidden="true" />
+        <span class="label">{copy.nextMission}</span>
+        <span class="when">{comingWhen}</span>
+        <span class="prompt">{coming.prompt}</span>
+      </p>
+    {/if}
+  </DeckTile>
+
+  <DeckTile area="todo" heading={todoCopy.title} testid="deck-todo">
+    {#snippet aside()}
+      <span class="todo-aside">
+        {#if todo.total > 0}
+          <span class="todo-count" role="img" aria-label={fill(todoCopy.countLabel, todoText)}>
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <circle class="track" cx="10" cy="10" r="8" />
+              <circle class="fill" cx="10" cy="10" r="8" stroke-dasharray={TODO_ROUND} stroke-dashoffset={TODO_ROUND * (1 - todo.done / todo.total)} />
+            </svg>
+            <span aria-hidden="true">{fill(todoCopy.count, todoText)}</span>
+          </span>
+        {/if}
+        {#if todo.done > 0}
+          <button class="clear" onclick={() => todos.clearDone()} data-testid="deck-todo-clear">{todoCopy.clearDone}</button>
+        {/if}
+      </span>
+    {/snippet}
+    <div class="todo"><TodoCard /></div>
   </DeckTile>
 
   <DeckTile area="timer" heading={copy.focus} testid="deck-timer">
@@ -167,7 +215,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
-      'clock week week'
+      'clock week todo'
       'timer recap recap'
       'music music music';
     gap: var(--deck-gap);
@@ -245,6 +293,105 @@
     font-size: 20px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+  }
+  .week .mission {
+    width: 5px;
+    height: 5px;
+    margin-top: -1px;
+    border-radius: 50%;
+  }
+  .week .mission.on {
+    background: var(--deck-accent);
+  }
+  .unseen {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .next {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    margin: 0;
+    color: var(--island-muted);
+    font-size: 12.5px;
+  }
+  .next :global(svg) {
+    flex: none;
+    color: var(--deck-accent);
+  }
+  .next .label,
+  .next .when {
+    flex: none;
+  }
+  .next .when {
+    color: var(--island-text);
+    font-variant-numeric: tabular-nums;
+  }
+  .next .prompt {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--island-text);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .todo-aside {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .todo-count {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--island-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .todo-count svg {
+    width: 16px;
+    height: 16px;
+    transform: rotate(-90deg);
+  }
+  .todo-count circle {
+    fill: none;
+    stroke-width: 3;
+    stroke-linecap: round;
+  }
+  .todo-count .fill {
+    stroke: var(--island-done);
+  }
+  .clear {
+    height: auto;
+    padding: 0 2px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--island-muted);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .clear:hover {
+    color: var(--island-text);
+  }
+  /* The tile's heading says the list's title, count and clearing: the card's own goes. */
+  .todo :global(.head) {
+    display: none;
+  }
+  /* Three rows, then it scrolls; padded so the rows' wider hover stays inside. */
+  .todo :global(section ul) {
+    max-height: 82px;
+    margin-inline: -6px;
+    padding-inline: 6px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--island-line-strong) transparent;
   }
   .week .today {
     background: var(--deck-accent-soft);
@@ -348,6 +495,7 @@
   }
   .chip:focus-visible,
   .main:focus-visible,
+  .clear:focus-visible,
   .row:focus-visible {
     outline: 2px solid var(--deck-accent);
     outline-offset: 1px;

@@ -11,6 +11,9 @@
  *   agents' memory read (`music=…`, `timer=0` and `memory=…` win over these);
  *   pair it with `calm=1`, and with `pr=green` and `machines=1` for the
  *   threads tab's pull requests and machines;
+ * - `pose=away`: back at the keyboard after 52 minutes, the island opens on
+ *   the recap of the absence (`views/AwayCard.svelte`), made up here (pair it
+ *   with `calm=1`: the requests come first);
  * - `calm=1`: the requests the fake core starts with are answered first, so
  *   the tab shows without the amber card over it;
  * - `answer=permissions`: only the permissions are answered first, so the
@@ -29,8 +32,8 @@
  * - `update=nightly|stable`: a newer Boite in Home;
  * - `sessions=none`: Home's sessions shown empty, the robot napping (pair it
  *   with `calm=1`);
- * - `rest=live|quota|music|robot`: what the pill shows at rest (pair `music`
- *   with `music=playing`). A thread followed in the pill is chosen through
+ * - `rest=live|quota|music|timer|robot`: what the pill shows at rest (pair `music`
+ *   with `music=playing`, `timer` with `timer=1`). A thread followed in the pill is chosen through
  *   `localStorage` (`bots.followed`, `followed.ts`) before the page loads.
  * - `rule=1`: an "always allow" rule for the tests thread's command, which
  *   the fake core asks again a moment later: Bots answers it, the pill's
@@ -41,20 +44,26 @@
  *   « Corriger le gameplay » thread works among this machine's (`ask`: it
  *   asks to push two seconds in); read by the companion, the fake side in
  *   `fake-client/machines-demo.ts`.
+ * - `todo=1`: a to-do list in the today tab, one item ticked;
+ * - `mission=ask|list`: a mission waiting for the user's word, or three set
+ *   (one paused, one whose project is gone) for Settings.
  *
  * A wallpaper goes under the transparent window, so the black island shows.
  */
 import type { MemoryStatus } from '@boite/contracts';
 import type { Companion } from '../companion/companion.svelte';
+import { nextAt, type Repeat } from '../companion/missions';
 import { PILL_RESTS, writeCompanionPrefs, type PillRest } from '../companion/prefs';
 import { DEMO_COMMAND, DEMO_THREAD } from '../fake-client/allow-demo';
 import { isDeckTab } from './deck-tabs';
 import type { IslandFrame } from './frame.svelte';
 import { posed } from './posed.svelte';
+import { prLine } from './pr-checks';
 import type { PressureReason } from './pressure';
 import { unfolding } from './sessions.svelte';
 
 const GB = 1024 * 1024 * 1024;
+const MINUTE = 60_000;
 /** An original cover for the music poses: two soft circles on a dusk gradient. */
 const COVER =
   'data:image/svg+xml,' +
@@ -121,6 +130,52 @@ function poseMemory(reason: PressureReason | 'stopped'): void {
   posed.pressure = { reason, threadId: 'thr-demo', title: 'Unity build', bytes: 3.6 * GB, used: limits[0]!, limit: limits[1]! };
 }
 
+/** A short to-do list, the second item ticked. */
+function poseTodo(companion: Companion): void {
+  const texts = ['Relire la PR du lecteur audio', 'Répondre à Léa sur le planning', 'Tester la build Windows', 'Préparer la démo de vendredi'];
+  companion.todos.apply([{ kind: 'clear', all: true }, ...texts.map((text) => ({ kind: 'add' as const, text }))]);
+  companion.todos.apply([{ kind: 'done', index: 2 }]);
+}
+
+/** A mission waiting for the user's word (`ask`), or three set, one paused and one whose project is gone (`list`, for Settings). */
+function poseMissions(companion: Companion, kind: 'ask' | 'list'): void {
+  const found = [...companion.projects].find(([, name]) => companion.projectNames?.includes(name));
+  if (!found) return;
+  const project = { id: found[0], name: found[1] };
+  const now = Date.now();
+  const at = (repeat: Repeat, minutes: number) => ({ minutes, repeat, due: nextAt(repeat, minutes, now) });
+  const entries = [
+    { ...at({ kind: 'weekdays' }, 9 * 60), projectId: project.id, project: project.name, prompt: 'Lance les tests et résume les échecs de la nuit.' },
+    { ...at({ kind: 'weekly', day: 5 }, 17 * 60 + 30), projectId: project.id, project: project.name, prompt: 'Prépare les notes de version de la semaine.' },
+    { ...at({ kind: 'once' }, 22 * 60), projectId: 'p-gone', project: 'ancien-site', prompt: 'Archive les vieux journaux.' }
+  ];
+  companion.missions.pending = (kind === 'ask' ? entries.slice(0, 1) : entries).map((entry, index) => ({ ...entry, id: `mission-pose-${index}` }));
+  if (kind === 'ask') return;
+  for (const entry of entries.map((_, index) => `mission-pose-${index}`)) companion.missions.confirm(entry, now);
+  const weekly = companion.missions.list.findIndex((mission) => mission.repeat.kind === 'weekly');
+  if (weekly >= 0) void companion.missions.request([{ kind: 'pause', index: weekly + 1 }], now);
+}
+
+/** Back after 52 minutes: three threads ended (one failed), a PR went green, the guard warned, a reminder rang, the quota is low. */
+function poseAway(): void {
+  const back = Date.now();
+  const from = back - 52 * MINUTE;
+  const at = (minutes: number) => from + minutes * MINUTE;
+  posed.away = {
+    span: { from, back },
+    events: [
+      { kind: 'finish', at: at(9), threadId: 'thr-away-audio', title: 'Fix the audio player', failed: false },
+      { kind: 'memory', at: at(14), threadId: 'thr-demo', title: 'Unity build', program: null, machine: false },
+      { kind: 'finish', at: at(23), threadId: 'thr-away-docs', title: 'Translate the docs', failed: true },
+      { kind: 'pr', at: at(31), threadId: 'thr-away-audio', url: 'https://example.invalid/pr/12', text: prLine(12, 'passed', 'Fix the audio player', null).text, failed: false },
+      { kind: 'finish', at: at(40), threadId: 'thr-away-logs', title: 'Tidy the logs', failed: false }
+    ],
+    waiting: [{ threadId: 'thr-away-tests', title: 'Run the test suite', kind: 'question', since: at(18) }],
+    alarms: [{ id: 'rem-away', text: 'Call the bank', at: at(45) }],
+    quota: { name: 'Claude', left: 12 }
+  };
+}
+
 const WALLPAPER = 'html[data-companion] body { background: linear-gradient(160deg, #34466e, #7d6797 55%, #d49c78) !important; }';
 
 async function until(ready: () => boolean, tries = 60): Promise<void> {
@@ -168,6 +223,9 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     posed.release = { version, track: update, url: '', publishedAt: null };
   }
   if (params.get('sessions') === 'none') posed.idle = true;
+  if (params.get('todo') === '1') poseTodo(companion);
+  const mission = params.get('mission');
+  if (mission === 'ask' || mission === 'list') poseMissions(companion, mission);
   const rest = params.get('rest') as PillRest | null;
   if (rest && PILL_RESTS.includes(rest)) companion.prefs = { ...companion.prefs, pillRest: rest };
   if (params.get('rule') === '1') {
@@ -180,5 +238,6 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     companion.pointerOn = true;
   } else if (pose === 'open' || deck) frame.show(isDeckTab(tab) ? tab : 'threads');
   else if (pose === 'desktop') companion.prefs = { ...companion.prefs, robots: 'desktop' };
+  else if (pose === 'away') poseAway();
   await (await import('./assistant-pose')).strikeAssistantPose(companion, params);
 }

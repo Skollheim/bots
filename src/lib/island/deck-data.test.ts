@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { dayKey, machineLoads, timerShare, untilNextMinute, weekOf } from './deck-data';
+import { dayKey, machineLoads, missionDays, nextMission, timerShare, untilNextMinute, weekOf } from './deck-data';
 
 test('the week runs Monday to Sunday around the day, today marked, across a month', () => {
   // Thursday 1 October 2026.
@@ -49,4 +49,28 @@ test('the focus ring fills with the phase, a stopwatch over the hour', () => {
   expect(timerShare({ ...work, phase: 'break' }, 60_000, 0)).toBeCloseTo(0.8);
   expect(timerShare({ ...work, kind: 'stopwatch' }, 0, 90 * 60_000)).toBeCloseTo(0.5);
   expect(timerShare({ ...work, workMs: 0 }, 0, 0)).toBe(0);
+});
+
+test("the week's dots mark the days a mission runs on, from its next run", () => {
+  // Wednesday 14 October 2026: the week runs from Monday 12 to Sunday 18.
+  const week = weekOf(new Date(2026, 9, 14, 10), 'en-GB');
+  const at = (date: number, hour: number) => new Date(2026, 9, date, hour).getTime();
+  const mission = (repeat: Parameters<typeof missionDays>[0][number]['repeat'], due: number, more = {}) => ({ repeat, minutes: new Date(due).getHours() * 60, due, paused: false, missing: false, ...more });
+  const days = (missions: Parameters<typeof missionDays>[0]) => [...missionDays(missions, week)].sort();
+  expect(days([mission({ kind: 'daily' }, at(15, 9))])).toEqual(['2026-10-15', '2026-10-16', '2026-10-17', '2026-10-18']);
+  expect(days([mission({ kind: 'weekdays' }, at(15, 8))])).toEqual(['2026-10-15', '2026-10-16']);
+  expect(days([mission({ kind: 'weekly', day: 5 }, at(16, 18))])).toEqual(['2026-10-16']);
+  expect(days([mission({ kind: 'once' }, at(17, 7)), mission({ kind: 'once' }, at(20, 7))])).toEqual(['2026-10-17']);
+  // Late since last week: it runs again from Monday on.
+  expect(days([mission({ kind: 'weekly', day: 1 }, at(5, 9))])).toEqual(['2026-10-12']);
+  expect(days([mission({ kind: 'once' }, at(5, 9))])).toEqual([]);
+  expect(days([mission({ kind: 'daily' }, at(15, 9), { paused: true }), mission({ kind: 'daily' }, at(15, 9), { missing: true })])).toEqual([]);
+  expect(missionDays([mission({ kind: 'daily' }, at(15, 9))], []).size).toBe(0);
+});
+
+test('the next mission is the soonest one planned', () => {
+  const mission = (id: string, due: number, more = {}) => ({ id, repeat: { kind: 'daily' as const }, minutes: 0, due, paused: false, missing: false, ...more });
+  expect(nextMission([])).toBeNull();
+  expect(nextMission([mission('late', 300), mission('soon', 100, { paused: true }), mission('next', 200), mission('gone', 50, { missing: true })])?.id).toBe('next');
+  expect(nextMission([mission('off', 100, { paused: true })])).toBeNull();
 });

@@ -7,12 +7,15 @@
   controls on the right: the quotas, the pin, Settings and the sound.
 
   Under it, what calls the user comes first, over any tab: the memory
-  guard's warning and the requests waiting (`MemoryCard`, `AttentionCard`).
+  guard's warning, the requests waiting (`MemoryCard`, `AttentionCard`),
+  the missions a reply asks to schedule (`CompanionMissionCards`) and, back
+  after a long absence, what happened meanwhile (`AwayCard`).
   Then the tab, alone mounted; another one cross-fades in with a short slide
   the way the bar was travelled. Files dragged over the deck show where they
   go on top of any tab; dropped, the deck turns to the chat (`Island.svelte`).
 -->
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import { cubicOut } from 'svelte/easing';
   import { FilePlus, Pin, PinOff, Settings, Volume2, VolumeX } from '@lucide/svelte';
   import type { Companion, Member } from '../../../lib/companion/companion.svelte';
@@ -23,6 +26,7 @@
   import type { IslandFrame } from '../../../lib/island/frame.svelte';
   import { fill, strings } from '../../../lib/strings';
   import CompanionCharacter from '../../companion/CompanionCharacter.svelte';
+  import CompanionMissionCards from '../../companion/CompanionMissionCards.svelte';
   import QuotasPill from '../assistant/QuotasPill.svelte';
   import AttentionCard from '../views/AttentionCard.svelte';
   import MemoryCard from '../views/MemoryCard.svelte';
@@ -44,9 +48,11 @@
     reduced: boolean;
     /** The most the tab below the bar takes before it scrolls. */
     room: number;
+    /** Shown under the requests, over the tab: the recap of an absence. */
+    notice?: Snippet;
   }
 
-  let { companion, frame, lead, cheering, reduced, room }: Props = $props();
+  let { companion, frame, lead, cheering, reduced, room, notice }: Props = $props();
 
   const copy = strings.island;
   const PANES = { threads: ThreadsTab, today: TodayTab, chat: ChatTab, stats: StatsTab, music: MusicTab, apps: AppsTab, clipboard: ClipboardTab, wallpaper: WallpaperTab, system: SystemTab } as const;
@@ -169,6 +175,8 @@
 <div class="body" style:max-height="{room}px">
   <MemoryCard />
   {#if companion.blocking > 0}<AttentionCard />{/if}
+  {#if companion.missions.pending.length > 0}<CompanionMissionCards missions={companion.missions} />{/if}
+  {@render notice?.()}
   <div class="stage" id="deck-panel" role="tabpanel" aria-labelledby="deck-tab-{tab}" data-tab={tab} data-testid="deck-panel">
     {#each [tab] as current (current)}
       {@const Pane = PANES[current]}

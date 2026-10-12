@@ -265,7 +265,10 @@ export const fr: Messages = {
         filesOne: 'fichier modifié',
         filesMany: 'fichiers modifiés',
         time: 'temps d’agent',
-        none: 'Aucun fil terminé aujourd’hui pour l’instant.'
+        none: 'Aucun fil terminé aujourd’hui pour l’instant.',
+        missionDay: 'une mission prévue',
+        nextMission: 'Prochaine mission',
+        nextMissionLine: 'Prochaine mission {when} : {prompt}'
       },
       chat: {
         attach: 'Fichiers et captures'
@@ -288,6 +291,34 @@ export const fr: Messages = {
         emptyHint: 'Lancez quelque chose dans Spotify ou un autre lecteur : cela s’affiche ici.',
         lyricsOff: 'Les paroles sont désactivées.'
       }
+    },
+    /** Ce qui s’est passé pendant que personne n’était au clavier (`views/AwayCard.svelte`, `away.ts`). */
+    away: {
+      title: 'Pendant votre absence',
+      gone: '{span} d’absence',
+      ok: 'OK',
+      okTitle: 'Fermer le récapitulatif',
+      lines: 'Ce qui s’est passé',
+      waiting: {
+        permission: '« {title} » attend votre accord depuis {time}',
+        question: '« {title} » a une question pour vous depuis {time}',
+        answer: '« {title} » a répondu il y a {time}, non lu',
+        failed: '« {title} » a échoué il y a {time}, non lu'
+      },
+      othersWaiting: '{count} autres fils vous attendent',
+      finishedOne: '« {title} » est terminé',
+      failedOne: '« {title} » a échoué',
+      finishedMany: '{count} fils terminés : {titles}',
+      failedMany: '{count} fils ont échoué : {titles}',
+      more: '+{count}',
+      alarm: 'Rappel : {text}',
+      quotaLow: '{name} : {left} % restants',
+      quotaOut: '{name} : quota épuisé',
+      memoryWarned: 'Garde mémoire : « {title} » a frôlé sa limite',
+      memoryMachine: 'Garde mémoire : votre PC a manqué de mémoire',
+      memoryStopped: 'Garde mémoire : Boite a arrêté {program} dans « {title} »',
+      open: 'Ouvrir',
+      span: { minutes: '{m} min', hours: '{h} h', hoursMinutes: '{h} h {m}' }
     }
   },
 
@@ -426,6 +457,34 @@ export const fr: Messages = {
       noAgent: 'Aucun agent ne peut prendre ce fil. Connectez-en un dans Boite.',
       failed: 'Le fil n’a pas pu être lancé : {reason}'
     },
+    mission: {
+      confirmTitle: 'Programmer une mission dans {project} ?',
+      schedule: 'Programmer',
+      cancel: 'Annuler',
+      scheduled: 'Mission programmée dans {project} : {when}.',
+      launched: 'Mission lancée dans {project}',
+      late: 'Mission en retard lancée dans {project}',
+      missed: 'Une mission a été sautée pendant que B.O.T.S était éteint : {prompt}',
+      gone: 'Une mission n’a pas tourné, son projet {project} n’existe plus : {prompt}',
+      past: 'Cette heure est déjà passée : aucune mission n’a été programmée.',
+      noSuch: 'Il n’y a pas de mission {index}.',
+      failed: 'La mission n’a pas pu être programmée : {reason}',
+      once: 'Une fois, {when}',
+      daily: 'Tous les jours à {time}',
+      weekdays: 'En semaine à {time}',
+      weekly: 'Chaque {day} à {time}'
+    },
+    todo: {
+      title: 'À faire',
+      count: '{done}/{total}',
+      countLabel: '{done} sur {total} terminées',
+      placeholder: 'Ajoutez une tâche, ou demandez à B.O.T.S',
+      add: 'Ajouter',
+      check: 'Marquer comme faite : {text}',
+      uncheck: 'Marquer comme à faire : {text}',
+      remove: 'Retirer {text}',
+      clearDone: 'Effacer les terminées'
+    },
     reply: {
       action: 'Répondre d’ici',
       label: 'Votre réponse à {title}',
@@ -521,6 +580,8 @@ export const fr: Messages = {
       hideFullscreenHint: 'B.O.T.S s’efface quand un jeu ou une vidéo occupe tout son écran, puis revient. Le raccourci l’appelle quand même.',
       sounds: 'Sons',
       soundsHint: 'De petits carillons quand une réponse arrive, qu’un agent a besoin de vous ou qu’un rappel sonne.',
+      awayRecap: 'Récapitulatif à votre retour',
+      awayRecapHint: 'De retour après 15 minutes d’absence ou plus, l’île vous dit ce qui s’est terminé, ce qui vous attend et ce qui a sonné entre-temps.',
       radar: 'Fils en attente',
       radarHint: 'Quand des fils vous attendent depuis ce temps (une autorisation, une question, une réponse non lue), B.O.T.S vous le dit et ouvre le premier d’un clic.',
       radarOff: 'Désactivé',
@@ -535,8 +596,8 @@ export const fr: Messages = {
       openOnHoverHint: 'Laisser le pointeur un instant sur l’île l’ouvre. Désactivé, seul un clic l’ouvre.',
       pillRest: 'Pilule au repos',
       pillRestHint: 'Ce que montre l’île fermée quand rien d’autre ne la demande. Les demandes et les fils terminés passent toujours devant.',
-      pillRests: { live: 'Ligne en direct', quota: 'Quota', music: 'Musique', robot: 'Robot seul' },
-      pillRestHints: { live: 'Le fil au travail et ce qu’il fait', quota: 'Le quota où il reste le moins', music: 'Titre et artiste de ce qui joue, sinon la ligne en direct', robot: 'Une pilule courte, sans texte' },
+      pillRests: { live: 'Ligne en direct', quota: 'Quota', music: 'Musique', timer: 'Minuteur', robot: 'Robot seul' },
+      pillRestHints: { live: 'Le fil au travail et ce qu’il fait', quota: 'Le quota où il reste le moins', music: 'Titre et artiste de ce qui joue, sinon la ligne en direct', timer: 'Le minuteur ou le pomodoro en cours, sinon la ligne en direct', robot: 'Une pilule courte, sans texte' },
       mascot: 'Mascotte',
       mascotHint: 'Le robot de l’île, et celui du premier agent sur le bureau. Choisissez un style, puis personnalisez-le.',
       mascotReset: 'Reprendre l’allure du premier agent',
@@ -561,6 +622,15 @@ export const fr: Messages = {
       reminders: 'Rappels',
       remindersEmpty: 'Aucun rappel. Demandez à B.O.T.S, par exemple : rappelle-moi à 18 h d’appeler Paul.',
       removeReminder: 'Annuler ce rappel',
+      missions: 'Missions programmées',
+      missionsHint: 'Des fils que B.O.T.S lance seul à l’heure dite, dans le projet nommé. Demandez-le-lui, par exemple : tous les jours à 9 h, résume les PR de la nuit dans boite.',
+      missionsEmpty: 'Aucune mission programmée.',
+      missionNext: 'Prochaine : {when}',
+      missionPaused: 'En pause',
+      missionGone: 'Projet disparu : cette mission ne tournera pas',
+      pauseMission: 'Mettre cette mission en pause',
+      resumeMission: 'Reprendre cette mission',
+      removeMission: 'Supprimer cette mission',
       warmOff: 'Chaque réponse redémarre l’agent, ce qui prend quelques secondes. Pour le garder chargé entre deux réponses, réglez Minutes de processus gardé chaud dans les réglages de Boite, section Avancé.',
       warmOn: 'Les agents restent chargés {minutes} min après une réponse, la suivante arrive donc plus vite.'
     }
