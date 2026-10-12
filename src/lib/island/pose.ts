@@ -4,7 +4,13 @@
  *
  * - `pose=collapsed|peek|open|desktop`: the island's size, or the robots loose
  *   on the desktop;
- * - `tab=home|chat|drop`: the tab the open island shows;
+ * - `tab=<id>`: the deck's tab the open island shows, one of `deck-tabs.ts`
+ *   (threads, today, chat, stats, music, apps, clipboard, wallpaper, system);
+ * - `pose=deck&tab=<id>`: the deck open on that tab, filled for its capture:
+ *   a track playing with its cover and lyrics, a pomodoro running and the
+ *   agents' memory read (`music=…`, `timer=0` and `memory=…` win over these);
+ *   pair it with `calm=1`, and with `pr=green` and `machines=1` for the
+ *   threads tab's pull requests and machines;
  * - `calm=1`: the requests the fake core starts with are answered first, so
  *   the tab shows without the amber card over it;
  * - `answer=permissions`: only the permissions are answered first, so the
@@ -38,10 +44,12 @@
  *
  * A wallpaper goes under the transparent window, so the black island shows.
  */
+import type { MemoryStatus } from '@boite/contracts';
 import type { Companion } from '../companion/companion.svelte';
 import { PILL_RESTS, writeCompanionPrefs, type PillRest } from '../companion/prefs';
 import { DEMO_COMMAND, DEMO_THREAD } from '../fake-client/allow-demo';
-import { ISLAND_TABS, type IslandFrame, type IslandTab } from './frame.svelte';
+import { isDeckTab } from './deck-tabs';
+import type { IslandFrame } from './frame.svelte';
 import { posed } from './posed.svelte';
 import type { PressureReason } from './pressure';
 import { unfolding } from './sessions.svelte';
@@ -140,11 +148,20 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     const notice = companion.notes.notices.find((entry) => entry.threadId === reply);
     if (notice) companion.notes.answer(notice.id);
   }
-  const music = params.get('music');
-  if (music === 'playing' || music === 'paused' || music === 'bare') poseMusic(companion, music !== 'paused', music === 'bare' ? null : COVER, params.get('lyrics') === '1');
-  if (params.get('timer') === '1') companion.startTimer();
+  const pose = params.get('pose');
+  const deck = pose === 'deck';
+  const music = params.get('music') ?? (deck ? 'playing' : null);
+  if (music === 'playing' || music === 'paused' || music === 'bare') poseMusic(companion, music !== 'paused', music === 'bare' ? null : COVER, deck || params.get('lyrics') === '1');
+  const timer = params.get('timer');
+  if (timer === '1' || (deck && timer !== '0')) {
+    companion.startTimer();
+    // Some minutes in, so the ring shows a part done.
+    const current = companion.timer.current;
+    if (current) companion.timer.current = { ...current, endsAt: current.endsAt - 9 * 60_000 };
+  }
   const memory = params.get('memory');
   if (memory === 'thread' || memory === 'budget' || memory === 'machine' || memory === 'stopped') poseMemory(memory);
+  if (deck) posed.memory = { state: 'ok', agentBytes: 3.4 * GB, availableBytes: 11.2 * GB, limits: { budgetMb: 8192, threadMemoryCapMb: 4096, memoryReserveMb: 1024 } } as MemoryStatus;
   const update = params.get('update');
   if (update === 'nightly' || update === 'stable') {
     const version = update === 'nightly' ? '2.0.0-nightly.20261011.1' : '2.0.0';
@@ -157,12 +174,11 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     const request = { id: 'perm-rule-pose', threadId: DEMO_THREAD, turnId: '', toolName: 'Bash', input: { command: DEMO_COMMAND }, description: '', createdAt: Date.now() };
     companion.rules.add(request, 'thread', companion.threads, companion.projects);
   }
-  const pose = params.get('pose');
-  const tab = params.get('tab') as IslandTab | null;
+  const tab = params.get('tab');
   if (pose === 'peek') {
     companion.prefs = { ...companion.prefs, openOnHover: false };
     companion.pointerOn = true;
-  } else if (pose === 'open') frame.show(tab && ISLAND_TABS.includes(tab) ? tab : 'home');
+  } else if (pose === 'open' || deck) frame.show(isDeckTab(tab) ? tab : 'threads');
   else if (pose === 'desktop') companion.prefs = { ...companion.prefs, robots: 'desktop' };
   await (await import('./assistant-pose')).strikeAssistantPose(companion, params);
 }

@@ -29,7 +29,6 @@ export const strings = {
   /** The island hanging from the top of the screen (`components/island/`). */
   island: {
     label: 'B.O.T.S',
-    tabs: { home: 'Home', chat: 'Chat', drop: 'Drop' },
     settings: 'Settings',
     mute: 'Mute the sounds',
     unmute: 'Turn the sounds on',
@@ -83,12 +82,6 @@ export const strings = {
     },
     talking: '{name} is answering…',
     robot: '{name}. Click to poke it, drag it out to set it loose on the desktop.',
-    home: {
-      busy: 'At work',
-      none: 'No agent at work right now.',
-      reminders: 'Reminders and news',
-      focus: 'Focus'
-    },
     chat: {
       empty: 'Ask your bots anything: they answer here.',
       to: 'Talk to',
@@ -253,6 +246,69 @@ export const strings = {
       openTitle: 'Opens Boite on its app updates, where it installs',
       manual: 'Install it from Boite: Settings › Machines and updates › App updates.',
       later: 'Later'
+    },
+    /** The open island, the deck: its tab bar and Boite's tabs (`components/island/deck/`). */
+    deck: {
+      tablist: 'Deck tabs',
+      tabs: {
+        threads: 'Threads',
+        today: 'Today',
+        chat: 'Chat',
+        stats: 'Stats',
+        music: 'Music',
+        apps: 'Apps',
+        clipboard: 'Clipboard',
+        wallpaper: 'Wallpapers',
+        system: 'System'
+      },
+      playing: 'Music playing',
+      drop: 'Drop to add them to your next message',
+      threads: {
+        prs: 'Pull requests',
+        ci: { pending: 'CI running', passed: 'CI green', failed: 'CI failed', none: 'No checks' },
+        machines: 'Machines',
+        here: 'This PC',
+        working: '{count} at work',
+        idle: 'Nothing at work',
+        offline: 'Not connected'
+      },
+      today: {
+        clock: '{time}, {date}',
+        week: 'This week',
+        focus: 'Focus timer',
+        idle: 'Pick a length to start',
+        preset: '{minutes} min',
+        presetTitle: 'Start {minutes} min of work, then a {rest} min break',
+        reset: 'Reset',
+        recap: 'Today',
+        threadsOne: 'thread done',
+        threadsMany: 'threads done',
+        filesOne: 'file changed',
+        filesMany: 'files changed',
+        time: 'agent time',
+        none: 'No thread finished today yet.'
+      },
+      chat: {
+        attach: 'Files and captures'
+      },
+      stats: {
+        quotas: 'Quotas',
+        noQuotas: 'No quota read yet.',
+        resets: 'resets in {time}',
+        day: 'Agents today',
+        memory: 'Memory',
+        memoryWaiting: 'Not read yet.',
+        used: 'used by the agents',
+        of: 'of {budget}',
+        noBudget: 'No budget set',
+        free: '{size} free on this PC',
+        tokens: 'tokens used by your threads'
+      },
+      music: {
+        empty: 'Nothing playing',
+        emptyHint: 'Play something in Spotify or another player: it shows here.',
+        lyricsOff: 'Lyrics are off.'
+      }
     }
   },
 

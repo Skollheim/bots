@@ -112,3 +112,22 @@ export function sizeText(bytes: number, units: { mb: string; gb: string; point: 
 export function samePressure(a: Pressure | null, b: Pressure | null): boolean {
   return a === b || (a !== null && b !== null && a.reason === b.reason && a.threadId === b.threadId);
 }
+
+/** The deck's memory gauge: what the agents hold, the share of their budget (null without one), the machine's free memory. */
+export interface MemoryGauge {
+  used: number;
+  budget: number | null;
+  /** 0 to 1, the share of the budget used; null without a budget. */
+  share: number | null;
+  available: number | null;
+  /** Where the needle stands: calm, near the warning, or past it. */
+  tone: 'ok' | 'amber' | 'red';
+}
+
+export function memoryGauge(status: MemoryStatus): MemoryGauge {
+  const budget = status.limits.budgetMb > 0 ? status.limits.budgetMb * MB : null;
+  const share = budget === null ? null : Math.min(1, Math.max(0, status.agentBytes / budget));
+  const near = guardOff(status) ? 0 : nearness(status);
+  const tone = status.state === 'critical' || near >= WARN_SHARE ? 'red' : near >= NEAR_SHARE ? 'amber' : 'ok';
+  return { used: status.agentBytes, budget, share, available: status.availableBytes, tone };
+}

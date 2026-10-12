@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import type { MemoryEvent, MemoryStatus } from '@boite/contracts';
-import { CALM_SHARE, guardOff, heaviest, NEAR_SHARE, nearness, pressureOf, samePressure, sizeText, stoppedOf, type AgentLoad } from './pressure';
+import { CALM_SHARE, guardOff, heaviest, memoryGauge, NEAR_SHARE, nearness, pressureOf, samePressure, sizeText, stoppedOf, type AgentLoad } from './pressure';
 
 const MB = 1024 * 1024;
 const GB = 1024 * MB;
@@ -79,4 +79,14 @@ test('a warning is the same while its reason and conversation are, whatever the 
   expect(samePressure(a, b)).toBe(true);
   expect(samePressure(a, pressureOf(status({ agentBytes: 7 * GB }), [agent('b', 2 * GB)]))).toBe(false);
   expect(samePressure(a, null)).toBe(false);
+});
+
+test("the deck's gauge reads the agents against their budget, and turns as the warning nears", () => {
+  const calm = memoryGauge(status());
+  expect([calm.used, calm.budget, calm.share, calm.available, calm.tone]).toEqual([2 * GB, 8 * GB, 0.25, 16 * GB, 'ok']);
+  expect(memoryGauge(status({ agentBytes: 6 * GB })).tone).toBe('amber');
+  expect(memoryGauge(status({ agentBytes: 7.5 * GB })).tone).toBe('red');
+  expect(memoryGauge(status({ agentBytes: 12 * GB })).share).toBe(1);
+  const off = memoryGauge(status({ agentBytes: 3 * GB }, { budgetMb: 0, threadMemoryCapMb: 0, memoryReserveMb: 0 }));
+  expect([off.budget, off.share, off.tone]).toEqual([null, null, 'ok']);
 });

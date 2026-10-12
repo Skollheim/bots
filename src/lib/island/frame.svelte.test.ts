@@ -94,6 +94,18 @@ test('the shortcut opens on a tab', () => {
   expect([state.open, frame.tab]).toEqual([true, 'chat']);
 });
 
+test('the deck opens on the last tab used, and keeps each tab chosen once', () => {
+  const kept: string[] = [];
+  const link: FrameSource = { isOpen: () => false, setOpen: () => {}, openOnHover: () => false, waiting: () => false, talking: () => false, lastTab: () => 'music', keepTab: (tab) => kept.push(tab) };
+  const frame = new IslandFrame(link);
+  expect(frame.tab).toBe('music');
+  frame.pick('music');
+  frame.pick('stats');
+  frame.show('chat');
+  expect([frame.tab, kept]).toEqual(['chat', ['stats', 'chat']]);
+  expect(source().frame.tab).toBe('threads');
+});
+
 test('a failure peeks red, and a plain flash meanwhile keeps it red', () => {
   const { frame } = source();
   frame.flash(true);
