@@ -91,6 +91,8 @@ export interface CompanionHost {
   focusInput(): void;
   /** The shortcut was pressed. */
   summoned?(): void;
+  /** The island is pinned open: a click outside leaves it open. */
+  pinned?(): boolean;
 }
 
 export class Companion {
@@ -309,7 +311,7 @@ export class Companion {
     this.senses = new Senses({
       hover: () => this.talks.forEach((talk) => talk.hold()),
       outside: () => {
-        if (this.prefs.closeOutside && this.open) this.close();
+        if (this.prefs.closeOutside && this.open && !this.host.pinned?.()) this.close();
       },
       summon: () => this.summon(),
       input: (at) => this.reactions.sign(at)

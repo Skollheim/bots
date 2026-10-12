@@ -9,7 +9,7 @@
  * and the quota are read as they are now. Nothing to tell: no card.
  *
  * In order: the threads that wait for the user, the threads that finished or
- * failed, the pull requests, the reminders, the tightest quota when low, the
+ * failed, the pull requests, the reminders, the quota left when low, the
  * memory guard.
  */
 import type { RadarKind } from '../companion/watch';
@@ -51,7 +51,7 @@ export interface AwayAlarm {
 
 export interface AwayQuota {
   name: string;
-  /** Percent left of the tightest window. */
+  /** Percent left of the subscription's tightest window, the one the pill shows. */
   left: number;
 }
 

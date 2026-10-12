@@ -1,6 +1,6 @@
 import type { AccountQuota, AccountQuotaGateway } from '@boite/contracts';
 import { expect, test, vi } from 'vitest';
-import { compactCount, QuotaWatch, quotaAccounts, resetIn, tightest, toneOf, tokensOf } from './quotas.svelte';
+import { compactCount, QuotaWatch, quotaAccounts, resetIn, headroom, toneOf, tokensOf } from './quotas.svelte';
 
 const HOUR = 3_600_000;
 
@@ -31,7 +31,7 @@ test('the accounts come tightest first, each with its windows tightest first', (
   expect(accounts.map((account) => account.id)).toEqual(['tight', 'roomy']);
   expect(accounts[0]!.bars.map((bar) => bar.left)).toEqual([19, 80]);
   expect(accounts[0]!.tone).toBe('amber');
-  expect(tightest(accounts)).toMatchObject({ account: { id: 'tight' }, bar: { label: 'Weekly', left: 19 } });
+  expect(headroom(accounts)).toMatchObject({ account: { id: 'roomy' }, bar: { label: 'Weekly', left: 60 } });
 });
 
 test('rows that say nothing are left out, and nothing left means no pill', () => {
@@ -42,7 +42,7 @@ test('rows that say nothing are left out, and nothing left means no pill', () =>
     row('empty', [])
   ]);
   expect(accounts).toEqual([]);
-  expect(tightest(accounts)).toBeNull();
+  expect(headroom(accounts)).toBeNull();
 });
 
 test('a share used past the limit reads as nothing left, never below zero', () => {
@@ -61,8 +61,15 @@ test('the proxy entries come in the same rows, as left, and Settings can leave t
   expect(all[0]!.bars[0]!.resetsAt).toBe(HOUR);
   const kept = quotaAccounts(rows, { shown: true, hidden: ['claude:pro'] });
   expect(kept.map((account) => account.id)).toEqual(['proxy:claude:max', 'core']);
-  expect(tightest(kept)?.bar.left).toBe(36);
+  expect(headroom(kept)?.bar.left).toBe(70);
   expect(quotaAccounts(rows, { shown: false, hidden: [] })).toEqual([]);
+});
+
+test('the pill shows the room left where the work can go: each provider by its roomiest subscription, the provider with the least room', () => {
+  const codex = { providerId: 'codex', providerName: 'Codex' };
+  const accounts = quotaAccounts([row('spent', [0, 100]), row('roomy', [57, 52]), row('codex', [1], codex)]);
+  expect(headroom(accounts)).toMatchObject({ account: { id: 'roomy' }, bar: { label: '5 hours', left: 43 } });
+  expect(headroom(quotaAccounts([row('spent', [0, 100]), row('codex', [1], codex)]))).toMatchObject({ account: { id: 'spent' }, bar: { left: 0 } });
 });
 
 test('the reset time reads in minutes, hours or days, and not at all once past', () => {
@@ -93,10 +100,10 @@ test('the watch reads the core, then takes what it pushes', async () => {
   const watch = new QuotaWatch();
   const stop = watch.follow(client as never);
   await vi.waitFor(() => expect(watch.read).toBe(true));
-  expect(watch.tightest?.bar.left).toBe(50);
+  expect(watch.headroom?.bar.left).toBe(50);
   await vi.waitFor(() => expect(tokensOf(watch.usage)).toBe(10));
   handlers.get('quotas.updated')!([row('a', [95])]);
-  expect(watch.tightest?.bar.tone).toBe('red');
+  expect(watch.headroom?.bar.tone).toBe('red');
   stop();
   expect(handlers.size).toBe(0);
 });

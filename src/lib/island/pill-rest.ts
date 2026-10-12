@@ -2,7 +2,7 @@
  * What the collapsed pill shows when nothing else claims it: requests, a
  * thread that just ended and the peek's status always come first
  * (`IslandBar.svelte`). Settings chooses (`CompanionPrefs.pillRest`): the live
- * line of the session at work, the quota with the least left, what plays
+ * line of the session at work, the quota left (`headroom`), what plays
  * (else the live line), the running timer (else the live line), or the robot
  * alone in a short pill. A thread the
  * user follows (`followed.ts`) keeps its line, ended or at rest too. The wheel

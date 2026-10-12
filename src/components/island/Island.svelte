@@ -278,7 +278,7 @@
 
   function awayFacts(span: AwaySpan, events: readonly AwayEvent[], now: number): AwayFacts {
     const pose = posing ? posed.away : null;
-    const tight = awayQuotas.tightest;
+    const tight = awayQuotas.headroom;
     const input = { threads: companion.threads, permissions: companion.permissions, questions: companion.questions, projects: companion.projects, own: companion.ownThreads };
     return {
       from: span.from,

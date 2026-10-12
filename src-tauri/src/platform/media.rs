@@ -35,9 +35,10 @@ pub(crate) fn position_now(reported: f64, since: f64, playing: bool, duration: f
     moved.clamp(0.0, duration.max(0.0))
 }
 
-/// The longer side of a cover as the page gets it: the pill shows it at 28 px.
+/// The longer side of a cover as the page gets it: the music tab shows it at
+/// 168 px, sharp on a screen scaled up to 200 %. The pill's is 28 px.
 #[cfg_attr(not(windows), allow(dead_code))]
-pub(crate) const ART_SIDE: u32 = 96;
+pub(crate) const ART_SIDE: u32 = 336;
 
 /// A session can hand the previous track's cover for a moment after the
 /// track changes: a new track's cover is read once more after this long.

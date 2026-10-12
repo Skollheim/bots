@@ -41,7 +41,8 @@
     // Once the frame is drawn, and without scrolling: focusing a field lays the page out, which earlier would come twice.
     focusInput: () =>
       requestAnimationFrame(() => setTimeout(() => document.querySelector<HTMLElement>('.assistant-input, .askbar input')?.focus({ preventScroll: true }))),
-    summoned: () => frame.show('chat')
+    summoned: () => frame.show('chat'),
+    pinned: () => frame.pinned
   });
   const frame = new IslandFrame({
     isOpen: () => companion.open,

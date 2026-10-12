@@ -1,6 +1,7 @@
 <!--
   The quotas at a glance, in the island's tab bar so they show on every tab:
-  the least left across the subscriptions as a small pill (amber under a
+  the room left where the work can still go (each provider's roomiest
+  subscription, `headroom`) as a small pill (amber under a
   quarter, red under a tenth), and on a click every account with a bar per
   window, and when it resets, then the tokens the threads used. The core's
   `quotas.list`, `quotas.updated` and `usage.get` only: the list carries the
@@ -26,7 +27,7 @@
   let panel = $state<HTMLDivElement | null>(null);
   let now = $state(Date.now());
 
-  const top = $derived(watch.tightest);
+  const top = $derived(watch.headroom);
   const own = $derived(watch.accounts.filter((account) => !account.proxy));
   const proxy = $derived(watch.accounts.filter((account) => account.proxy));
   const tokens = $derived(tokensOf(watch.usage));

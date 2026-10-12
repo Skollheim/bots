@@ -1,6 +1,7 @@
 /*
- * The island's quotas pill: what is left of the tightest subscription window,
- * and per account, a bar for each window with its reset time. Everything comes
+ * The island's quotas pill: the room left where the work can still go (each
+ * provider's roomiest subscription, the provider with the least room), and per
+ * account, a bar for each window with its reset time. Everything comes
  * from the core: `quotas.list` on open and every few minutes, `quotas.updated`
  * when the core reads them again, and `usage.get` for the tokens the threads used.
  * The subscription proxy's entries come in the same rows; Home's phase 1 card,
@@ -34,6 +35,7 @@ export interface QuotaAccount {
   id: string;
   name: string;
   provider: string;
+  providerId: string;
   /** An entry of the subscription proxy (Douane) rather than a Boite account. */
   proxy: boolean;
   bars: QuotaBar[];
@@ -83,16 +85,23 @@ export function quotaAccounts(rows: AccountQuota[], keep: QuotaKeep = KEEP_ALL):
         })
         .sort((a, b) => a.left - b.left);
       const left = bars[0]?.left ?? 100;
-      return { id: row.accountId, name: row.label.trim() || row.providerName, provider: row.providerName, proxy: row.gateway !== undefined, bars, left, tone: toneOf(left) };
+      return { id: row.accountId, name: row.label.trim() || row.providerName, provider: row.providerName, providerId: row.providerId, proxy: row.gateway !== undefined, bars, left, tone: toneOf(left) };
     })
     .filter((account) => account.bars.length > 0)
     .sort((a, b) => a.left - b.left);
 }
 
-/** The window with the least left across every account, what the pill shows. */
-export function tightest(accounts: QuotaAccount[]): { account: QuotaAccount; bar: QuotaBar } | null {
-  let found: { account: QuotaAccount; bar: QuotaBar } | null = null;
+/** The room left where the work can still go, what the pill shows: see `headroom`. */
+export function headroom(accounts: QuotaAccount[]): { account: QuotaAccount; bar: QuotaBar } | null {
+  // The subscription proxy, or the user, sends the work to a provider's subscription with room left:
+  // a provider counts by its roomiest account, and the pill shows the provider with the least room.
+  const roomiest = new Map<string, QuotaAccount>();
   for (const account of accounts) {
+    const kept = roomiest.get(account.providerId);
+    if (!kept || account.left > kept.left) roomiest.set(account.providerId, account);
+  }
+  let found: { account: QuotaAccount; bar: QuotaBar } | null = null;
+  for (const account of roomiest.values()) {
     const bar = account.bars[0];
     if (bar && (found === null || bar.left < found.bar.left)) found = { account, bar };
   }
@@ -128,7 +137,7 @@ export class QuotaWatch {
   usage = $state<Usage | null>(null);
   read = $state(false);
   readonly accounts = $derived.by(() => quotaAccounts(this.rows, this.#keep()));
-  readonly tightest = $derived.by(() => tightest(this.accounts));
+  readonly headroom = $derived.by(() => headroom(this.accounts));
   readonly #keep: () => QuotaKeep;
 
   /** `keep`: what Settings lets through, read again as it changes. */
