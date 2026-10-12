@@ -176,7 +176,7 @@
             {#if proc.protected}
               <span class="guard" title={fill(copy.protected, { name })} aria-label={fill(copy.protected, { name })}><ShieldCheck size={15} /></span>
             {:else}
-              <button class="icon" aria-label={fill(copy.close, { name })} title={fill(copy.close, { name })} onclick={() => confirm.arm(`proc:${proc.pid}`)} data-testid="system-close">
+              <button class="act" aria-label={fill(copy.close, { name })} title={fill(copy.close, { name })} onclick={() => confirm.arm(`proc:${proc.pid}`)} data-testid="system-close">
                 <X size={15} />
               </button>
             {/if}
@@ -191,7 +191,19 @@
 </div>
 
 <style>
+  /* The app's global button (a fixed height, a border, a glaze and a shadow) is not the deck's look. */
+  button {
+    height: auto;
+    border: none;
+    box-shadow: none;
+  }
+  .yes:hover:not(:disabled) {
+    background: var(--deck-accent);
+  }
   .tab {
+    /* The hover of a button without its own: the deck's, not the app's glaze. */
+    --control-glaze: none;
+    --color-control-hover: var(--deck-tile-hover);
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.5fr);
     grid-template-rows: auto auto auto;
@@ -307,7 +319,7 @@
   .yes:active,
   .no:active,
   .slow:active,
-  .icon:active {
+  .act:active {
     transform: scale(0.96);
   }
   .square.armed {
@@ -401,7 +413,7 @@
     white-space: nowrap;
   }
   .guard,
-  .icon {
+  .act {
     display: grid;
     flex: none;
     place-items: center;
@@ -411,7 +423,7 @@
   .guard {
     color: var(--island-faint);
   }
-  .icon {
+  .act {
     padding: 0;
     border: none;
     border-radius: 8px;
@@ -419,7 +431,7 @@
     color: var(--island-muted);
     cursor: pointer;
   }
-  .icon:hover {
+  .act:hover {
     background: var(--island-pill);
     color: var(--island-text);
   }
@@ -469,7 +481,7 @@
     .yes,
     .no,
     .slow,
-    .icon {
+    .act {
       transition: none;
     }
     button:active {

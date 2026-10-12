@@ -138,8 +138,8 @@
                 {#if copied === entry.id}<Check size={15} />{:else}<Copy size={14} />{/if}
               </span>
             </button>
-            <button class="icon" aria-label={copy.send} title={copy.send} onclick={() => send(entry)} data-testid="clipboard-send"><MessageSquarePlus size={15} /></button>
-            <button class="icon" aria-label={copy.remove} title={copy.remove} onclick={() => history.remove(entry.id)} data-testid="clipboard-remove"><Trash2 size={15} /></button>
+            <button class="act" aria-label={copy.send} title={copy.send} onclick={() => send(entry)} data-testid="clipboard-send"><MessageSquarePlus size={15} /></button>
+            <button class="act" aria-label={copy.remove} title={copy.remove} onclick={() => history.remove(entry.id)} data-testid="clipboard-remove"><Trash2 size={15} /></button>
           </li>
         {/each}
       </ul>
@@ -150,7 +150,19 @@
 </div>
 
 <style>
+  /* The app's global button (a fixed height, a border, a glaze and a shadow) is not the deck's look. */
+  button {
+    height: auto;
+    border: none;
+    box-shadow: none;
+  }
+  .yes:hover:not(:disabled) {
+    background: var(--deck-accent);
+  }
   .tab {
+    /* The hover of a button without its own: the deck's, not the app's glaze. */
+    --control-glaze: none;
+    --color-control-hover: var(--deck-tile-hover);
     display: grid;
     height: 380px;
     color: var(--island-text);
@@ -288,7 +300,7 @@
   }
   .entry:active,
   .tool:active,
-  .icon:active {
+  .act:active {
     transform: scale(0.98);
   }
   .thumb {
@@ -316,6 +328,7 @@
   .text {
     font-size: 13px;
     line-height: 1.35;
+    white-space: normal;
     word-break: break-word;
   }
   .clamp {
@@ -339,7 +352,7 @@
   .entry:hover .state {
     color: var(--deck-accent-ink);
   }
-  .icon {
+  .act {
     display: grid;
     flex: none;
     place-items: center;
@@ -352,7 +365,7 @@
     color: var(--island-muted);
     cursor: pointer;
   }
-  .icon:hover {
+  .act:hover {
     background: var(--island-pill);
     color: var(--island-text);
   }
@@ -378,7 +391,7 @@
   @media (prefers-reduced-motion: reduce) {
     .entry,
     .tool,
-    .icon {
+    .act {
       transition: none;
     }
     button:active {

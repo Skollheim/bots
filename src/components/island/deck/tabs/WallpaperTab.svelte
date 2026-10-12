@@ -224,7 +224,7 @@
           {/if}
           <div class="controls">
             {#each CONTROLS as { control: name, icon: Icon, label } (name)}
-              <button class="icon" aria-label={copy[label]} title={copy[label]} onclick={() => control(name)} data-testid="engine-{name}"><Icon size={15} /></button>
+              <button class="act" aria-label={copy[label]} title={copy[label]} onclick={() => control(name)} data-testid="engine-{name}"><Icon size={15} /></button>
             {/each}
           </div>
         {:else if source === 'folder' && folderPath}
@@ -287,7 +287,19 @@
 </div>
 
 <style>
+  /* The app's global button (a fixed height, a border, a glaze and a shadow) is not the deck's look. */
+  button {
+    height: auto;
+    border: none;
+    box-shadow: none;
+  }
+  .yes:hover:not(:disabled) {
+    background: var(--deck-accent);
+  }
   .tab {
+    /* The hover of a button without its own: the deck's, not the app's glaze. */
+    --control-glaze: none;
+    --color-control-hover: var(--deck-tile-hover);
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas: 'bar' 'grid';
@@ -372,7 +384,7 @@
     display: flex;
     gap: 2px;
   }
-  .icon {
+  .act {
     display: grid;
     place-items: center;
     width: 30px;
@@ -385,7 +397,7 @@
     cursor: pointer;
     transition: transform 0.12s ease;
   }
-  .icon:hover {
+  .act:hover {
     background: var(--island-pill);
     color: var(--island-text);
   }
@@ -599,7 +611,7 @@
   @media (prefers-reduced-motion: reduce) {
     .frame,
     .tool,
-    .icon,
+    .act,
     .sources button,
     .kinds button,
     .screens button {

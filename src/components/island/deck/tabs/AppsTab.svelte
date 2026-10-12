@@ -118,7 +118,16 @@
 </div>
 
 <style>
+  /* The app's global button (a fixed height, a border, a glaze and a shadow) is not the deck's look. */
+  button {
+    height: auto;
+    border: none;
+    box-shadow: none;
+  }
   .tab {
+    /* The hover of a button without its own: the deck's, not the app's glaze. */
+    --control-glaze: none;
+    --color-control-hover: var(--deck-tile-hover);
     display: grid;
     height: 380px;
     color: var(--island-text);
@@ -235,6 +244,7 @@
     font-size: 12px;
     line-height: 1.3;
     text-align: center;
+    white-space: normal;
     word-break: break-word;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
