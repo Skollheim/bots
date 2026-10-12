@@ -147,6 +147,8 @@ mod tests {
         }
     }
 
+    // Windows paths: elsewhere a backslash is no separator.
+    #[cfg(windows)]
     #[test]
     fn the_list_is_by_name_each_name_once_without_uninstallers() {
         let found = vec![
@@ -171,6 +173,8 @@ mod tests {
         assert!(!opens_locally(""));
     }
 
+    // Windows paths: elsewhere a backslash is no separator.
+    #[cfg(windows)]
     #[test]
     fn only_a_shortcut_inside_the_start_menu_may_be_opened() {
         let roots = vec![PathBuf::from(r"C:\Users\me\AppData\Roaming\Microsoft\Windows\Start Menu\Programs"), PathBuf::from(r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs")];
