@@ -4,6 +4,7 @@
  * entries and wallpapers, all made up here. Nothing touches the computer:
  * an action changes these fakes only.
  */
+import { activeLocale } from '@boite/ui/lib/i18n.svelte';
 import type { App, ClipEntry, ClipItem, Engine, Folder, Proc, Sample, Wallpapers } from './native';
 
 const GB = 1024 ** 3;
@@ -124,7 +125,7 @@ function seedClips(): { entry: ClipEntry; whole: ClipItem }[] {
   const texts: [string, number][] = [
     ['git rebase -i origin/main', 1],
     ['https://docs.unity3d.com/Manual/ExecutionOrder.html', 4],
-    ['Merci pour le retour ! Je regarde ça demain matin et je vous redis.', 12],
+    [activeLocale() === 'fr' ? 'Merci pour le retour ! Je regarde ça demain matin et je vous redis.' : "Thanks for the feedback! I'll look at it tomorrow morning and get back to you.", 12],
     ['const ready = await until(() => companion.threads.length > 0);\nif (!ready) return;', 38],
     ['#8B7CF6', 95]
   ];

@@ -1,6 +1,6 @@
 # B.O.T.S
 
-A little robot at the top of your screen that keeps an eye on your [Boite](https://github.com/beboite/boite) agents. It shows what they are doing, tells you when one of them needs you, and lets you talk to them without opening Boite's window.
+A little robot at the top of your screen that keeps an eye on your [Boite](https://github.com/beboite/boite) agents. It shows what they are doing, tells you when one of them needs you, and lets you talk to them without opening Boite's window. It also runs your scheduled missions, keeps your to-do list and, on Windows, puts the computer at hand: its system, wallpapers, clipboard and apps.
 
 <p align="center">
   <img src="docs/media/hero.gif" width="780" alt="The B.O.T.S island at the top of the screen: the pill opens under the pointer, the robot follows the pointer with its eyes and reacts when poked">
@@ -14,10 +14,10 @@ The pictures below come from the [demo mode](#demo-mode), on Boite's fake core.
 
 ### Every session at a glance
 
-Open the island and every conversation running in Boite is there, however many there are, including those running on your other machines. Sub-agents fold under the conversation that started them. A click opens the thread in Boite.
+Point at the pill and the island opens as a deck of tabs. **Threads** lists every conversation running in Boite, however many there are, including those running on your other machines. Sub-agents fold under the conversation that started them. A click opens the thread in Boite.
 
 <p align="center">
-  <img src="docs/media/sessions.png" width="720" alt="The open island listing the sessions at work, one of them unfolded on its sub-agents">
+  <img src="docs/media/sessions.png" width="720" alt="The deck open on its threads tab, listing the sessions at work, one of them unfolded on its sub-agents">
 </p>
 
 ### Answer from the island
@@ -28,13 +28,59 @@ When an agent asks for a permission or has a question, the pill says so. Open it
   <img src="docs/media/requests.gif" width="780" alt="A permission allowed from the island, then a question answered by picking one of its choices">
 </p>
 
-### Ask B.O.T.S
-
-Call B.O.T.S from any app with its shortcut, or click a robot on the desktop, and ask. B.O.T.S answers as one of your Boite agents, with its own conversation and memory, and you follow its work in the chat tab as it goes. It also keeps reminders ("remind me at 6 pm to call Paul"), timers and stopwatches.
+### One tab for each thing
 
 <p align="center">
-  <img src="docs/media/chat.png" width="720" alt="The chat tab of the island: an agent reading a log and reporting what it found, with its model picker and a stop button">
+  <img src="docs/media/tabs.gif" width="780" alt="The pointer going through the deck's tabs: today, chat, stats, system, wallpapers, clipboard, apps and back to the threads">
 </p>
+
+- **Threads**: the sessions at work and the requests waiting for you.
+- **Today**: the clock and the week, the next scheduled mission, your to-do list, a focus timer and the day's numbers.
+- **Chat**: your conversation with B.O.T.S.
+- **Stats**: each subscription's quota windows and when they reset, the threads finished today with their files, time and tokens, and the memory your agents hold.
+- **Music**: the player, with the words.
+- **Apps**, **Clipboard**, **Wallpapers** and **System**: your computer, on Windows.
+
+### Ask B.O.T.S
+
+Call B.O.T.S from any app with its shortcut, or click a robot on the desktop, and ask. B.O.T.S answers as one of your Boite agents, with its own conversation and memory, and you follow its work in the chat tab as it goes. It also keeps reminders ("remind me at 6 pm to call Paul"), timers and stopwatches, your to-do list and your missions.
+
+<p align="center">
+  <img src="docs/media/chat.png" width="720" alt="The chat tab of the deck: an agent reading a log and reporting what it found, with its model picker and a stop button">
+</p>
+
+### Missions and the to-do list
+
+Ask B.O.T.S for a mission ("every weekday at 9, check the website's broken links") and it starts that thread in Boite at that time: once, every day, on weekdays or once a week. Boite's core has no scheduler, so missions live in Bots and run while it runs. One whose time passed while the computer slept runs when it wakes, if it is less than 12 hours late. **Today** shows the next one and marks the days they run.
+
+The to-do list belongs to no thread. Tick it in **Today**, or ask B.O.T.S to add, rename, tick or clear items ("add renew the domain to my list").
+
+<p align="center">
+  <img src="docs/media/today.png" width="720" alt="The today tab: the clock and the week with the days a mission runs, the next mission, the to-do list, the focus timer and the day's numbers">
+</p>
+
+### While you were away
+
+Come back to the keyboard after a quarter of an hour or more, and the island tells what happened meanwhile, a line each: the threads that wait for you, those that finished or failed, the pull requests whose CI settled, the reminders that rang, a quota running low and the memory guard's warnings. A click on a line opens it.
+
+<p align="center">
+  <img src="docs/media/away.png" width="720" alt="The recap after an absence: a thread waiting for a permission, the threads that finished, a pull request whose CI passed and a reminder">
+</p>
+
+### Your computer
+
+On Windows, four tabs reach the computer itself. Nothing in them changes the computer until you click, and the heavy actions ask first.
+
+- **System**: CPU, memory, drives and uptime, the busiest processes, and a way to close one. Lock, sleep, restart and shut down. B.O.T.S never closes the system's processes, Boite, itself or your agents.
+- **Wallpapers**: Windows' recent wallpapers, or a folder of yours, for every screen. With [Wallpaper Engine](https://www.wallpaperengine.io) installed, its wallpapers too, screen by screen, with play, pause, mute and next.
+- **Clipboard**: what you copied, text and images, the last 30. Kept in memory only: never written to disk, gone when Bots quits. What password managers mark as private is left out. A click copies an entry back, or sends it to the chat.
+- **Apps**: the Start menu's apps, searchable, opened in a click.
+
+| System | Wallpapers |
+| :---: | :---: |
+| <img src="docs/media/system.png" width="380" alt="The system tab: CPU and memory gauges, the drives, the uptime, the busiest processes and the power buttons"> | <img src="docs/media/wallpaper.png" width="380" alt="The wallpapers tab on Wallpaper Engine: the wallpapers as thumbnails, the screen picker and the playback buttons"> |
+| **Clipboard** | **Apps** |
+| <img src="docs/media/clipboard.png" width="380" alt="The clipboard tab: the texts and images copied lately, newest first"> | <img src="docs/media/apps.png" width="380" alt="The apps tab: the Start menu's apps with their icons and a search field"> |
 
 ### Robots on the desktop
 
@@ -46,7 +92,7 @@ Rather have them loose? Put up to four robots on the desktop, each one of your B
 
 ### Music, with the words
 
-On Windows, when something plays (Spotify first, else whatever Windows calls current), the robot puts on its headphones and dances, and the player sits under it: cover, controls, timeline and synced lyrics. The lyrics come from [LRCLIB](https://lrclib.net), which receives the title and the artist of each track, nothing else. Both can be turned off in Settings.
+On Windows, when something plays (Spotify first, else whatever Windows calls current), the robot puts on its headphones and dances, and the player sits beside the pill and in the **Music** tab: cover, controls, timeline and synced lyrics. The lyrics come from [LRCLIB](https://lrclib.net), which receives the title and the artist of each track, nothing else. Both can be turned off in Settings.
 
 <p align="center">
   <img src="docs/media/music.gif" width="667" alt="The music player beside the pill, the lyrics of the playing track going by line by line">
@@ -54,13 +100,17 @@ On Windows, when something plays (Spotify first, else whatever Windows calls cur
 
 ### The pill at rest
 
-Closed, the island is a small pill. Pick what it shows when nothing needs you: the thread at work and what it does, the quota with the least left, the song playing, or only the robot. A pomodoro or a timer sits beside it.
+Closed, the island is a small pill. Pick what it shows when nothing needs you: the thread at work and what it does, the quota with the least left, the song playing, or only the robot. Turn the mouse wheel over the pill to go from one to the next.
 
-| Live line | Quota |
-| :---: | :---: |
-| <img src="docs/media/pill-live.png" height="44" alt="The pill showing the thread at work and the tool it runs"> | <img src="docs/media/pill-quota.png" height="44" alt="The pill showing the subscription with the least quota left"> |
-| **Music** | **Pomodoro** |
-| <img src="docs/media/pill-music.png" height="44" alt="The pill showing the title and the artist of the playing track"> | <img src="docs/media/pill-timer.png" height="44" alt="A pomodoro counting down beside the pill"> |
+<p align="center">
+  <img src="docs/media/wheel.gif" width="500" alt="The mouse wheel turned over the pill: the threads at work, the quota, the music and the robot in turn">
+</p>
+
+A pomodoro or a timer sits beside it.
+
+<p align="center">
+  <img src="docs/media/pill-timer.png" height="44" alt="A pomodoro counting down beside the pill">
+</p>
 
 ### And the small things
 
@@ -74,7 +124,7 @@ Closed, the island is a small pill. Pick what it shows when nothing needs you: t
 
 ### Settings
 
-Everything else is in **Settings**, from the tray icon: where the robots sit and on which screen, the shortcut, what the pill shows, the mascot and the agents on screen, quotas, pomodoro, sounds and reminders. In English and French.
+Everything else is in **Settings**, from the tray icon: where the robots sit and on which screen, the shortcut, what the pill shows, the mascot and the agents on screen, quotas, pomodoro, missions, sounds and reminders. In English and French.
 
 <p align="center">
   <img src="docs/media/settings.png" width="400" alt="The B.O.T.S settings: where the robots sit, open on hover, pill at rest, screen, shortcut and the mascot">
@@ -118,7 +168,7 @@ The demo runs the robots on Boite's in-memory fake core: no Boite needed.
 - In a browser: `bun run dev`, then open `http://localhost:5174/?fake=1` (add `&hud=1` for busy agents and quotas, or open `?view=settings&fake=1` for the settings).
 - In the desktop window: `BOTS_DEMO=1 bun run tauri dev` (`BOTS_DEMO=hud` for the busy version). Development builds only.
 
-In the browser, a few more parameters set a scene for captures: `pose=collapsed|peek|open|desktop`, `tab=home|chat|drop`, `calm=1` to answer the starting requests, `music=playing&lyrics=1`, `rest=live|quota|music|robot`, `timer=1`, and more. [`src/lib/island/pose.ts`](src/lib/island/pose.ts) lists them all. The pictures of this README were taken that way, with the English interface.
+In the browser, a few more parameters set a scene for captures: `pose=collapsed|peek|open|deck|desktop|away`, `tab=threads|today|chat|stats|music|apps|clipboard|wallpaper|system`, `calm=1` to answer the starting requests, `music=playing&lyrics=1`, `rest=live|quota|music|timer|robot`, `timer=1`, `todo=1`, `mission=ask|list`, `source=engine|recent|folder` for the wallpapers, and more. [`src/lib/island/pose.ts`](src/lib/island/pose.ts) lists them all. The pictures of this README were taken that way, with the English interface.
 
 ### Against a throwaway core
 
