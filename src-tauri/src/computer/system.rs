@@ -3,6 +3,9 @@
 //! the call before. Closing a process and the four power actions are each one
 //! small function here; the page asks the user before it calls them.
 
+// The system is read and acted on from Windows only; elsewhere these helpers stay unused.
+#![cfg_attr(not(windows), allow(dead_code))]
+
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex, PoisonError};
 

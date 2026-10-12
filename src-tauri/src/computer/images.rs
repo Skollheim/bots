@@ -43,6 +43,7 @@ pub(crate) const ICON_ONLY: i32 = 0x4;
 pub(crate) const THUMBNAIL_ONLY: i32 = 0x8;
 
 /// `width` × `height` scaled down to fit in `side` × `side`, ratio kept, at least 1 × 1.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn fit(width: u32, height: u32, side: u32) -> (u32, u32) {
     if width == 0 || height == 0 { return (1, 1); }
     if width <= side && height <= side { return (width, height); }
@@ -52,6 +53,7 @@ pub(crate) fn fit(width: u32, height: u32, side: u32) -> (u32, u32) {
 
 /// The shell gives premultiplied alpha, or no alpha at all (every pixel at
 /// 0): straight alpha for the encoder, opaque when there was none.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn straighten(bgra: &mut [u8]) {
     if bgra.as_chunks::<4>().0.iter().all(|pixel| pixel[3] == 0) {
         for pixel in bgra.as_chunks_mut::<4>().0 { pixel[3] = 255; }
@@ -69,6 +71,7 @@ pub(crate) fn straighten(bgra: &mut [u8]) {
 }
 
 /// Shrinks pixels to fit in `side` × `side`, each new pixel the average of the ones it covers.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn shrink(image: &Pixels, side: u32) -> Pixels {
     let (width, height) = fit(image.width, image.height, side);
     if (width, height) == (image.width, image.height) { return image.clone(); }

@@ -10,6 +10,7 @@ const THUMB: u32 = 320;
 /// The images of a folder listed at most.
 const FOLDER_MAX: usize = 500;
 /// Where Windows keeps its recent wallpapers.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) const HISTORY_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers";
 
 #[derive(Serialize, Debug, Clone, PartialEq, Eq, Default)]

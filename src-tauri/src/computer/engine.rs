@@ -13,6 +13,7 @@ const APP_ID: &str = "431960";
 /// The previews' thumbnails' longest side.
 const THUMB: u32 = 320;
 /// How long a `-control` command may take.
+#[cfg_attr(not(windows), allow(dead_code))]
 const WAIT: Duration = Duration::from_secs(10);
 
 #[derive(Serialize, Debug, Clone, PartialEq, Eq)]

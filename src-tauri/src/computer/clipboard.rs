@@ -5,6 +5,9 @@
 //! history (password managers) is skipped. An entry goes back on the
 //! clipboard, or to the chat, only when the user clicks it.
 
+// The history is heard and kept on Windows only; elsewhere these helpers stay unused.
+#![cfg_attr(not(windows), allow(dead_code))]
+
 use super::images::{self, Format, Pixels};
 use serde::Serialize;
 use std::collections::VecDeque;
