@@ -100,7 +100,7 @@ On Windows, when something plays (Spotify first, else whatever Windows calls cur
 
 ### The pill at rest
 
-Closed, the island is a small pill. Pick what it shows when nothing needs you: the thread at work and what it does, the quota with the least left, the song playing, or only the robot. Turn the mouse wheel over the pill to go from one to the next.
+Closed, the island is a small pill. Pick what it shows when nothing needs you: the thread at work and what it does, what is left on your roomiest subscription, the song playing, or only the robot. Turn the mouse wheel over the pill to go from one to the next.
 
 <p align="center">
   <img src="docs/media/wheel.gif" width="500" alt="The mouse wheel turned over the pill: the threads at work, the quota, the music and the robot in turn">

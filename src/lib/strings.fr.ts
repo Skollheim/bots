@@ -276,6 +276,8 @@ export const fr: Messages = {
       stats: {
         quotas: 'Quotas',
         noQuotas: 'Aucun quota lu pour l’instant.',
+        room: '{percent} % restants sur {name}',
+        percent: '{percent} %',
         resets: 'repart dans {time}',
         day: 'Agents aujourd’hui',
         memory: 'Mémoire',
@@ -701,7 +703,7 @@ export const fr: Messages = {
       pillRest: 'Pilule au repos',
       pillRestHint: 'Ce que montre l’île fermée quand rien d’autre ne la demande. Les demandes et les fils terminés passent toujours devant.',
       pillRests: { live: 'Ligne en direct', quota: 'Quota', music: 'Musique', timer: 'Minuteur', robot: 'Robot seul' },
-      pillRestHints: { live: 'Le fil au travail et ce qu’il fait', quota: 'Le quota où il reste le moins', music: 'Titre et artiste de ce qui joue, sinon la ligne en direct', timer: 'Le minuteur ou le pomodoro en cours, sinon la ligne en direct', robot: 'Une pilule courte, sans texte' },
+      pillRestHints: { live: 'Le fil au travail et ce qu’il fait', quota: 'Ce qu’il reste sur votre abonnement le mieux pourvu', music: 'Titre et artiste de ce qui joue, sinon la ligne en direct', timer: 'Le minuteur ou le pomodoro en cours, sinon la ligne en direct', robot: 'Une pilule courte, sans texte' },
       mascot: 'Mascotte',
       mascotHint: 'Le robot de l’île, et celui du premier agent sur le bureau. Choisissez un style, puis personnalisez-le.',
       mascotReset: 'Reprendre l’allure du premier agent',

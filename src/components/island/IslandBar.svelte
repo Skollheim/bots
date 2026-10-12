@@ -103,13 +103,13 @@
     const { current, elapsed, left, paused } = companion.timer;
     return current ? { kind: current.kind, phase: current.phase, label: current.label, ms: current.kind === 'stopwatch' ? elapsed : left, paused } : null;
   });
-  const live = $derived(restLine(rest, { live: session, media: companion.media, quota: quotas.tightest, timer: timerSource }));
+  const live = $derived(restLine(rest, { live: session, media: companion.media, quota: quotas.headroom, timer: timerSource }));
   /** The views the wheel goes through (`pill-stops.ts`). */
   const stops = $derived(
     pillStops({
       live: liveRows.map((row) => row.id),
       followed: sessions.followedRow?.id ?? null,
-      quota: quotas.tightest !== null,
+      quota: quotas.headroom !== null,
       music: Boolean(companion.media?.playing && companion.media.title),
       timer: timerSource !== null
     })

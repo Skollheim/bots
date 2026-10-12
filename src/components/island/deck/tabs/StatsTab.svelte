@@ -1,10 +1,12 @@
 <!--
-  The deck's stats tab, from what Bots already reads: a tile per
-  subscription with a ring for its tightest window and a bar for each
-  window, what is left and when it resets (the core's quotas, as the bar's
-  pill reads them, and as Settings lets them show); the day's agents in big
-  numbers (the threads finished, the files changed, their time and the
-  tokens); and the memory the agents hold against their budget, as a gauge.
+  The deck's stats tab, from what Bots already reads. The quotas first, the
+  whole width: what is left where the work can still go beside the heading
+  (as the pill reads it), then a row per subscription, its windows side by
+  side in columns, tightest first, each with what is left and when it resets
+  (the core's quotas, as Settings lets them show); a subscription with
+  nothing left fades. Under them, the day's agents in big numbers (the
+  threads finished, the files changed, their time and the tokens), and the
+  memory the agents hold against their budget, as a gauge.
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
@@ -22,9 +24,6 @@
   const quotas = strings.island.assistant.quotas;
   const recapCopy = strings.island.assistant.recap;
   const units = strings.island.memory;
-  /** The rings' radius, in the 100 × 100 box they are drawn in. */
-  const RING = 42;
-  const ROUND = 2 * Math.PI * RING;
 
   const watch = new QuotaWatch(() => ({ shown: view.companion.prefs.quotas, hidden: view.companion.prefs.hiddenQuotas }));
   $effect(() => {
@@ -37,6 +36,9 @@
     void watch.rows;
     return Date.now();
   });
+  /** The rows share their columns: as many as the subscription with the most windows. */
+  const columns = $derived(Math.max(1, ...watch.accounts.map((account) => account.bars.length)));
+  const room = $derived(watch.headroom);
 
   function until(at: number | null): string {
     const left = resetIn(at, now);
@@ -61,37 +63,38 @@
 </script>
 
 <div class="stats" data-testid="deck-tab-stats">
-  {#each watch.accounts as account (account.id)}
-    {@const said = fill(quotas.left, { percent: String(account.left) })}
-    <DeckTile heading={account.name} testid="deck-quota">
-      <div class="account">
-        <div class="ring" data-tone={account.tone} role="img" aria-label="{account.name}: {said}">
-          <svg viewBox="0 0 100 100" aria-hidden="true">
-            <circle class="track" cx="50" cy="50" r={RING} />
-            <circle class="fill" cx="50" cy="50" r={RING} stroke-dasharray={ROUND} stroke-dashoffset={ROUND * (1 - account.left / 100)} />
-          </svg>
-          <span class="percent" aria-hidden="true">{account.left}<small>%</small></span>
-        </div>
-        <ul class="windows">
-          {#each account.bars as bar (bar.id)}
-            <li data-tone={bar.tone}>
-              <p class="window"><span>{bar.label}</span><span class="left">{fill(quotas.left, { percent: String(bar.left) })}</span></p>
-              <span class="bar" aria-hidden="true"><i style:width="{bar.left}%"></i></span>
-              {#if bar.resetsAt}<p class="resets">{until(bar.resetsAt)}</p>{/if}
+  {#if watch.read}
+    <DeckTile heading={copy.quotas} area="quotas" testid={watch.accounts.length > 0 ? 'deck-quotas' : 'deck-quota-none'}>
+      {#snippet aside()}
+        {#if room}
+          <p class="room" data-tone={room.bar.tone} data-testid="deck-quota-room">{fill(copy.room, { percent: String(room.bar.left), name: room.account.name })}</p>
+        {/if}
+      {/snippet}
+      {#if watch.accounts.length > 0}
+        <ul class="accounts" style:--columns={columns}>
+          {#each watch.accounts as account (account.id)}
+            <li class="account" class:spent={account.left === 0} data-testid="deck-quota">
+              <p class="who">
+                <span class="name" title={account.name}>{account.name}</span>
+                <span class="provider">{account.proxy ? `${account.provider} · ${quotas.proxy}` : account.provider}</span>
+              </p>
+              {#each account.bars as bar (bar.id)}
+                <div class="window" data-tone={bar.tone}>
+                  <p class="head"><span class="label" title={bar.label}>{bar.label}</span><span class="left">{fill(copy.percent, { percent: String(bar.left) })}</span></p>
+                  <span class="bar" aria-hidden="true"><i style:width="{bar.left}%"></i></span>
+                  <p class="resets">{until(bar.resetsAt)}</p>
+                </div>
+              {/each}
             </li>
           {/each}
         </ul>
-      </div>
-    </DeckTile>
-  {:else}
-    {#if watch.read}
-      <DeckTile heading={copy.quotas} testid="deck-quota-none">
+      {:else}
         <p class="quiet">{copy.noQuotas}</p>
-      </DeckTile>
-    {/if}
-  {/each}
+      {/if}
+    </DeckTile>
+  {/if}
 
-  <DeckTile heading={copy.day} testid="deck-day">
+  <DeckTile heading={copy.day} area="day" testid="deck-day">
     <div class="numbers">
       <p><span class="big">{count}</span><span>{count === 1 ? today.threadsOne : today.threadsMany}</span></p>
       <p><span class="big">{recap.files}</span><span>{recap.files === 1 ? today.filesOne : today.filesMany}</span></p>
@@ -100,15 +103,16 @@
     </div>
   </DeckTile>
 
-  <DeckTile heading={copy.memory} testid="deck-memory">
+  <DeckTile heading={copy.memory} area="memory" testid="deck-memory">
     {#if gauge}
       <div class="memory" data-tone={gauge.tone}>
         <p class="used"><span class="big">{size(gauge.used)}</span><span>{copy.used}</span></p>
         <span class="bar" role="img" aria-label="{size(gauge.used)} {copy.used}{gauge.budget !== null ? `, ${fill(copy.of, { budget: size(gauge.budget) })}` : ''}">
           <i style:width="{(gauge.share ?? 0) * 100}%"></i>
         </span>
-        <p class="quiet">{gauge.budget !== null ? fill(copy.of, { budget: size(gauge.budget) }) : copy.noBudget}</p>
-        {#if gauge.available !== null}<p class="quiet">{fill(copy.free, { size: size(gauge.available) })}</p>{/if}
+        <p class="quiet">
+          {gauge.budget !== null ? fill(copy.of, { budget: size(gauge.budget) }) : copy.noBudget}{#if gauge.available !== null}{` · ${fill(copy.free, { size: size(gauge.available) })}`}{/if}
+        </p>
       </div>
     {:else}
       <p class="quiet">{copy.memoryWaiting}</p>
@@ -120,24 +124,15 @@
   .stats {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas:
+      'quotas quotas quotas'
+      'day day memory';
     gap: var(--deck-gap);
-    align-items: start;
   }
   p {
     margin: 0;
   }
-  .account {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-  .ring {
-    position: relative;
-    flex: none;
-    display: grid;
-    place-items: center;
-    width: 84px;
-    height: 84px;
+  [data-tone] {
     --tone: var(--island-quota-ok);
   }
   [data-tone='amber'] {
@@ -146,76 +141,90 @@
   [data-tone='red'] {
     --tone: var(--island-quota-red);
   }
-  .ring svg {
-    position: absolute;
-    inset: 0;
-    transform: rotate(-90deg);
-  }
-  .ring circle {
-    fill: none;
-    stroke-width: 8;
-    stroke-linecap: round;
-  }
-  .track {
-    stroke: var(--deck-field);
-  }
-  .fill {
-    stroke: var(--tone);
-  }
-  .percent {
-    color: var(--island-text);
-    font-family: var(--deck-numeral-font);
-    font-size: 22px;
+  .room {
+    color: var(--tone);
+    font-size: 12.5px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
-  .percent small {
-    color: var(--island-muted);
-    font-size: 12px;
-  }
-  .windows {
+  .accounts {
     display: flex;
-    flex: 1;
     flex-direction: column;
-    gap: 8px;
-    min-width: 0;
     margin: 0;
     padding: 0;
     list-style: none;
   }
-  .windows li {
-    --tone: var(--island-quota-ok);
+  .account {
+    display: grid;
+    grid-template-columns: minmax(0, 190px) repeat(var(--columns), minmax(0, 1fr));
+    align-items: center;
+    gap: 18px;
+    padding: 9px 0;
+    transition: opacity 160ms ease;
+  }
+  .account + .account {
+    border-top: 1px solid var(--island-line);
+  }
+  .account:first-child {
+    padding-top: 2px;
+  }
+  .account:last-child {
+    padding-bottom: 0;
+  }
+  .spent {
+    opacity: 0.55;
+  }
+  .who {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 1px;
+    min-width: 0;
   }
-  .windows li[data-tone='amber'] {
-    --tone: var(--island-quota-amber);
+  .name {
+    overflow: hidden;
+    color: var(--island-text);
+    font-size: 13px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .windows li[data-tone='red'] {
-    --tone: var(--island-quota-red);
+  .provider {
+    overflow: hidden;
+    color: var(--island-muted);
+    font-size: 11.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .window {
     display: flex;
-    justify-content: space-between;
-    gap: 6px;
-    color: var(--island-text);
-    font-size: 12.5px;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
   }
-  .window span:first-child {
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .label {
     min-width: 0;
     overflow: hidden;
+    color: var(--island-muted);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .left {
     flex: none;
     color: var(--tone);
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
   .bar {
     display: block;
-    height: 6px;
+    height: 5px;
     overflow: hidden;
     border-radius: 999px;
     background: var(--deck-field);
@@ -226,14 +235,20 @@
     border-radius: inherit;
     background: var(--tone, var(--deck-accent));
   }
-  .resets,
+  .resets {
+    min-height: 14px;
+    color: var(--island-muted);
+    font-size: 11px;
+    white-space: nowrap;
+  }
   .quiet {
     color: var(--island-muted);
     font-size: 12px;
   }
   .numbers {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
     gap: 6px;
   }
   .numbers p,
@@ -245,6 +260,7 @@
     font-size: 12px;
   }
   .numbers p {
+    min-width: 0;
     padding: 8px 10px;
     border-radius: 12px;
     background: var(--deck-field);
@@ -271,6 +287,6 @@
     --tone: var(--island-quota-red);
   }
   .memory .bar {
-    height: 10px;
+    height: 8px;
   }
 </style>

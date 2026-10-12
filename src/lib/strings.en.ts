@@ -297,6 +297,8 @@ export const strings = {
       stats: {
         quotas: 'Quotas',
         noQuotas: 'No quota read yet.',
+        room: '{percent}% left on {name}',
+        percent: '{percent}%',
         resets: 'resets in {time}',
         day: 'Agents today',
         memory: 'Memory',
@@ -722,7 +724,7 @@ export const strings = {
       pillRest: 'Pill at rest',
       pillRestHint: 'What the closed island shows when nothing else needs it. Requests and finished threads still show over it.',
       pillRests: { live: 'Live line', quota: 'Quota', music: 'Music', timer: 'Timer', robot: 'Robot only' },
-      pillRestHints: { live: 'The thread at work and what it does', quota: 'The quota with the least left', music: 'Title and artist of what plays, else the live line', timer: 'The running timer or pomodoro, else the live line', robot: 'A short pill, no text' },
+      pillRestHints: { live: 'The thread at work and what it does', quota: 'What is left on your roomiest subscription', music: 'Title and artist of what plays, else the live line', timer: 'The running timer or pomodoro, else the live line', robot: 'A short pill, no text' },
       mascot: 'Mascot',
       mascotHint: 'The island’s robot, and the first agent’s on the desktop. Pick a style, then make it yours.',
       mascotReset: 'Use the first agent’s own look',

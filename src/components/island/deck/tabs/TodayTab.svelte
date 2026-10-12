@@ -4,7 +4,7 @@
   to-do list (`views/TodoCard.svelte`) with a ring counting the done ones, the
   focus timer (a ring, quick lengths, start, pause and reset, the focus mode,
   and the break and focus cards), and the day's recap in big numbers with the
-  threads it counts. The music playing, if any, in a strip at the bottom. The
+  threads it counts. The
   clock turns once a minute, only while the tab shows.
 -->
 <script lang="ts">
@@ -19,7 +19,6 @@
   import { duration } from '../../../../lib/island/recap.svelte';
   import { fill, strings } from '../../../../lib/strings';
   import CompanionFocusCards from '../../../companion/CompanionFocusCards.svelte';
-  import MusicStrip from '../../music/MusicStrip.svelte';
   import TodoCard from '../../views/TodoCard.svelte';
   import DeckTile from '../DeckTile.svelte';
 
@@ -204,10 +203,6 @@
       </ul>
     {/if}
   </DeckTile>
-
-  {#if companion.media}
-    <div class="music"><MusicStrip {companion} /></div>
-  {/if}
 </div>
 
 <style>
@@ -216,8 +211,7 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
       'clock week todo'
-      'timer recap recap'
-      'music music music';
+      'timer recap recap';
     gap: var(--deck-gap);
   }
   .clock {
@@ -566,13 +560,5 @@
   }
   .project {
     color: var(--island-muted);
-  }
-  .music {
-    grid-area: music;
-    display: flex;
-    justify-content: center;
-    padding: 6px;
-    border-radius: var(--deck-tile-radius);
-    background: var(--deck-tile);
   }
 </style>
