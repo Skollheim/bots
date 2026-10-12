@@ -271,7 +271,7 @@ export const strings = {
       finishedOne: '“{title}” finished',
       failedOne: '“{title}” failed',
       finishedMany: '{count} threads finished: {titles}',
-      failedMark: '{title} (failed)',
+      failedMany: '{count} threads failed: {titles}',
       more: '+{count}',
       alarm: 'Reminder: {text}',
       quotaLow: '{name}: {left}% left',

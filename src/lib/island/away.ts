@@ -143,20 +143,19 @@ function waitingLines(facts: AwayFacts, finished: ReadonlySet<string>): AwayLine
   return lines;
 }
 
-function finishLine(ends: FinishEvent[]): AwayLine | null {
+/** The threads that ended with the same outcome, on one line: their count and three names at most. */
+function finishLine(ends: FinishEvent[], failed: boolean): AwayLine | null {
   const copy = strings.island.away;
-  if (ends.length === 0) return null;
-  const failed = ends.filter((end) => end.failed);
-  // The failures first: they are what a glance must not miss.
-  const first = failed[0] ?? ends[0]!;
-  const tone = failed.length > 0 ? 'failed' : 'done';
-  const icon = failed.length > 0 ? 'failed' : 'finished';
+  const first = ends[0];
+  if (!first) return null;
+  const key = failed ? 'finish:failed' : 'finish:done';
+  const icon = failed ? 'failed' : 'finished';
+  const tone = failed ? 'failed' : 'done';
   const target: AwayTarget = { kind: 'thread', threadId: first.threadId };
-  if (ends.length === 1) return { key: 'finish', icon, text: fill(first.failed ? copy.failedOne : copy.finishedOne, { title: untitled(first.title) }), tone, target };
-  const ordered = [...failed, ...ends.filter((end) => !end.failed)];
-  const names = ordered.slice(0, TITLES_MAX).map((end) => (end.failed ? fill(copy.failedMark, { title: untitled(end.title) }) : untitled(end.title)));
-  if (ordered.length > TITLES_MAX) names.push(fill(copy.more, { count: String(ordered.length - TITLES_MAX) }));
-  return { key: 'finish', icon, text: fill(copy.finishedMany, { count: String(ends.length), titles: names.join(', ') }), tone, target };
+  if (ends.length === 1) return { key, icon, text: fill(failed ? copy.failedOne : copy.finishedOne, { title: untitled(first.title) }), tone, target };
+  const names = ends.slice(0, TITLES_MAX).map((end) => untitled(end.title));
+  if (ends.length > TITLES_MAX) names.push(fill(copy.more, { count: String(ends.length - TITLES_MAX) }));
+  return { key, icon, text: fill(failed ? copy.failedMany : copy.finishedMany, { count: String(ends.length), titles: names.join(', ') }), tone, target };
 }
 
 function memoryLine(event: MemoryEvent): AwayLine {
@@ -176,8 +175,11 @@ export function awayLines(facts: AwayFacts): AwayLine[] {
   const events = eventsOf(facts);
   const ends = events.filter((event): event is FinishEvent => event.kind === 'finish');
   const lines: AwayLine[] = waitingLines(facts, new Set(ends.map((end) => end.threadId)));
-  const finished = finishLine(ends);
-  if (finished) lines.push(finished);
+  // The failures first, in red, apart from the threads that finished well: they are what a glance must not miss.
+  for (const failed of [true, false]) {
+    const line = finishLine(ends.filter((end) => end.failed === failed), failed);
+    if (line) lines.push(line);
+  }
   for (const pr of events.filter((event): event is PrEvent => event.kind === 'pr').slice(-PRS_MAX)) {
     lines.push({ key: `pr:${pr.url}`, icon: 'pr', text: pr.text, tone: pr.failed ? 'failed' : 'done', target: { kind: 'thread', threadId: pr.threadId } });
   }

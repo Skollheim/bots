@@ -251,7 +251,7 @@ export const fr: Messages = {
       finishedOne: '« {title} » est terminé',
       failedOne: '« {title} » a échoué',
       finishedMany: '{count} fils terminés : {titles}',
-      failedMark: '{title} (échec)',
+      failedMany: '{count} fils ont échoué : {titles}',
       more: '+{count}',
       alarm: 'Rappel : {text}',
       quotaLow: '{name} : {left} % restants',

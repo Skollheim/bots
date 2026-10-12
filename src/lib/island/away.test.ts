@@ -64,15 +64,32 @@ test('the lines come in order: waiting, finished, pull requests, reminders, quot
   expect(lines[5]).toMatchObject({ text: fill(copy.memoryWarned, { title: 'Unity build' }), target: { kind: 'thread', threadId: 'm' } });
 });
 
-test('many finished threads: the count, failures first and marked, three names at most', () => {
-  const [line] = awayLines(
+test('many finished threads: the failures on a red line of their own, first, then the others counted, three names at most', () => {
+  const lines = awayLines(
     facts({
-      events: [finish('a', 'A', FROM + MIN), finish('b', 'B', FROM + 2 * MIN, true), finish('c', 'C', FROM + 3 * MIN), finish('d', 'D', FROM + 4 * MIN), finish('a', 'A', FROM + 5 * MIN)]
+      events: [
+        finish('a', 'A', FROM + MIN),
+        finish('b', 'B', FROM + 2 * MIN, true),
+        finish('c', 'C', FROM + 3 * MIN),
+        finish('d', 'D', FROM + 4 * MIN),
+        finish('e', 'E', FROM + 5 * MIN),
+        finish('a', 'A', FROM + 6 * MIN)
+      ]
     })
   );
   // A ended twice: once counted, at its last end.
-  const names = [fill(copy.failedMark, { title: 'B' }), 'C', 'D', fill(copy.more, { count: '1' })].join(', ');
-  expect(line).toEqual({ key: 'finish', icon: 'failed', text: fill(copy.finishedMany, { count: '4', titles: names }), tone: 'failed', target: { kind: 'thread', threadId: 'b' } });
+  expect(lines).toEqual([
+    { key: 'finish:failed', icon: 'failed', text: fill(copy.failedOne, { title: 'B' }), tone: 'failed', target: { kind: 'thread', threadId: 'b' } },
+    {
+      key: 'finish:done',
+      icon: 'finished',
+      text: fill(copy.finishedMany, { count: '4', titles: ['C', 'D', 'E', fill(copy.more, { count: '1' })].join(', ') }),
+      tone: 'done',
+      target: { kind: 'thread', threadId: 'c' }
+    }
+  ]);
+  const failures = awayLines(facts({ events: [finish('x', 'X', FROM + MIN, true), finish('y', 'Y', FROM + 2 * MIN, true)] }));
+  expect(failures.map((line) => line.text)).toEqual([fill(copy.failedMany, { count: '2', titles: 'X, Y' })]);
 });
 
 test('a thread that ended is not told again as unread; past three, the waiting are counted', () => {
@@ -84,7 +101,7 @@ test('a thread that ended is not told again as unread; past three, the waiting a
     { threadId: 's', title: 'S', kind: 'failed' as const, since: FROM + 5 * MIN }
   ];
   const lines = awayLines(facts({ events: [finish('a', 'A', FROM + MIN)], waiting }));
-  expect(lines.map((line) => line.key)).toEqual(['wait:p:permission', 'wait:q:question', 'wait:more', 'finish']);
+  expect(lines.map((line) => line.key)).toEqual(['wait:p:permission', 'wait:q:question', 'wait:more', 'finish:done']);
   expect(lines[2]).toMatchObject({ text: fill(copy.othersWaiting, { count: '2' }), target: { kind: 'home' } });
 });
 
@@ -98,7 +115,7 @@ test('what happened outside the absence is left out; the quota only when low; op
   );
   expect(lines.map((line) => line.text)).toEqual([fill(copy.finishedOne, { title: 'A' })]);
   expect(awayLines(facts({ quota: { name: 'Max', left: 0 } }))[0]).toMatchObject({ text: fill(copy.quotaOut, { name: 'Max' }), tone: 'failed' });
-  expect(awayLines(facts({ events: [finish('a', 'A', FROM + MIN)], seen: ['finish'] }))).toEqual([]);
+  expect(awayLines(facts({ events: [finish('a', 'A', FROM + MIN)], seen: ['finish:done'] }))).toEqual([]);
 });
 
 test('the memory guard: what it stopped, or the machine running low, the latest only', () => {
