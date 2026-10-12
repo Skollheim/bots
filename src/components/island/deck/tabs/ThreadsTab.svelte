@@ -1,10 +1,11 @@
 <!--
   The deck's threads tab: the live sessions in the main tile
   (`sessions/SessionsList.svelte`), and beside them, each only when it has
-  something, the reminders and the threads that finished, a newer Boite,
-  the radar's threads that waited (answered from here), the pull requests
-  the threads opened and their CI, the machines of the group and how many
-  threads each runs, and the tasks handed to other agents.
+  something, the reminders, a newer Boite, the radar's threads that waited
+  (answered from here), the pull requests the threads opened and their CI,
+  the machines of the group and how many threads each runs, and the tasks
+  handed to other agents. The threads that finished get no card here: the
+  pill tells of them, and an ended thread keeps its row in Sessions.
 -->
 <script lang="ts">
   import { CircleCheck, CircleDashed, CircleX, GitPullRequest, Minus } from '@lucide/svelte';
@@ -26,9 +27,9 @@
   const CI_ICONS = { pending: CircleDashed, passed: CircleCheck, failed: CircleX, none: Minus } as const;
 
   const open = (threadId: string) => void view.reveal(threadId).catch(() => {});
-  /** The cards Sessions carries: on their rows, or held while an archive can still be undone. */
-  const carried = $derived([...view.sessions.ended, ...view.sessions.undo.lines.map((line) => line.threadId)]);
-  const notesShown = $derived(companion.notes.alarms.length > 0 || companion.notes.notices.some((notice) => !carried.includes(notice.threadId)));
+  /** The reminders alone: no finished thread's card beside Sessions. */
+  const notesShown = $derived(companion.notes.alarms.length > 0);
+  const finished = $derived(companion.notes.notices.map((notice) => notice.threadId));
   const tasksShown = $derived(companion.tasks.pending.length > 0 || companion.tasks.launched.length > 0);
   const board = $derived(view.prs.board);
   const machines = $derived.by(() => {
@@ -48,7 +49,7 @@
     <div class="side">
       {#if notesShown}
         <DeckTile scroll testid="deck-notes">
-          <CompanionNotes members={[]} notes={companion.notes} open={false} reachable={companion.reachable} except={carried} changes />
+          <CompanionNotes members={[]} notes={companion.notes} open={false} reachable={companion.reachable} except={finished} />
         </DeckTile>
       {/if}
       <UpdateCard />
