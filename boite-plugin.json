@@ -2,34 +2,34 @@
   "schema": 1,
   "id": "bots",
   "name": "B.O.T.S",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Little robots on your desktop that follow your Boite agents, answer your questions and keep you company while you work.",
   "homepage": "https://github.com/beboite/bots",
   "executable": "bots",
   "artifacts": {
     "win32-x64": {
-      "url": "https://github.com/beboite/bots/releases/download/v0.1.11/bots-x86_64-pc-windows-msvc.exe",
-      "sha256": "2d0f955fc8f1dc8cdff6174c19a1cad53507405e8b0871edfbd1736a980469ad"
+      "url": "https://github.com/beboite/bots/releases/download/v0.1.12/bots-x86_64-pc-windows-msvc.exe",
+      "sha256": "cf2c0c2eab7faccc6cb5a02b8d03c6aceeb5ca88b7070872c0139d158b54e391"
     },
     "win32-arm64": {
-      "url": "https://github.com/beboite/bots/releases/download/v0.1.11/bots-aarch64-pc-windows-msvc.exe",
-      "sha256": "b2553b17c6f19e0fed00950dcabeefef30f39e75b587eef9192c925ffadc117d"
+      "url": "https://github.com/beboite/bots/releases/download/v0.1.12/bots-aarch64-pc-windows-msvc.exe",
+      "sha256": "2cb9316d06becb4b318cdd38d3b1175722edd64781545e3538f1d569946e6612"
     },
     "darwin-x64": {
-      "url": "https://github.com/beboite/bots/releases/download/v0.1.11/bots-x86_64-apple-darwin",
-      "sha256": "288b0908a365849fa6e901e8aca5bdf70c5d611f8cfec761a9b716c7c1dd34d7"
+      "url": "https://github.com/beboite/bots/releases/download/v0.1.12/bots-x86_64-apple-darwin",
+      "sha256": "b615a6af439ef4858b35effa68de966a4233f294158c5b35344b47b1bcdb313b"
     },
     "darwin-arm64": {
-      "url": "https://github.com/beboite/bots/releases/download/v0.1.11/bots-aarch64-apple-darwin",
-      "sha256": "0c00bd07403e2a3fa0eb1927573768a010ae9c9af968d97ccaa4d1fd4b03429a"
+      "url": "https://github.com/beboite/bots/releases/download/v0.1.12/bots-aarch64-apple-darwin",
+      "sha256": "c5f218d89a47c57861b045524d7c0830ae187ef6639f0d9f0b58d52068d5de5f"
     },
     "linux-x64": {
-      "url": "https://github.com/beboite/bots/releases/download/v0.1.11/bots-x86_64-unknown-linux-gnu",
-      "sha256": "8b5e542bfe4fe99ccdf97d7e6f6ca828fb639277116e58ecacbe90c245040ad9"
+      "url": "https://github.com/beboite/bots/releases/download/v0.1.12/bots-x86_64-unknown-linux-gnu",
+      "sha256": "7ef594666a1a275a39a9e5a02bcb79292f29c0d73ecb0adc410d2813c2910f3e"
     },
     "linux-arm64": {
-      "url": "https://github.com/beboite/bots/releases/download/v0.1.11/bots-aarch64-unknown-linux-gnu",
-      "sha256": "260c38f022c85c77165a9907bca41f749f71cfe290098280bca3771f67d60e89"
+      "url": "https://github.com/beboite/bots/releases/download/v0.1.12/bots-aarch64-unknown-linux-gnu",
+      "sha256": "eb5b19b95269e7b089cbdea0dc2e1aca6d63f517fbe8b7de673cf3ae0603f253"
     }
   },
   "provides": {
