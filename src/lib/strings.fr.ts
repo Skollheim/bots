@@ -233,6 +233,34 @@ export const fr: Messages = {
       openTitle: 'Ouvre Boite sur ses mises à jour, d’où elle s’installe',
       manual: 'Installez-la depuis Boite : Réglages › Machines et mises à jour › Mises à jour de l’application.',
       later: 'Plus tard'
+    },
+    /** Ce qui s’est passé pendant que personne n’était au clavier (`views/AwayCard.svelte`, `away.ts`). */
+    away: {
+      title: 'Pendant votre absence',
+      gone: '{span} d’absence',
+      ok: 'OK',
+      okTitle: 'Fermer le récapitulatif',
+      lines: 'Ce qui s’est passé',
+      waiting: {
+        permission: '« {title} » attend votre accord depuis {time}',
+        question: '« {title} » a une question pour vous depuis {time}',
+        answer: '« {title} » a répondu il y a {time}, non lu',
+        failed: '« {title} » a échoué il y a {time}, non lu'
+      },
+      othersWaiting: '{count} autres fils vous attendent',
+      finishedOne: '« {title} » est terminé',
+      failedOne: '« {title} » a échoué',
+      finishedMany: '{count} fils terminés : {titles}',
+      failedMark: '{title} (échec)',
+      more: '+{count}',
+      alarm: 'Rappel : {text}',
+      quotaLow: '{name} : {left} % restants',
+      quotaOut: '{name} : quota épuisé',
+      memoryWarned: 'Garde mémoire : « {title} » a frôlé sa limite',
+      memoryMachine: 'Garde mémoire : votre PC a manqué de mémoire',
+      memoryStopped: 'Garde mémoire : Boite a arrêté {program} dans « {title} »',
+      open: 'Ouvrir',
+      span: { minutes: '{m} min', hours: '{h} h', hoursMinutes: '{h} h {m}' }
     }
   },
 
@@ -494,6 +522,8 @@ export const fr: Messages = {
       hideFullscreenHint: 'B.O.T.S s’efface quand un jeu ou une vidéo occupe tout son écran, puis revient. Le raccourci l’appelle quand même.',
       sounds: 'Sons',
       soundsHint: 'De petits carillons quand une réponse arrive, qu’un agent a besoin de vous ou qu’un rappel sonne.',
+      awayRecap: 'Récapitulatif à votre retour',
+      awayRecapHint: 'De retour après 15 minutes d’absence ou plus, l’île vous dit ce qui s’est terminé, ce qui vous attend et ce qui a sonné entre-temps.',
       radar: 'Fils en attente',
       radarHint: 'Quand des fils vous attendent depuis ce temps (une autorisation, une question, une réponse non lue), B.O.T.S vous le dit et ouvre le premier d’un clic.',
       radarOff: 'Désactivé',

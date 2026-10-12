@@ -75,6 +75,8 @@ export interface CompanionPrefs {
   focusOnWork: boolean;
   /** Minutes a thread waits on the user before the radar tells of it; 0 turns the radar off. */
   radarMinutes: number;
+  /** Back at the keyboard after a long absence, the island tells what happened meanwhile (`island/away.ts`). */
+  awayRecap: boolean;
   screenScope: CompanionScreenScope;
   /** The agents that stand as the companion, by id, the leader first; `CREW_MAX` at most. */
   agents: string[];
@@ -111,6 +113,7 @@ export const DEFAULT_COMPANION_PREFS: CompanionPrefs = {
   breakMinutes: 5,
   focusOnWork: true,
   radarMinutes: 10,
+  awayRecap: true,
   screenScope: 'all',
   agents: [],
   crewMade: false,
@@ -176,6 +179,7 @@ export function parseCompanionPrefs(raw: unknown): CompanionPrefs {
     breakMinutes: minutes(value.breakMinutes, 60, DEFAULT_COMPANION_PREFS.breakMinutes),
     focusOnWork: value.focusOnWork !== false,
     radarMinutes: value.radarMinutes === 0 ? 0 : minutes(value.radarMinutes, 240, DEFAULT_COMPANION_PREFS.radarMinutes),
+    awayRecap: value.awayRecap !== false,
     screenScope: value.screenScope === 'here' || value.screenScope === 'zone' ? value.screenScope : 'all',
     agents: Array.isArray(value.agents) ? [...new Set(value.agents.filter((id): id is string => typeof id === 'string' && id !== ''))].slice(0, CREW_MAX) : [],
     crewMade: value.crewMade === true,
