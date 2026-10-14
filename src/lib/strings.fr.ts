@@ -49,6 +49,7 @@ export const fr: Messages = {
     waitingOne: 'Un agent a besoin de vous',
     waitingMany: '{count} demandes vous attendent',
     finished: 'Terminé',
+    pill: { waitsOne: '{name} attend votre réponse', waitsMany: '{count} vous attendent', someone: 'Un agent', workingOne: '{name} au travail', workingMany: '{count} au travail' },
     finish: {
       done: 'terminé',
       failed: 'en échec',

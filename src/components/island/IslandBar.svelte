@@ -1,14 +1,19 @@
 <!--
-  The island's pill, collapsed or peeking: the lead robot, one line, and a dot
-  per session (`lib/island/dots.ts`).
+  The island's pill, collapsed or peeking: the lead robot and one line.
 
-  - The line: the peek's status (`lib/island/status.ts`), or collapsed, the
-    live line of the lead session (`session-text.ts`). A thread that just ended is told in it for a few
-    seconds (`finished.svelte.ts`). When the text changes it rolls, counter-
-    like (`motion.ts`'s `rollIn` and `rollOut`); the same text moves nothing.
-    A thread followed from Home (`followed.ts`) keeps the live line, ended or
-    at rest too. At rest, Settings may show the quota, the music, the timer or the robot
-    alone instead (`pill-rest.ts`); the width follows through the spring.
+  - At rest the line answers one thing at a time (`lib/island/pill-view.ts`):
+    someone waits on you (amber, the asking thread named), something just
+    ended (green, red when it failed), what Settings shows at rest (the
+    quota, the music, the timer, or the robot alone: `pill-rest.ts`), how
+    many agents work, or nothing, the robot alone. A task list followed
+    draws a hairline along the pill's lower lip. When the words change they
+    roll, counter-like (`motion.ts`'s `rollIn` and `rollOut`); the same words
+    move nothing. The width follows through the spring.
+  - Hovered, or focused from the keyboard, the pill peeks with the detail:
+    the status and the lead's step (`lib/island/status.ts`), and a dot per
+    session (`lib/island/dots.ts`). The dots show only then: at rest the pill
+    says how many, the hover says who. A request or a thing just told keeps
+    its words while hovered.
   - The wheel goes through what the pill can show at rest, each conversation
     at work its own stop (`pill-stops.ts`), and rolls the line its way; where
     it lands becomes the setting. While it turns, the pill shows the stop
@@ -24,9 +29,10 @@
     cannot allow by accident. "Always…" opens the choice of where the rule
     holds, this thread or this project (`lib/island/allow.svelte.ts`), armed
     again. Questions open the island, as before.
-  - A request a rule answered peeks the pill for a few seconds, with no sound
-    or glow: the line says what was allowed, a shield stands by the dots. A pull request's CI told in the
-    line (`pr-watch.svelte.ts`) opens its thread in Boite on a click.
+  - A request a rule answered is told in the line for a few seconds, its
+    shield before it, with no sound or glow. A thread just ended or a pull
+    request's CI told in the line (`pr-watch.svelte.ts`) opens its thread in
+    Boite on a click.
 
   It tells the island the size it wants through `want`.
 -->
@@ -45,6 +51,8 @@
   import { bloom, blurAway, ROLL_MS, rollIn, rollOut } from '../../lib/island/motion';
   import { restLine, robotWidth, sessionLine, type TimerSource } from '../../lib/island/pill-rest';
   import { pillStops, stepStop, stopAt, WHEEL_STILL, wheelStep } from '../../lib/island/pill-stops';
+  import { posed } from '../../lib/island/posed.svelte';
+  import { fitWords, pillText, pillView } from '../../lib/island/pill-view';
   import { QuotaWatch } from '../../lib/island/quotas.svelte';
   import { requestQueue } from '../../lib/island/requests';
   import { isLive } from '../../lib/island/sessions';
@@ -76,8 +84,10 @@
   /** With a request to answer: the line, then what is asked and the three answers. */
   const ASK = { w: 480, h: 78 };
   const PEEK = { min: 240, max: 420, chrome: 82 };
-  /** The collapsed pill with a conversation at work: its line, the face, the gaps and the padding, and the dots. */
-  const LIVE = { min: 200, max: 360, chrome: 74 };
+  /** The pill at rest: its words, the face, the gap and the padding. */
+  const VIEW = { min: 150, max: 420, chrome: 68 };
+  /** The longest detail the hover tells, cut on a word. */
+  const DETAIL_MAX = 54;
   /** Each dot's hover target: wider than the dot. */
   const DOT_STEP = 12;
   /** How long the answers take no click once a request shows. */
@@ -85,11 +95,13 @@
 
   let barFace = $state<HTMLElement | null>(null);
   let statusWidth = $state(0);
-  let liveWidth = $state(0);
+  let viewWidth = $state(0);
 
   const lead = $derived(companion.members[0]!);
   /** The conversations at work, and the one the wheel picked among them. */
-  const liveRows = $derived(sessions.rows.filter(isLive));
+  /** Home's session rows; a capture pose (`sessions=none`, `pose.ts`) shows none, in the dev bundle only. */
+  const rows = $derived(import.meta.env.DEV && posed.idle ? [] : sessions.rows);
+  const liveRows = $derived(rows.filter(isLive));
   let picked = $state<string | null>(null);
   const leadSession = $derived(liveRows.find((row) => row.id === picked) ?? sessions.lead);
   /** The thread followed from Home keeps the line whatever else starts (`followed.ts`). */
@@ -129,7 +141,7 @@
     if (picked !== null && !liveRows.some((row) => row.id === picked)) picked = null;
   });
 
-  const dots = $derived(pillDots(sessions.rows, companion.blocking));
+  const dots = $derived(pillDots(rows, companion.blocking));
   /** The pointer is over the dots' strip, and over which dot. */
   let onDots = $state(false);
   let hoveredKey = $state<string | null>(null);
@@ -152,27 +164,50 @@
   const inProject = $derived(ask ? companion.threads.some((thread) => thread.id === ask.request.threadId && thread.projectId) : false);
   /** Each row of answers arms on its own: the scope's too. */
   const armKey = $derived(ask ? (scoping === ask.id ? `scope:${ask.id}` : ask.id) : null);
-  /** The last request a rule answered: the pill peeks with its line, a shield by the dots. */
+  /** The last request a rule answered: told in the line a few seconds, its shield before it. */
   const trace = $derived(companion.rules.trace);
   const traceLine = $derived(trace ? { text: fill(copy.allow.traced, { rule: trace.text }), tone: 'done' as const } : null);
 
-  /** The line the peek shows: a hovered dot, else the request, else a thread just ended, else the status. */
-  const line = $derived.by(() => {
-    if (hoveredDot) return dotLine(hoveredDot);
-    if (ask && origin) return { text: queue.length > 1 ? `${origin.title} · ${fill(card.of, { index: '1', count: String(queue.length) })}` : origin.title, tone: 'attention' };
-    if (told && frame.flashing) return told;
-    return traceLine ?? status;
+  /** The first request's thread, when Bots knows it. */
+  const asker = $derived.by(() => {
+    const first = queue[0];
+    const thread = first ? companion.threads.find((entry) => entry.id === first.request.threadId) : undefined;
+    return thread ? thread.title || strings.companion.untitled : null;
   });
-  /** While the wheel turns, the hover's peek gives way to where the wheel lands; flashes, requests and a dot's name do not. */
-  let wheeling = $state(false);
-  const peeking = $derived((frame.size === 'peek' && (!wheeling || frame.flashing)) || asking || hoveredDot !== null || trace !== null);
-
-  const dotsWidth = $derived((dots.length + (trace ? 1 : 0)) * DOT_STEP);
-  const peekWidth = $derived(Math.round(Math.min(PEEK.max, Math.max(PEEK.min, statusWidth + PEEK.chrome + dotsWidth))));
-  const collapsedWidth = $derived(
-    live ? Math.round(Math.min(LIVE.max, Math.max(LIVE.min, liveWidth + LIVE.chrome + dotsWidth))) : rest === 'robot' ? robotWidth(dotsWidth) : SIZES.collapsed.w
+  /** The row the pill follows alone: followed from Home, else picked with the wheel. */
+  const focusRow = $derived(sessions.followedRow ?? (picked !== null ? (liveRows.find((row) => row.id === picked) ?? null) : null));
+  /** What the pill says at rest (`pill-view.ts`). With a request to answer, the asking thread is named and the queue counted aside. */
+  const view = $derived(
+    pillView({
+      waiting: asking ? { count: 1, from: origin?.title ?? null } : { count: companion.blocking, from: asker },
+      told: told && frame.flashing ? { text: told.text, tone: told.tone } : null,
+      rule: traceLine?.text ?? null,
+      rest: live && live.kind !== 'live' ? live : null,
+      robot: rest === 'robot',
+      focus: focusRow ? sessionLine(focusRow, (focusRow.projectId && companion.projects.get(focusRow.projectId)) || '') : null,
+      working: { count: liveRows.length, first: liveRows[0] ? liveRows[0].title || strings.companion.untitled : null },
+      goal: (focusRow ?? liveRows.find((row) => row.progress && row.progress.total > 0))?.progress ?? null
+    })
   );
-  const wanted = $derived(asking ? ASK : peeking ? { ...SIZES.peek, w: peekWidth } : { ...SIZES.collapsed, w: collapsedWidth });
+  const viewText = $derived(pillText(view));
+  const meta = $derived(asking && queue.length > 1 ? fill(card.of, { index: '1', count: String(queue.length) }) : view.meta);
+
+  /** The pill is focused from the keyboard: it tells the hover's detail. */
+  let focused = $state(false);
+  /** While the wheel turns, the hover's detail gives way to where the wheel lands. */
+  let wheeling = $state(false);
+  /** Hovered or focused: the detail and the dots. */
+  const hovered = $derived(((frame.hovering && !wheeling) || focused || onDots) && !companion.dropped);
+  /** The hover's detail replaces the rest's words; a request, a thing just told and a dot's name keep theirs. */
+  const detail = $derived(hoveredDot !== null || (hovered && (view.state === 'rest' || view.state === 'working' || view.state === 'idle')));
+  /** The line the detail shows: a hovered dot, else the status with the lead's step. */
+  const line = $derived(hoveredDot ? dotLine(hoveredDot) : { text: fitWords(status.text, DETAIL_MAX), tone: status.tone });
+  const peeking = $derived(detail || asking);
+
+  const dotsWidth = $derived(hovered ? dots.length * DOT_STEP : 0);
+  const peekWidth = $derived(Math.round(Math.min(PEEK.max, Math.max(PEEK.min, statusWidth + PEEK.chrome + dotsWidth))));
+  const restWidth = $derived(viewText ? Math.round(Math.min(VIEW.max, Math.max(VIEW.min, viewWidth + VIEW.chrome + dotsWidth))) : robotWidth(dotsWidth));
+  const wanted = $derived(asking ? ASK : detail ? { ...SIZES.peek, w: peekWidth } : { ...SIZES.collapsed, w: restWidth });
   // Over the dots the width holds: a dot's name is longer or shorter than the line, and the dots would slide from under the pointer.
   $effect(() => {
     const next = wanted;
@@ -207,7 +242,7 @@
 
   // The timer's drop leaves its time to the line while the line tells it.
   $effect(() => {
-    const inLine = !peeking && live?.kind === 'timer';
+    const inLine = !peeking && view.glyph === 'timer';
     untrack(() => (timerInLine = inLine));
   });
   $effect(() => () => (timerInLine = false));
@@ -291,18 +326,21 @@
 
 <div class="pill" class:asking in:bloom={{ reduced }} out:blurAway={{ reduced }}>
   <span class="measure" aria-hidden="true" bind:offsetWidth={statusWidth}>{line.text}</span>
-  {#if live}<span class="measure live-measure" aria-hidden="true" data-kind={live.kind} bind:offsetWidth={liveWidth}>{#if live.kind !== 'live'}<i class="kind"></i>{/if}<b>{live.name}</b> {#if live.progress !== null}<span class="goal"></span>{/if}<span class="doing">{live.doing}</span></span>{/if}
+  {#if viewText}<span class="measure say-measure" aria-hidden="true" data-state={view.state} bind:offsetWidth={viewWidth}>{#if view.glyph}<i class="glyph"></i>{/if}{view.before}<b>{view.strong}</b>{view.after}{#if meta}<span class="meta">{meta}</span>{/if}</span>{/if}
   <button
     class="bar"
     data-testid="island-bar"
+    data-state={view.state}
     aria-expanded="false"
-    aria-label={line.text}
+    aria-label={[detail ? line.text : viewText || line.text, meta].filter(Boolean).join(', ')}
     onclick={barClick}
     onpointerdown={(event) => companion.onpress(event, true)}
     onpointermove={move}
     onpointerleave={leave}
     onpointerup={companion.onrelease}
     onwheel={wheel}
+    onfocus={(event) => (focused = event.currentTarget.matches(':focus-visible'))}
+    onblur={() => (focused = false)}
   >
     <span class="face" bind:this={barFace}>
       <CompanionCharacter
@@ -318,20 +356,31 @@
         {...companion.look}
       />
     </span>
-    {#if peeking}
+    {#if detail}
       <span class="status roll" in:bloom={{ reduced }} data-tone={line.tone} data-testid="island-status">
         {#key line.text}<span class="line" in:rollIn={{ reduced }} out:rollOut={{ reduced }}>{line.text}</span>{/key}
       </span>
-    {:else if live}
+    {:else if viewText}
       <!-- The timer's clock ticks in place: only its name rolls the line. -->
-      <span class="live roll" in:bloom={{ reduced }} data-kind={live.kind} data-tone={live.tone} data-paused={live.paused || undefined} data-testid="island-live">
-        {#key live.kind === 'timer' ? `timer\n${live.name}` : `${live.name}\n${live.doing}`}<span class="line" in:rollIn={{ reduced, back }} out:rollOut={{ reduced, back }}>{#if live.kind === 'quota'}<Gauge class="kind" size={12} strokeWidth={2} aria-hidden="true" />{:else if live.kind === 'music'}<Music class="kind" size={12} strokeWidth={2} aria-hidden="true" />{:else if live.kind === 'timer'}<Timer class="kind" size={12} strokeWidth={2} aria-hidden="true" />{/if}<b>{live.name}</b> {#if live.progress !== null}<span class="goal" aria-hidden="true"><i style:width="{(live.progress * 100).toFixed(1)}%"></i></span>{/if}<span class="doing">{live.doing}</span></span>{/key}
+      <span class="say roll" in:bloom={{ reduced }} data-tone={view.tone} data-paused={view.paused || undefined} data-testid="island-live">
+        {#key view.glyph === 'timer' ? `timer\n${view.strong}` : viewText}<span class="line" in:rollIn={{ reduced, back }} out:rollOut={{ reduced, back }}
+            >{#if view.glyph}<span class="glyph" data-tone={view.glyphTone} data-testid={view.glyph === 'rule' ? 'island-rule-trace' : undefined}
+                >{#if view.glyph === 'quota'}<Gauge size={14} strokeWidth={2.2} aria-hidden="true" />{:else if view.glyph === 'music'}<Music size={14} strokeWidth={2.2} aria-hidden="true" />{:else if view.glyph === 'timer'}<Timer
+                    size={14}
+                    strokeWidth={2.2}
+                    aria-hidden="true"
+                  />{:else}<ShieldCheck size={14} strokeWidth={2.2} aria-hidden="true" />{/if}</span
+              >{/if}{view.before}{#if view.strong}<b>{view.strong}</b>{/if}<span class="after">{view.after}</span></span
+          >{/key}
       </span>
     {/if}
-    <span class="dots" aria-hidden="true">
-      {#if trace}<span class="dot rule" data-testid="island-rule-trace" title={traceLine?.text} in:bloom={{ reduced }}><ShieldCheck size={11} strokeWidth={2.4} /></span>{/if}
-      {#each dots as dot (dot.key)}<span class="dot" class:on={dot.key === hoveredKey} data-dot={dot.key}><i data-tone={dot.tone}></i></span>{/each}
-    </span>
+    {#if meta && !detail}<span class="meta" data-tone={view.tone} data-testid="island-meta">{meta}</span>{/if}
+    {#if hovered && dots.length > 0}
+      <span class="dots" aria-hidden="true" in:bloom={{ reduced }}>
+        {#each dots as dot (dot.key)}<span class="dot" class:on={dot.key === hoveredKey} data-dot={dot.key}><i data-tone={dot.tone}></i></span>{/each}
+      </span>
+    {/if}
+    {#if view.progress !== null && !peeking}<span class="lip" aria-hidden="true"><i style:transform="scaleX({view.progress.toFixed(3)})"></i></span>{/if}
   </button>
   {#if ask && said}
     {@const request = ask.request}
@@ -428,63 +477,91 @@
   .status[data-tone='failed'] { color: var(--island-danger); }
   .status[data-tone='talking'] { color: #b9aefb; }
   .status[data-tone='idle'] { color: var(--island-muted); }
-  /* Collapsed, the conversation at work: its project, then what it does. */
-  .live {
-    color: var(--island-muted);
-    font-size: 12px;
+  /*
+   * The pill at rest: one line, larger than the hover's detail, the name or
+   * the count in bold. Only someone waiting on the user turns the words amber;
+   * the quota's and the timer's marks keep their own tint.
+   */
+  .say,
+  .say-measure {
+    font-size: 14px;
+    letter-spacing: -0.005em;
   }
-  .live b {
-    color: var(--island-text);
-    font-weight: 600;
+  .say {
+    --say: var(--island-text);
+    color: var(--say);
   }
-  /* The quota's or the music's mark before the line; the measure keeps its room. */
-  .live :global(.kind),
-  .live-measure .kind {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    margin-right: 5px;
+  .say b,
+  .say-measure b {
+    font-weight: 650;
+  }
+  .say .after {
+    color: color-mix(in srgb, var(--say) 80%, transparent);
+  }
+  .say[data-tone='attention'] { --say: var(--island-attention); }
+  .say[data-tone='done'] { --say: var(--island-done); }
+  .say[data-tone='failed'] { --say: var(--island-danger); }
+  /* A told line is one piece: it reads at full strength. */
+  .bar[data-state='told'] .say .after {
+    color: var(--say);
+    font-weight: 550;
+  }
+  .glyph,
+  .say-measure .glyph {
+    display: inline-grid;
+    place-items: center;
+    width: 14px;
+    height: 14px;
+    margin-right: 7px;
     vertical-align: -2px;
   }
-  .live[data-tone='waiting'] b,
-  .live[data-tone='amber'] b {
-    color: var(--island-attention);
-  }
-  .live[data-tone='done'] b {
-    color: var(--island-done);
-  }
-  .live[data-tone='failed'] b,
-  .live[data-tone='red'] b {
-    color: var(--island-danger);
-  }
+  .glyph[data-tone='amber'] { color: var(--island-attention); }
+  .glyph[data-tone='red'] { color: var(--island-danger); }
+  .glyph[data-tone='done'] { color: var(--island-done); }
   /* The timer's clock: its digits keep their width, so the pill does not twitch each second. */
-  .live[data-kind='timer'] .doing,
-  .live-measure[data-kind='timer'] .doing {
+  .say .after,
+  .say-measure {
     font-variant-numeric: tabular-nums;
   }
-  .live[data-paused] .doing {
+  .say[data-paused] .after {
     opacity: 0.55;
   }
-  /* The goal: how far the task list is, a short rounded meter before its count ("2/5"), in the line. */
-  .goal {
-    display: inline-block;
-    width: 28px;
-    height: 5px;
-    margin: 0 7px 0 3px;
+  /* The count beside the words: the task list's, or the requests'. */
+  .meta {
+    flex: none;
+    color: var(--island-muted);
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .meta[data-tone='attention'] {
+    color: color-mix(in srgb, var(--island-attention) 80%, transparent);
+  }
+  .say-measure .meta {
+    margin-left: 10px;
+  }
+  /*
+   * The task list's progress, a hairline along the pill's lower lip, under
+   * the words. It moves only when the list does.
+   */
+  .lip {
+    position: absolute;
+    right: 18px;
+    bottom: 3px;
+    left: 50px;
+    height: 2px;
     overflow: hidden;
     border-radius: 999px;
     background: var(--island-line-strong);
-    vertical-align: 1px;
+    pointer-events: none;
   }
-  .goal i {
+  .lip i {
     display: block;
     height: 100%;
     border-radius: inherit;
     background: var(--island-working);
-    transition: width 400ms ease;
-  }
-  .live[data-tone='waiting'] .goal i {
-    background: var(--island-attention);
+    transform-origin: left center;
+    transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   .dots {
     display: flex;
@@ -586,10 +663,6 @@
   .hint {
     color: var(--island-muted);
   }
-  /* The shield a rule's answer leaves by the dots. */
-  .dot.rule {
-    color: var(--island-done);
-  }
   /* Asleep for a moment after the request shows: seen, not yet clickable. */
   .answer[aria-disabled='true'],
   .answer:disabled {
@@ -611,12 +684,11 @@
     font-weight: 500;
     pointer-events: none;
   }
-  .live-measure {
-    font-size: 12px;
+  .say-measure {
     font-weight: 400;
   }
-  .live-measure b {
-    font-weight: 600;
+  .say-measure[data-state='told'] {
+    font-weight: 550;
   }
   .sr {
     position: absolute;
@@ -646,6 +718,9 @@
   @media (prefers-reduced-motion: reduce) {
     .dot i {
       animation: none !important;
+      transition: none;
+    }
+    .lip i {
       transition: none;
     }
     .ask {
