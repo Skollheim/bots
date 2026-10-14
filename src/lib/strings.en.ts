@@ -458,6 +458,7 @@ export const strings = {
         slow: 'Why is it slow?',
         slowIntro: 'My computer feels slow. Here is what it shows right now. What is slowing it down, and what can I do about it?',
         unavailable: 'The readings are not available.',
+        lastMinute: 'Last minute: {low} to {high} %',
         failed: 'That did not work.',
         point: '.'
       }
