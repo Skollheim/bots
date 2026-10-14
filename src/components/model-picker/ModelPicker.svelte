@@ -40,6 +40,7 @@
     onpick,
     anchor,
     cap,
+    align,
     onopen,
     auto
   }: {
@@ -55,6 +56,8 @@
     anchor?: () => HTMLElement | null;
     /** The popover's tallest, Boite's 360 px or 45 % of the window by default. */
     cap?: number;
+    /** The popover's edge lined up with the anchor's: `end` keeps a picker at a row's right end inside its window. */
+    align?: 'start' | 'end';
     onopen?: (open: boolean) => void;
     /** A choice Bots makes by itself, as a first tile: active while `choice` is null. */
     auto?: { active: boolean; onpick: () => void };
@@ -377,7 +380,7 @@
       aria-label={strings.composer.picker}
         data-testid="composer-picker-menu"
       bind:this={menu}
-      use:floating={{ anchor: () => anchor?.() ?? root?.closest<HTMLElement>("[data-testid=composer]") ?? root ?? null, cap, dismiss: () => popover.hide() }}
+      use:floating={{ anchor: () => anchor?.() ?? root?.closest<HTMLElement>("[data-testid=composer]") ?? root ?? null, cap, align, dismiss: () => popover.hide() }}
       use:popover.attach
       onanimationend={popover.end}
       {onkeydown}

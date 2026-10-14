@@ -42,7 +42,7 @@
 </script>
 
 <div class="companion-model" data-testid="companion-model">
-  <ModelPicker store={picker} {choice} auto={{ active: prefs.providerId === null, onpick: () => save(companionPick('auto')) }} onpick={(patch: PickPatch) => save(companionPick(patch))} />
+  <ModelPicker store={picker} {choice} align="end" auto={{ active: prefs.providerId === null, onpick: () => save(companionPick('auto')) }} onpick={(patch: PickPatch) => save(companionPick(patch))} />
   {#if choice && levels.length > 0}
     <EffortSlider {levels} active={prefs.effort ?? model?.effort?.default ?? null} onpick={(id) => save({ effort: id })} />
   {/if}
