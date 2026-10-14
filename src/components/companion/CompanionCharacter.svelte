@@ -381,7 +381,8 @@
   .with-cup .rig { transform-origin: 52.25% 88%; }
   .with-headset .rig { transform-origin: 50% 88.5%; }
   .lid { transform-origin: 10% 39%; }
-  .blink { transform-origin: 50% var(--blink-y); }
+  /* Kept on its own layer between blinks: made at each blink, it would be painted again each time. */
+  .blink { transform-origin: 50% var(--blink-y); will-change: transform; }
   /* The eyes morph from face to face: every part slides, nothing swaps. */
   .eyes { transform: translate(calc(var(--gx) * 4%), calc(var(--gy) * 2.5%)); transition: transform .35s var(--ease-out-quint); }
   .pupil, .upper { transform-box: fill-box; transform-origin: 50% 50%; }

@@ -377,6 +377,8 @@
 
   /* A blink at rest, a glance while working, a hop while it waits on the user; moves in hundredths of the square. */
   .eyes { transform-origin: var(--eyes-at); }
+  /* Kept on their own layer between blinks: made at each blink, they would be painted again each time. */
+  [data-state='idle'] .eyes { will-change: transform; }
   /* At rest a blink about every 4.6 s, started by the page's one timer (`beats.ts`). */
   .robot:global([data-beat-blink])[data-state='idle'] .eyes { animation: robot-blink 0.368s; }
   [data-state='working'] .eyes { animation: robot-glance 2.4s ease-in-out infinite; }

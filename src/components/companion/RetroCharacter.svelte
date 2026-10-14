@@ -99,6 +99,9 @@
   /* The antenna: a wiggle now and then at rest, all the time at work, waving when it calls. */
   /* No weightier than the rule it replaced: a poke's wave still wins over a wiggle under way. */
   .retro:global(:where([data-beat-wiggle])) .rig :global(.antenna) { animation: wiggle-once 1.26s ease-in-out; }
+  /* Kept on their own layers between gestures: made at each one, they would be painted again each time. */
+  .f-awake .rig :global(.antenna), .f-typing .rig :global(.antenna), .f-game .rig :global(.antenna), .f-groove .rig :global(.antenna) { will-change: transform; }
+  .glow { will-change: opacity; }
   .t-working .rig :global(.antenna) { animation: wiggle 1.2s ease-in-out infinite; }
   .f-alarm .rig :global(.antenna), .f-calling .rig :global(.antenna) { animation: wave 0.45s ease-in-out infinite alternate; }
   .f-happy .rig :global(.antenna), .f-cheer .rig :global(.antenna), .boing .rig :global(.antenna) { animation: wave 0.25s ease-in-out infinite alternate; }
