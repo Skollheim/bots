@@ -59,6 +59,8 @@ export const strings = {
     waitingOne: 'An agent needs you',
     waitingMany: '{count} requests wait for you',
     finished: 'Done',
+    /** The collapsed pill's one line (`pill-view.ts`): its `{name}` or `{count}` is set in bold. */
+    pill: { waitsOne: '{name} is waiting for you', waitsMany: '{count} are waiting for you', someone: 'An agent', workingOne: '{name} is working', workingMany: '{count} working' },
     /** A thread that just ended, told in the pill: "Port the scheduler · done · 3 files". */
     finish: {
       done: 'done',
