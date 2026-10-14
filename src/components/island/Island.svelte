@@ -33,6 +33,7 @@
   import type { Companion } from '../../lib/companion/companion.svelte';
   import { showMain } from '../../lib/companion/shell';
   import { waitingOnUser } from '../../lib/companion/watch';
+  import { Bar } from '../../lib/island/bar.svelte';
   import { awayLines, awaySpan, awayWorth, type AwayEvent, type AwayFacts, type AwayLine, type AwaySpan } from '../../lib/island/away';
   import { AwayWatch } from '../../lib/island/away.svelte';
   import { provideView } from '../../lib/island/contract';
@@ -87,6 +88,9 @@
   let timerInLine = $state(false);
 
   const lead = $derived(companion.members[0]!);
+  /** The deck's bar as the user arranged it, followed as Settings or the edit mode change it. */
+  const bar = new Bar();
+  $effect(() => bar.start());
   const sessions = new Sessions({ client: () => companion.client, threads: () => companion.threads, own: () => companion.ownThreads, held: () => companion.notes.notices.map((notice) => notice.threadId) });
   $effect(() => sessions.start());
   /** A thread that ended is told in the pill, which peeks for it; red for a failure. */
@@ -389,7 +393,7 @@
     <IslandBar {companion} {frame} {sessions} told={prs.told ?? finishes.line} {cheering} {reduced} bind:want={pill} bind:timerInLine />
   {:else}
     <div class="open" in:bloom={{ reduced }} out:blurAway={{ reduced }} style:max-height="{OPEN_MAX}px" bind:offsetHeight={measured}>
-      <Deck {companion} {frame} {lead} {cheering} {reduced} room={OPEN_MAX - TABS_HEIGHT}>
+      <Deck {companion} {frame} {bar} {lead} {cheering} {reduced} room={OPEN_MAX - TABS_HEIGHT}>
         {#snippet notice()}
           {#if awayShown && away.pending}
             <AwayCard lines={awayList} span={awaySpan(away.pending.back - away.pending.from)} onopen={awayOpen} ondismiss={() => away.dismiss()} />

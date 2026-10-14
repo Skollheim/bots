@@ -6,12 +6,14 @@
 //! calls only after the user confirmed it.
 //!
 //! Other systems than Windows answer with nothing: an empty list, no image,
-//! or an error for an action.
+//! or an error for an action. The one exception is `links`, which opens a web
+//! link of the island's bar on macOS and Linux as well.
 
 pub(crate) mod apps;
 pub(crate) mod clipboard;
 pub(crate) mod engine;
 mod images;
+pub(crate) mod links;
 pub(crate) mod system;
 pub(crate) mod wallpaper;
 
@@ -102,6 +104,13 @@ pub async fn computer_app_icon(app: AppHandle, webview: Webview, id: String) -> 
 pub async fn computer_app_open(webview: Webview, id: String) -> Result<(), String> {
     only_companion(&webview)?;
     blocking(move || apps::open(&id)).await
+}
+
+/// Opens a web link the user added to the island's bar, in the default browser; http and https only.
+#[tauri::command]
+pub async fn computer_link_open(webview: Webview, url: String) -> Result<(), String> {
+    only_companion(&webview)?;
+    blocking(move || links::open(&url)).await
 }
 
 // ---------------------------------------------------------------------------

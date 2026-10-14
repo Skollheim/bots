@@ -12,6 +12,8 @@
  *   answer, a dot's name), a hover peeks but does not open.
  * - The tab is the deck's (`deck-tabs.ts`): it opens on the last one used,
  *   which `FrameSource.keepTab` stores.
+ * - `edit(true)`: the bar's edit mode (`bar.ts`). It opens the island and
+ *   holds it open, a click elsewhere included, until `edit(false)`.
  */
 import { FIRST_TAB, type DeckTab } from './deck-tabs';
 
@@ -61,6 +63,8 @@ export class IslandFrame {
   private readonly hushes = new Set<string>();
   /** Something in the pill is being read (`hush`). */
   hushed = $state(false);
+  /** The bar is being edited: the island stays open meanwhile. */
+  editing = $state(false);
 
   /** Something keeps the island open while the pointer is away. */
   readonly held = $derived.by(() => this.pinned || this.source.waiting() || Object.keys(this.holds).length > 0 || Object.keys(this.calls).length > 0);
@@ -133,6 +137,17 @@ export class IslandFrame {
     this.leaveTimer = setTimeout(() => {
       if (!this.hovering && !this.held) this.source.setOpen(false);
     }, LEAVE_MS);
+  }
+
+  /** Starts the bar's edit mode, opening the island, or ends it. */
+  edit(on: boolean): void {
+    if (on === this.editing) return;
+    this.editing = on;
+    if (on) {
+      clearTimeout(this.openTimer);
+      if (!this.source.isOpen()) this.source.setOpen(true);
+    }
+    this.hold('edit', on);
   }
 
   togglePin(): void {

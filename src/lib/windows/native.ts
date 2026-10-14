@@ -72,6 +72,14 @@ export async function openApp(id: string): Promise<void> {
   if (shell()) return call('computer_app_open', { id });
 }
 
+// Links --------------------------------------------------------------------
+
+/** Opens a web link of the island's bar in the default browser; the shell takes http and https only. */
+export async function openLink(url: string): Promise<void> {
+  if (shell()) return call('computer_link_open', { url });
+  window.open(url, '_blank', 'noopener');
+}
+
 // Clipboard ----------------------------------------------------------------
 
 /** Starts or stops the clipboard listener; off also forgets the list. */

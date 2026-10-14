@@ -4,10 +4,10 @@
 mod tests {
     use tauri::ipc::Origin;
 
-    const COMPANION: [&str; 39] = ["core_endpoint", "companion_monitors", "companion_place", "companion_hit_rects", "companion_media",
+    const COMPANION: [&str; 40] = ["core_endpoint", "companion_monitors", "companion_place", "companion_hit_rects", "companion_media",
         "companion_media_control", "companion_media_levels", "companion_configure", "companion_drag", "companion_capture", "companion_cover", "companion_focus",
         "companion_keep", "island_place", "bots_settings", "bots_tray_labels", "plugin:event|listen", "plugin:event|unlisten",
-        "computer_system", "computer_close", "computer_power", "computer_apps", "computer_app_icon", "computer_app_open", "computer_clipboard_watch",
+        "computer_system", "computer_close", "computer_power", "computer_apps", "computer_app_icon", "computer_app_open", "computer_link_open", "computer_clipboard_watch",
         "computer_clipboard_list", "computer_clipboard_copy", "computer_clipboard_remove", "computer_clipboard_item", "computer_wallpapers",
         "computer_wallpaper_folder", "computer_wallpaper_pick", "computer_wallpaper_thumb", "computer_wallpaper_set", "computer_engine",
         "computer_engine_thumb", "computer_engine_apply", "computer_engine_current", "computer_engine_control"];

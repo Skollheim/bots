@@ -6,6 +6,8 @@
  *
  * The deck opens on the last tab used, kept in `localStorage`; the tab bar
  * is a tablist whose focus moves with the arrows, Home and End (`tabKey`).
+ * The user may leave tabs out of the bar and reorder them (`bar.ts`): both
+ * then follow the bar's order, `order`, which is the deck's by default.
  */
 export const DECK_TABS = ['threads', 'today', 'chat', 'stats', 'music', 'apps', 'clipboard', 'wallpaper', 'system'] as const;
 
@@ -38,19 +40,21 @@ export function writeDeckTab(store: Store | null, tab: DeckTab): void {
   }
 }
 
-/** Which way the content slides from one tab to another: 1 to the right of the bar, -1 to the left, 0 for none. */
-export function travel(from: DeckTab, to: DeckTab): -1 | 0 | 1 {
-  const delta = DECK_TABS.indexOf(to) - DECK_TABS.indexOf(from);
-  return delta === 0 ? 0 : delta > 0 ? 1 : -1;
+/** Which way the content slides from one tab to another: 1 to the right of the bar, -1 to the left, 0 for none or for a tab the bar leaves out. */
+export function travel(from: DeckTab, to: DeckTab, order: readonly DeckTab[] = DECK_TABS): -1 | 0 | 1 {
+  const [a, b] = [order.indexOf(from), order.indexOf(to)];
+  if (a < 0 || b < 0 || a === b) return 0;
+  return b > a ? 1 : -1;
 }
 
 /** The tab a key moves the focus to in the tab bar, or null for a key it ignores. The arrows wrap around. */
-export function tabKey(key: string, from: DeckTab): DeckTab | null {
-  const at = DECK_TABS.indexOf(from);
-  const last = DECK_TABS.length - 1;
-  if (key === 'ArrowRight') return DECK_TABS[at === last ? 0 : at + 1]!;
-  if (key === 'ArrowLeft') return DECK_TABS[at === 0 ? last : at - 1]!;
-  if (key === 'Home') return DECK_TABS[0];
-  if (key === 'End') return DECK_TABS[last]!;
+export function tabKey(key: string, from: DeckTab, order: readonly DeckTab[] = DECK_TABS): DeckTab | null {
+  if (order.length === 0) return null;
+  const at = Math.max(0, order.indexOf(from));
+  const last = order.length - 1;
+  if (key === 'ArrowRight') return order[at === last ? 0 : at + 1]!;
+  if (key === 'ArrowLeft') return order[at === 0 ? last : at - 1]!;
+  if (key === 'Home') return order[0]!;
+  if (key === 'End') return order[last]!;
   return null;
 }

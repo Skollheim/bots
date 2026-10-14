@@ -65,6 +65,7 @@ pub fn run() {
             computer::computer_apps,
             computer::computer_app_icon,
             computer::computer_app_open,
+            computer::computer_link_open,
             computer::computer_clipboard_watch,
             computer::computer_clipboard_list,
             computer::computer_clipboard_copy,
