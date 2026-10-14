@@ -202,7 +202,7 @@ export class Companion {
   readonly senses: Senses;
 
   // With no agent yet, a lone character stands, and says so when asked. The
-  // first one wears the mascot chosen in Settings, else its own box.
+  // first one wears the mascot chosen in Settings, else its own robot.
   readonly members = $derived.by<Member[]>(() =>
     this.crew.members.length > 0
       ? this.crew.members.map((agent, index) => ({ id: agent.id, name: agent.name, skin: (index === 0 && this.prefs.mascot) || skinOf(agent), talk: this.talkOf(agent.id) }))

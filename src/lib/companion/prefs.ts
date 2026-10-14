@@ -10,7 +10,7 @@
  * first one leading (`crew.svelte.ts`). The brain fields are what a companion
  * agent made from here runs on; each agent then keeps its own.
  */
-import { encodeRobot, parseRobot, type Robot, type RobotFamily } from '../robots';
+import { encodeRobot, parseRobot, ROBOT_FAMILIES, type Robot, type RobotFamily } from '../robots';
 
 /** Along the top of the screen, or `free`: where the user dropped the character. */
 export type CompanionAnchor = 'left' | 'center' | 'right' | 'free';
@@ -25,9 +25,9 @@ export type PillRest = 'live' | 'quota' | 'music' | 'timer' | 'robot';
 export const PILL_RESTS = ['live', 'quota', 'music', 'timer', 'robot'] as const satisfies readonly PillRest[];
 /** The character's centre, in fractions of the screen's work area. */
 export interface CompanionSpot { x: number; y: number }
-/** The families the island's mascot may come from: Boîte, the box, or a Jelly. */
-export const MASCOT_FAMILIES = ['box', 'jelly'] as const satisfies readonly RobotFamily[];
-export type Mascot = Robot & { family: (typeof MASCOT_FAMILIES)[number] };
+/** The families the island's mascot may come from: every robot Boite draws, and the box. */
+export const MASCOT_FAMILIES: readonly RobotFamily[] = ROBOT_FAMILIES;
+export type Mascot = Robot;
 
 /** The shortcuts Settings offers, in the shell's notation (`platform/desktop.rs`). */
 export const COMPANION_HOTKEYS = ['Alt+Shift+Space', 'Ctrl+Alt+Space', 'Ctrl+Shift+Space', 'Ctrl+Alt+B'] as const;
@@ -41,7 +41,7 @@ export interface CompanionPrefs {
   openOnHover: boolean;
   /** What the pill shows at rest (`IslandBar.svelte`). */
   pillRest: PillRest;
-  /** The island's character, the first agent's on the desktop; null is that agent's own box (Boîte by default). */
+  /** The island's character, the first agent's on the desktop; null is that agent's own robot (Boîte, the classic box, by default). */
   mascot: Mascot | null;
   anchor: CompanionAnchor;
   /** Where the character was dropped, with `anchor: 'free'`. */
@@ -138,11 +138,11 @@ function spotOf(value: unknown): CompanionSpot | null {
   return left === null || top === null ? null : { x: left, y: top };
 }
 
-/** A box or a jelly, each part in its range; anything else is no mascot. */
+/** A robot of a known family, each part in its range; anything else is no mascot. */
 function mascotOf(value: unknown): Mascot | null {
   if (!value || typeof value !== 'object') return null;
   const { family, shape, color, eyes, top } = value as Record<string, unknown>;
-  if (family !== 'box' && family !== 'jelly') return null;
+  if (!(MASCOT_FAMILIES as readonly unknown[]).includes(family)) return null;
   const parts = [shape, color, eyes, top];
   if (!parts.every((part) => typeof part === 'number' && Number.isInteger(part) && part >= 0)) return null;
   const robot = parseRobot(encodeRobot({ family, shape, color, eyes, top } as Robot));

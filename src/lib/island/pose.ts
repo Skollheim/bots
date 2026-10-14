@@ -52,6 +52,8 @@
  *   (one paused, one whose project is gone) for Settings;
  * - `bar=custom`: the bar arranged by hand: two tabs left out, one renamed,
  *   two apps and a link added, the pin taken away (`bar.ts`);
+ * - `skin=box|jelly|bubble|capsule|retro`: the lead robot wears a robot of
+ *   that family as its mascot (`SKIN_POSES`);
  * - `edit=1`: with `pose=open` or `pose=deck`, the bar in its edit mode, what
  *   it can take under it (`deck/BarPalette.svelte`);
  * - `pose=decktab&tab=apps|clipboard|wallpaper|system`: one of the deck's
@@ -66,6 +68,7 @@ import { activeLocale } from '@boite/ui/lib/i18n.svelte';
 import type { Companion } from '../companion/companion.svelte';
 import { nextAt, type Repeat } from '../companion/missions';
 import { PILL_RESTS, writeCompanionPrefs, type PillRest } from '../companion/prefs';
+import type { Robot, RobotFamily } from '../robots';
 import { DEMO_COMMAND, DEMO_THREAD } from '../fake-client/allow-demo';
 import { addApp, addLink, DEFAULT_BAR, removeItem, removeTool, renameItem, writeBar, writeBarEdit, type BarLayout } from './bar';
 import { FAKE_APPS } from '../windows/fake';
@@ -204,6 +207,15 @@ function poseAway(): void {
   };
 }
 
+/** The mascot a `skin=` pose puts on the lead robot: one per family, each wearing something on top. */
+const SKIN_POSES: Record<RobotFamily, Robot> = {
+  box: { family: 'box', shape: 6, color: 4, eyes: 2, top: 3 },
+  jelly: { family: 'jelly', shape: 0, color: 3, eyes: 0, top: 3 },
+  bubble: { family: 'bubble', shape: 0, color: 5, eyes: 2, top: 1 },
+  capsule: { family: 'capsule', shape: 0, color: 1, eyes: 0, top: 1 },
+  retro: { family: 'retro', shape: 0, color: 7, eyes: 1, top: 0 },
+};
+
 const WALLPAPER = 'html[data-companion] body { background: linear-gradient(160deg, #34466e, #7d6797 55%, #d49c78) !important; }';
 
 async function until(ready: () => boolean, tries = 60): Promise<void> {
@@ -255,6 +267,8 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
   if (params.get('tasks') === '1') await poseTasks(companion);
   const mission = params.get('mission');
   if (mission === 'ask' || mission === 'list') poseMissions(companion, mission);
+  const skin = params.get('skin');
+  if (skin && Object.hasOwn(SKIN_POSES, skin)) companion.prefs = { ...companion.prefs, mascot: SKIN_POSES[skin as RobotFamily] };
   const rest = params.get('rest') as PillRest | null;
   if (rest && PILL_RESTS.includes(rest)) companion.prefs = { ...companion.prefs, pillRest: rest };
   if (params.get('rule') === '1') {

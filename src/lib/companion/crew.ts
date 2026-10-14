@@ -5,34 +5,46 @@
  * to it. Pure, so it is tested without a core.
  */
 import type { AgentConversationMessage, AgentMemory, AgentProfile, AgentSave, AgentScope, AgentsSnapshot, AgentWork } from '@boite/contracts';
-import { BOX_COLORS, encodeRobot, ROBOT_PARTS, robotOf, seededRobot, type Robot } from '../robots';
+import { boxColorOf, encodeRobot, ROBOT_FAMILIES, ROBOT_PARTS, robotColors, robotOf, seededRobot, type Robot } from '../robots';
 import type { Brain } from './brain';
 import { namesFact, normalized } from './memory';
-import { toBox, type BoxRobot } from './skin';
 
 /** The name of the agent the companion makes for itself the first time. */
 export const FIRST_AGENT_NAME = 'B.O.T.S';
 /** The classic companion, as an avatar: the first agent keeps the look the companion always had. */
 export const CLASSIC_SKIN = encodeRobot({ family: 'box', shape: 0, color: 0, eyes: 0, top: 0 });
 
-/** The box an agent stands as: its own robot made a box, keeping its colour, or the box its id draws. */
-export function skinOf(profile: Pick<AgentProfile, 'id' | 'avatar'>): BoxRobot {
-  return toBox(robotOf(profile.id, profile.avatar) ?? seededRobot(profile.id, 'box'));
+/** The robot an agent stands as: the one the Agents page draws for it, of any family, or the box its id draws when its picture is text. */
+export function skinOf(profile: Pick<AgentProfile, 'id' | 'avatar'>): Robot {
+  return robotOf(profile.id, profile.avatar) ?? seededRobot(profile.id, 'box');
+}
+
+/** A number from 0 to n - 1, the same for a seed on every client. */
+function pickFor(seed: string, n: number): number {
+  let hash = 2166136261;
+  for (const char of seed) hash = Math.imul(hash ^ char.codePointAt(0)!, 16777619);
+  return (hash >>> 0) % n;
 }
 
 /**
- * A look to tell an agent apart from `others`, as an avatar: the box `seed`
- * draws, on a body colour none of them wears while one is left (never the
- * classic body, which the first agent keeps), with an accessory on its lid.
+ * A look to tell an agent apart from `others`, as an avatar: a robot of a
+ * family none of them is while one is left, any of the five otherwise, drawn
+ * from `seed`. Its colour, seen as a box's (`boxColorOf`), is one none of
+ * them wears while one is left, and never the classic body, which the first
+ * agent keeps; a box also gets an accessory on its lid.
  */
 export function freshSkin(seed: string, others: Robot[]): string {
-  const drawn = seededRobot(seed, 'box');
-  const worn = new Set(others.map((robot) => robot.color));
-  const colors = Array.from({ length: BOX_COLORS - 1 }, (_, index) => index + 1);
-  const free = colors.filter((color) => !worn.has(color));
-  const pool = free.length > 0 ? free : colors;
-  const top = drawn.top === 0 ? 1 + (drawn.eyes % (ROBOT_PARTS.box.top - 1)) : drawn.top;
-  return encodeRobot({ ...drawn, color: pool[drawn.color % pool.length]!, top });
+  const taken = new Set(others.map((robot) => robot.family));
+  const families = ROBOT_FAMILIES.filter((family) => !taken.has(family));
+  const pool = families.length > 0 ? families : ROBOT_FAMILIES;
+  const family = pool[pickFor(seed, pool.length)]!;
+  const drawn = seededRobot(seed, family);
+  const worn = new Set(others.map(boxColorOf));
+  const colors = Array.from({ length: robotColors(family) }, (_, color) => color).filter((color) => boxColorOf({ family, color }) !== 0);
+  const free = colors.filter((color) => !worn.has(boxColorOf({ family, color })));
+  const choice = free.length > 0 ? free : colors;
+  const top = family === 'box' && drawn.top === 0 ? 1 + (drawn.eyes % (ROBOT_PARTS.box.top - 1)) : drawn.top;
+  return encodeRobot({ ...drawn, color: choice[drawn.color % choice.length]!, top });
 }
 
 /** The collaboration tools a companion agent gets, as the Agents page gives a new agent. */
