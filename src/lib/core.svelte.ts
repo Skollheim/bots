@@ -1,8 +1,8 @@
 /*
- * What Bots's settings window knows of Boite: its providers, accounts,
+ * What Bots's settings panel knows of Boite: its providers, accounts,
  * projects, settings and agents, read once connected and kept current from
  * the core's events. Boite's own `Store` does this for the whole app; the
- * settings window needs only this much of it.
+ * settings panel needs only this much of it, on its own connection.
  *
  * `accountsOf` and `modelsOf` follow Boite's store (packages/ui/src/lib/store/
  * accounts.svelte.ts and models.svelte.ts at c4a8b0f7), so the settings offer

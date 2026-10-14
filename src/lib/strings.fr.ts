@@ -14,7 +14,6 @@ export const fr: Messages = {
     revealUnsupported: 'Cette version de Boite ne sait pas encore l’afficher. Mettez Boite à jour, puis réessayez.',
     revealElsewhere: 'Ce fil tourne sur {machine} : ouvrez-le dans Boite, sous cette machine.',
     machineAway: '{machine} est injoignable pour le moment.',
-    settingsTitle: 'Réglages de B.O.T.S',
     tray: { tooltip: 'B.O.T.S', settings: 'Réglages', quit: 'Quitter' },
     demo: 'Mode démo : un faux Boite, rien n’est envoyé.',
     demoQuestion: 'Sur quoi travaillent mes agents ?'
@@ -23,6 +22,21 @@ export const fr: Messages = {
   island: {
     label: 'B.O.T.S',
     settings: 'Réglages',
+    settingsPanel: {
+      sections: 'Rubriques des réglages',
+      names: {
+        place: 'Emplacement',
+        mascot: 'Mascotte',
+        crew: 'Équipe',
+        brain: 'Cerveau et modèle',
+        island: 'Île',
+        clipboard: 'Presse-papiers',
+        focus: 'Focus',
+        reminders: 'Rappels',
+        missions: 'Missions',
+        permissions: 'Autorisations'
+      }
+    },
     mute: 'Couper les sons',
     unmute: 'Remettre les sons',
     pin: 'Garder l’île ouverte',
@@ -460,7 +474,6 @@ export const fr: Messages = {
   },
 
   companion: {
-    heading: 'B.O.T.S',
     moods: { idle: 'Au repos', working: 'Au travail', calling: 'A besoin de vous', happy: 'Terminé', worried: 'Boite ne répond pas' },
     open: 'Ouvrir B.O.T.S',
     close: 'Fermer B.O.T.S',
@@ -671,8 +684,6 @@ export const fr: Messages = {
     snooze: 'Dans 10 min',
     snoozeLabel: 'Me le rappeler dans 10 minutes',
     settings: {
-      intro: 'B.O.T.S met vos agents sur votre écran : un robot par agent. Cliquez sur l’un d’eux pour lui demander quelque chose ou pour répondre à vos agents, faites-le glisser pour le déplacer. Chaque robot parle dans sa propre conversation, que vous retrouvez aussi dans la page Agents de Boite.',
-      desktopOnly: 'Les robots tournent dans l’application B.O.T.S : ces réglages s’y appliquent.',
       place: 'Emplacement',
       screen: 'Écran',
       screenHint: 'L’écran où se tient B.O.T.S. S’il est débranché, B.O.T.S revient sur l’écran principal.',
@@ -736,7 +747,6 @@ export const fr: Messages = {
       bar: 'Barre de l’île',
       barHint: 'Ajoutez, renommez, déplacez ou retirez les onglets, contrôles, applis et liens de la barre de l’île ouverte, directement sur l’île. Un clic droit sur la barre y mène aussi.',
       barEdit: 'Modifier',
-      barDone: 'Terminé',
       pillRest: 'Pilule au repos',
       pillRestHint: 'Ce que montre l’île fermée quand rien d’autre ne la demande. Les demandes et les fils terminés passent toujours devant.',
       pillRests: { live: 'Ligne en direct', quota: 'Quota', music: 'Musique', timer: 'Minuteur', robot: 'Robot seul' },

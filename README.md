@@ -132,10 +132,10 @@ A pomodoro or a timer sits beside it.
 
 ### Settings
 
-Everything else is in **Settings**, from the tray icon: where the robots sit and on which screen, the shortcut, what the pill shows, the mascot and the agents on screen, quotas, pomodoro, missions, sounds and reminders. In English and French.
+Everything else is in **Settings**, a panel that grows out of the open island under its bar, from the bar's gear or the tray icon: where the robots sit and on which screen, the shortcut, what the pill shows, the mascot and the agents on screen, quotas, pomodoro, missions, sounds and reminders. In English and French.
 
 <p align="center">
-  <img src="docs/media/settings.png" width="400" alt="The B.O.T.S settings: where the robots sit, open on hover, pill at rest, screen, shortcut and the mascot">
+  <img src="docs/media/settings.png" width="640" alt="The B.O.T.S settings under the open island's bar: a rail of sections, and Place with where the robots sit, the screen, the shortcut, open on hover, the pill at rest and the bar's edit mode">
 </p>
 
 ## Install
@@ -173,7 +173,7 @@ cd src-tauri && cargo test && cargo clippy --all-targets -- -D warnings
 
 The demo runs the robots on Boite's in-memory fake core: no Boite needed.
 
-- In a browser: `bun run dev`, then open `http://localhost:5174/?fake=1` (add `&hud=1` for busy agents and quotas, or open `?view=settings&fake=1` for the settings).
+- In a browser: `bun run dev`, then open `http://localhost:5174/?fake=1` (add `&hud=1` for busy agents and quotas, or `&pose=settings&section=crew` for the settings panel on a section).
 - In the desktop window: `BOTS_DEMO=1 bun run tauri dev` (`BOTS_DEMO=hud` for the busy version). Development builds only.
 
 In the browser, a few more parameters set a scene for captures: `pose=collapsed|peek|open|deck|desktop|away`, `tab=threads|today|chat|stats|music|apps|clipboard|wallpaper|system`, `calm=1` to answer the starting requests, `music=playing&lyrics=1`, `rest=live|quota|music|timer|robot`, `timer=1`, `todo=1`, `mission=ask|list`, `source=engine|recent|folder` for the wallpapers, `bar=custom` and `edit=1` for the bar, and more. [`src/lib/island/pose.ts`](src/lib/island/pose.ts) lists them all. The pictures of this README were taken that way, with the English interface.

@@ -108,11 +108,11 @@ fn find() -> Option<CoreEndpoint> {
     listening(&endpoint.url).then_some(endpoint)
 }
 
-/// The core to connect to, or none yet. Only Bots's own pages may ask: the
-/// answer carries the owner's token.
+/// The core to connect to, or none yet. Only the companion's page may ask:
+/// the answer carries the owner's token.
 #[tauri::command]
 pub async fn core_endpoint(webview: Webview) -> Result<Option<CoreEndpoint>, String> {
-    crate::only_bots(&webview)?;
+    crate::companion_window::only_companion(&webview)?;
     tauri::async_runtime::spawn_blocking(find).await.map_err(|error| error.to_string())
 }
 

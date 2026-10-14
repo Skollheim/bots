@@ -3,7 +3,8 @@
   count of requests waiting on it), the things the user keeps in the bar
   (`lib/island/bar.ts`: the deck's tabs, an app or a web link) as a tablist
   whose focus moves with the arrows, Home and End, and the island's controls
-  on the right: the quotas, the pin, Settings and the sound.
+  on the right: the quotas, the pin, Settings (the panel under the bar,
+  `settings/SettingsPanel.svelte`) and the sound.
 
   In edit mode (`frame.editing`, asked from Settings or by a right-click on
   the bar), each thing wiggles a little: a drag moves it along its row
@@ -18,13 +19,13 @@
   import { Check, Gauge, Globe, Pin, PinOff, Settings, Volume2, VolumeX, X } from '@lucide/svelte';
   import type { Companion, Member } from '../../../lib/companion/companion.svelte';
   import { writeCompanionPrefs } from '../../../lib/companion/prefs';
-  import { openSettings } from '../../../lib/companion/shell';
   import { barTabs, canRemove, LABEL_MAX, linkHost, moveItem, moveTool, removeItem, removeTool, renameItem, shownTab, writeBarEdit, type BarItem, type BarTool } from '../../../lib/island/bar';
   import { appIcons as icons, type Bar } from '../../../lib/island/bar.svelte';
   import { RowSorter } from '../../../lib/island/bar-sort.svelte';
   import { tabKey, type DeckTab } from '../../../lib/island/deck-tabs';
   import { gazeOf, moodOf } from '../../../lib/island/face';
   import type { IslandFrame } from '../../../lib/island/frame.svelte';
+  import { settingsPanel } from '../../../lib/island/settings-panel.svelte';
   import { openApp, openLink } from '../../../lib/windows/native';
   import { fill, strings } from '../../../lib/strings';
   import CompanionCharacter from '../../companion/CompanionCharacter.svelte';
@@ -389,7 +390,7 @@
         <Check size={14} strokeWidth={2.4} />{copy.deck.bar.done}
       </button>
     {:else}
-      <button class="tool" aria-label={copy.settings} title={copy.settings} data-testid="island-settings" onclick={() => void openSettings().catch(() => {})}>
+      <button class="tool" class:on={settingsPanel.open} aria-pressed={settingsPanel.open} aria-label={copy.settings} title={copy.settings} data-settings-toggle data-testid="island-settings" onclick={() => settingsPanel.toggle()}>
         <Settings size={15} strokeWidth={1.9} />
       </button>
     {/if}

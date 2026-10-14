@@ -19,7 +19,6 @@ export const strings = {
     revealElsewhere: 'This thread runs on {machine}: open it in Boite, under that machine.',
     /** A call for a thread whose machine is not connected now. */
     machineAway: '{machine} is out of reach right now.',
-    settingsTitle: 'B.O.T.S settings',
     tray: { tooltip: 'B.O.T.S', settings: 'Settings', quit: 'Quit' },
     demo: 'Demo mode: a fake Boite, nothing is sent.',
     /** What the demo asks the lead robot first, for a chat exchange to show. */
@@ -30,6 +29,22 @@ export const strings = {
   island: {
     label: 'B.O.T.S',
     settings: 'Settings',
+    /** The settings, a panel of the island under the deck's bar (`island/settings/SettingsPanel.svelte`). */
+    settingsPanel: {
+      sections: 'Settings sections',
+      names: {
+        place: 'Place',
+        mascot: 'Mascot',
+        crew: 'Crew',
+        brain: 'Brain and model',
+        island: 'Island',
+        clipboard: 'Clipboard',
+        focus: 'Focus',
+        reminders: 'Reminders',
+        missions: 'Missions',
+        permissions: 'Permissions'
+      }
+    },
     mute: 'Mute the sounds',
     unmute: 'Turn the sounds on',
     pin: 'Keep the island open',
@@ -482,7 +497,6 @@ export const strings = {
   },
 
   companion: {
-    heading: 'B.O.T.S',
     moods: { idle: 'Resting', working: 'At work', calling: 'Needs you', happy: 'Done', worried: 'Boite is not answering' },
     open: 'Open B.O.T.S',
     close: 'Close B.O.T.S',
@@ -693,8 +707,6 @@ export const strings = {
     snooze: 'In 10 min',
     snoozeLabel: 'Remind me again in 10 minutes',
     settings: {
-      intro: 'B.O.T.S puts your agents on your screen: one robot per agent. Click one to ask it something or to answer your agents, drag it to move it. Each robot talks in its own conversation, which you also find in Boite’s Agents page.',
-      desktopOnly: 'The robots run in the B.O.T.S app: these settings take effect there.',
       place: 'Place',
       screen: 'Screen',
       screenHint: 'The screen B.O.T.S sits on. A screen that is unplugged sends it back to the main one.',
@@ -758,7 +770,6 @@ export const strings = {
       bar: 'Island bar',
       barHint: 'Add, rename, move or take out the tabs, controls, apps and links of the open island’s bar, right on the island. A right-click on the bar does it too.',
       barEdit: 'Edit',
-      barDone: 'Done',
       pillRest: 'Pill at rest',
       pillRestHint: 'What the closed island shows when nothing else needs it. Requests and finished threads still show over it.',
       pillRests: { live: 'Live line', quota: 'Quota', music: 'Music', timer: 'Timer', robot: 'Robot only' },

@@ -32,9 +32,8 @@
   const gone = (mission: Mission) => mission.missing || (store.projects.length > 0 && !known.has(mission.projectId));
 </script>
 
+<!-- Titled by the settings panel's section, which tells what a mission is behind its "i". -->
 <section class="card" data-testid="companion-missions">
-  <h2>{copy.missions}</h2>
-  <p class="hint">{copy.missionsHint}</p>
   {#if missions.length === 0}
     <p class="hint">{copy.missionsEmpty}</p>
   {:else}
@@ -72,6 +71,9 @@
 </section>
 
 <style>
+  .hint {
+    padding: 12px 0;
+  }
   .list {
     display: flex;
     flex-direction: column;

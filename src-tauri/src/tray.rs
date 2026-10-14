@@ -1,22 +1,24 @@
-//! The tray icon, its menu, the settings window and quitting.
+//! The tray icon, its menu, opening the settings and quitting.
+//!
+//! The settings have no window of their own: they are a panel of the island,
+//! in the companion's window (`components/island/settings/`). Settings brings
+//! that window forward and asks its page for the panel (`companion://settings`).
 
-use std::sync::{Mutex, PoisonError};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, Runtime, Webview, WebviewUrl,
+    AppHandle, Emitter, Manager, Runtime, Webview,
 };
 
-pub const SETTINGS_LABEL: &str = "settings";
 pub const TRAY_ID: &str = "bots";
+/// The longest section name the page may ask the panel to open on.
+const SECTION_MAX: usize = 24;
 
-/// The tray menu's items and the settings window's title, kept so the page
-/// can name them in its language.
+/// The tray menu's items, kept so the page can name them in its language.
 struct Labels<R: Runtime> {
     tray: tauri::tray::TrayIcon<R>,
     settings: MenuItem<R>,
     quit: MenuItem<R>,
-    title: Mutex<String>,
 }
 
 /// Quit: Bots stops with code 0, which Boite reads as stopped on purpose,
@@ -25,47 +27,43 @@ pub fn quit<R: Runtime>(app: &AppHandle<R>) {
     app.exit(0);
 }
 
-/// Opens the settings window, or brings it forward when it is open.
-pub fn open_settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
-    if let Some(window) = app.get_webview_window(SETTINGS_LABEL) {
-        let _ = window.unminimize();
-        window.show()?;
-        return window.set_focus();
-    }
-    let title = app.try_state::<Labels<R>>()
-        .map(|labels| labels.title.lock().unwrap_or_else(PoisonError::into_inner).clone())
-        .unwrap_or_else(|| "B.O.T.S settings".into());
-    let query = crate::companion_window::demo_query();
-    let page = if query.is_empty() { "index.html?view=settings".to_string() } else { format!("index.html?view=settings&{query}") };
-    let window = tauri::WebviewWindowBuilder::new(app, SETTINGS_LABEL, WebviewUrl::App(page.into()))
-        .title(title).inner_size(720.0, 760.0).min_inner_size(520.0, 480.0)
-        .on_navigation(|url| matches!(url.scheme(), "tauri" | "http" | "https") && matches!(url.host_str(), Some("tauri.localhost") | Some("localhost")))
-        .build()?;
-    window.set_focus()
+/// A section the page may name: a short lowercase word. The page knows its
+/// sections (`lib/island/settings-panel.svelte.ts`) and opens the last one
+/// shown on any name it does not.
+fn is_section(name: &str) -> bool {
+    !name.is_empty() && name.len() <= SECTION_MAX && name.bytes().all(|byte| byte.is_ascii_lowercase())
 }
 
-/// `companion://settings` from the companion: its settings, in their own window.
+/// The companion's window comes forward with the keyboard and opens its
+/// settings panel, on `section` when one is named.
+pub fn open_settings<R: Runtime>(app: &AppHandle<R>, section: Option<&str>) -> tauri::Result<()> {
+    let Some(window) = crate::companion_window::bring_forward(app) else { return Ok(()) };
+    window.emit("companion://settings", section)
+}
+
+/// The companion asks for its settings panel, on a section or the last one shown.
 #[tauri::command]
-pub async fn bots_settings(app: AppHandle, webview: Webview) -> Result<(), String> {
+pub async fn bots_settings(app: AppHandle, webview: Webview, section: Option<String>) -> Result<(), String> {
     crate::companion_window::only_companion(&webview)?;
-    open_settings(&app).map_err(|error| error.to_string())
+    if let Some(name) = section.as_deref().filter(|name| !is_section(name)) {
+        return Err(format!("{name:?} is not a settings section"));
+    }
+    open_settings(&app, section.as_deref()).map_err(|error| error.to_string())
 }
 
 /// The tray is native and the sentences live in the page's catalogue: the
 /// companion sends them at start and on every language change. English until
 /// then.
 #[tauri::command]
-pub fn bots_tray_labels(app: AppHandle, webview: Webview, tooltip: String, settings: String, quit: String, title: String) -> Result<(), String> {
+pub fn bots_tray_labels(app: AppHandle, webview: Webview, tooltip: String, settings: String, quit: String) -> Result<(), String> {
     crate::companion_window::only_companion(&webview)?;
-    if [&tooltip, &settings, &quit, &title].iter().any(|label| label.trim().is_empty()) {
-        return Err(format!("tray labels must not be empty: tooltip {tooltip:?}, settings {settings:?}, quit {quit:?}, title {title:?}"));
+    if [&tooltip, &settings, &quit].iter().any(|label| label.trim().is_empty()) {
+        return Err(format!("tray labels must not be empty: tooltip {tooltip:?}, settings {settings:?}, quit {quit:?}"));
     }
     let Some(labels) = app.try_state::<Labels<tauri::Wry>>() else { return Ok(()) };
     labels.tray.set_tooltip(Some(tooltip)).map_err(|error| format!("the tray kept its tooltip: {error}"))?;
     labels.settings.set_text(settings).map_err(|error| format!("the tray's Settings item kept its label: {error}"))?;
     labels.quit.set_text(quit).map_err(|error| format!("the tray's Quit item kept its label: {error}"))?;
-    *labels.title.lock().unwrap_or_else(PoisonError::into_inner) = title.clone();
-    if let Some(window) = app.get_webview_window(SETTINGS_LABEL) { let _ = window.set_title(&title); }
     Ok(())
 }
 
@@ -85,7 +83,7 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         })
         .on_menu_event(|app, event| match event.id().as_ref() {
             "settings" => {
-                if let Err(error) = open_settings(app) { eprintln!("[bots] the settings window did not open: {error}"); }
+                if let Err(error) = open_settings(app, None) { eprintln!("[bots] the settings did not open: {error}"); }
             }
             "quit" => quit(app),
             _ => {}
@@ -94,6 +92,21 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         builder = builder.icon(icon);
     }
     let tray = builder.build(app)?;
-    app.manage(Labels { tray, settings, quit: leave, title: Mutex::new("B.O.T.S settings".into()) });
+    app.manage(Labels { tray, settings, quit: leave });
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_section_is_a_short_lowercase_word() {
+        for name in ["place", "crew", "permissions"] {
+            assert!(is_section(name), "{name}");
+        }
+        for name in ["", "Crew", "crew settings", "../crew", "brain-model", "a".repeat(SECTION_MAX + 1).as_str()] {
+            assert!(!is_section(name), "{name:?}");
+        }
+    }
 }

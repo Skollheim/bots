@@ -11,7 +11,7 @@
   import { PanelTop } from '@lucide/svelte';
   import type { Companion } from '../../lib/companion/companion.svelte';
   import { writeCompanionPrefs } from '../../lib/companion/prefs';
-  import { inShell, showMain, type CompanionLayout } from '../../lib/companion/shell';
+  import { inShell, openSettings, showMain, type CompanionLayout } from '../../lib/companion/shell';
   import { strings } from '../../lib/strings';
   import CompanionAsk from '../companion/CompanionAsk.svelte';
   import CompanionAttachments from '../companion/CompanionAttachments.svelte';
@@ -128,7 +128,7 @@
         onask={(screen) => void companion.ask(screen)}
         onscope={(screenScope) => (companion.prefs = writeCompanionPrefs({ screenScope }))}
         onstop={() => void companion.active.talk.stop()}
-        onsettings={() => void showMain(null)}
+        onsettings={() => void openSettings().catch(() => {})}
         to={companion.members.length > 1 ? companion.active.name : null}
       />
       <CompanionAttachments dropped={attached} />

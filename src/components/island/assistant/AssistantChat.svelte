@@ -112,7 +112,7 @@
   {#if nobody}
     <div class="nobody" data-testid="assistant-no-agent">
       <p>{copy.noAgent}</p>
-      <button class="primary small" onclick={() => void openSettings().catch(() => {})}>{copy.makeAgent}</button>
+      <button class="primary small" onclick={() => void openSettings('crew').catch(() => {})}>{copy.makeAgent}</button>
     </div>
   {:else}
     <header class="head">
