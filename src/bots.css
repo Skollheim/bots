@@ -173,3 +173,15 @@
   --island-key: rgb(255 255 255 / 0.12);
   --island-attention-ink: #000;
 }
+
+/*
+ * Out of sight (`data-dormant`, `App.svelte`): behind a full-screen game, the
+ * window hidden, the endless animations (the robots' blinks, the pulses)
+ * wait where they are instead of drawing frames nobody sees. Svelte's
+ * transitions are not CSS animations and still end.
+ */
+:root[data-dormant] *,
+:root[data-dormant] *::before,
+:root[data-dormant] *::after {
+  animation-play-state: paused !important;
+}
