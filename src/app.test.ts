@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { flushSync, mount, unmount } from 'svelte';
 import App from './App.svelte';
-import SettingsApp from './SettingsApp.svelte';
+import { requestSettings, settingsPanel } from './lib/island/settings-panel.svelte';
 import { strings } from './lib/strings';
 
 /** The demo loads its fake core on demand: in a cold run its first import alone can take seconds. */
@@ -9,7 +9,7 @@ const DEMO_WAIT = { timeout: 15_000 };
 
 let shown: { app: Record<string, unknown>; target: HTMLElement } | null = null;
 
-function show(page: typeof App | typeof SettingsApp, search: string) {
+function show(page: typeof App, search: string) {
   history.replaceState(null, '', `/${search}`);
   const target = document.body.appendChild(document.createElement('div'));
   shown = { app: mount(page, { target }), target };
@@ -23,6 +23,7 @@ afterEach(() => {
     shown.target.remove();
     shown = null;
   }
+  settingsPanel.close();
   window.localStorage.clear();
   history.replaceState(null, '', '/');
 });
@@ -39,15 +40,38 @@ test('the demo mode runs the companion on the fake core', async () => {
   expect(target.querySelector('[data-testid="companion"]')).not.toBeNull();
 });
 
-test('the settings window lists the crew, without a link to Boite\'s Advanced page', async () => {
-  const target = show(SettingsApp, '?view=settings&fake=1');
+test('a request opens the island and its settings on a section; the deck\'s gear puts them away', async () => {
+  const target = show(App, '?fake=1');
+  await vi.waitFor(() => expect(target.querySelector('[data-testid="bots-notice"]')?.textContent).toContain(strings.bots.demo), DEMO_WAIT);
+  requestSettings('crew');
+  flushSync();
+  expect(target.querySelector('[data-testid="island-settings-panel"]')).not.toBeNull();
+  const gear = target.querySelector<HTMLButtonElement>('[data-testid="island-settings"]')!;
+  expect(gear.getAttribute('aria-pressed')).toBe('true');
+  expect(target.querySelector('[data-testid="settings-section-crew"]')?.getAttribute('aria-selected')).toBe('true');
   await vi.waitFor(() => expect(target.querySelector('[data-testid="companion-crew"] ul, [data-testid="companion-crew"] form')).not.toBeNull(), DEMO_WAIT);
-  expect(target.querySelector('[data-testid="companion-settings"]')).not.toBeNull();
   expect(target.querySelector('[data-testid="companion-open-advanced"]')).toBeNull();
-  expect(document.title).toBe(strings.bots.settingsTitle);
-});
+  target.querySelector<HTMLButtonElement>('[data-testid="settings-section-place"]')!.click();
+  flushSync();
+  expect(target.querySelector('[data-testid="companion-robots"]')).not.toBeNull();
+  gear.click();
+  flushSync();
+  expect(settingsPanel.open).toBe(false);
+  expect(gear.getAttribute('aria-pressed')).toBe('false');
+}, 40_000);
 
-test('the settings window waits for Boite too', async () => {
-  const target = show(SettingsApp, '?view=settings');
-  await vi.waitFor(() => expect(target.querySelector('[data-testid="bots-notice"]')?.textContent).toContain(strings.bots.waiting));
-});
+test('Escape closes the settings panel first, before a request waiting under it or the island', async () => {
+  const target = show(App, '?fake=1');
+  await vi.waitFor(() => expect(target.querySelector('[data-testid="bots-notice"]')?.textContent).toContain(strings.bots.demo), DEMO_WAIT);
+  requestSettings('focus');
+  flushSync();
+  // The fake core starts with requests waiting: their card sits under the panel.
+  await vi.waitFor(() => expect(target.querySelector('[data-testid="island-attention"]')).not.toBeNull(), DEMO_WAIT);
+  const asked = target.querySelector('[data-testid="attention-of"]')?.textContent;
+  expect(target.querySelector('[data-testid="island"]')?.getAttribute('data-size')).toBe('open');
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+  flushSync();
+  expect(settingsPanel.open).toBe(false);
+  expect(target.querySelector('[data-testid="island"]')?.getAttribute('data-size')).toBe('open');
+  expect(target.querySelector('[data-testid="attention-of"]')?.textContent).toBe(asked);
+}, 30_000);

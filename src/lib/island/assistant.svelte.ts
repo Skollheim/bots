@@ -5,8 +5,11 @@
  * only engine; Bots reads and acts through the core alone, after Boite's own
  * `AgentConversation.svelte`.
  *
- * - Which agent: an active profile of `agents.snapshot`, picked in the chat;
- *   its id is kept in Bots's settings (`CompanionPrefs.assistantAgent`).
+ * - Which agent: an active profile of `agents.snapshot`, on this machine or
+ *   another of the group (`group/agents.ts`), picked in the chat; its key is
+ *   kept in Bots's settings (`CompanionPrefs.assistantAgent`). Every call for
+ *   it goes to its own machine (`GroupClient.at`), and its conversation is
+ *   read in that machine's snapshot.
  * - Sending: `agents.message.send` to the direct conversation, the dropped
  *   files kept on disk where the agent can open them, their paths at the end.
  *   Typing during a run sends a follow-up, as Boite does.
@@ -16,19 +19,20 @@
  * - The answer as it comes, and the tool at work: the thread the agent's
  *   session works in (`AgentSession.threadId`), through `message.*` and
  *   `thread.updated`. Stop cancels the agent's open work (`agents.work.control`).
- * - Model and effort: the agent's own `selection`, changed for the agent
- *   everywhere with `agents.profile.save`, the call Boite's agent editor makes.
+ * - Model and effort: the agent's own `selection` (its provider, account,
+ *   model and level), changed for the agent everywhere with
+ *   `agents.profile.save`, the call Boite's agent editor makes.
  */
-import type { AgentConversationMessage, AgentProfile, AgentSave, AgentsSnapshot, AgentWork, Attachment, Message, MessagePart, ModelInfo, RpcEvents, ThreadSummary } from '@boite/contracts';
+import type { AgentConversationMessage, AgentProfile, AgentSave, AgentSelection, AgentsSnapshot, AgentWork, Attachment, EffortLevel, Message, MessagePart, ModelInfo, RpcEvents, ThreadSummary } from '@boite/contracts';
 import type { Client } from '@boite/ui/lib/client';
 import { directScope, replyTo, sessionThreadOf, workFor } from '../companion/crew';
+import { pickPlaced, placedAgents, snapshotAt, type MachineAgents, type PlacedAgent } from '../group/agents';
+import { GroupClient } from '../group/group-client';
 import { visibleReply } from '../companion/directives';
 import { describeTool } from '@boite/ui/lib/tool-summary';
 import { fill, strings } from '../strings';
 import { toolLabel } from './session-text';
 
-export const EFFORTS = ['low', 'medium', 'high'] as const;
-export type Effort = (typeof EFFORTS)[number];
 /** Messages per page of history, each scroll up. */
 export const ASSISTANT_PAGE = 40;
 /** Fewer messages than this in hand: the conversation reads a page back, once per agent. */
@@ -126,15 +130,6 @@ export function failureOf(snapshot: AgentsSnapshot | null, messages: readonly Ag
   return work && ENDED.has(work.status) ? fill(copy().failed, { reason: work.error ?? work.status }) : null;
 }
 
-/** The first of the wanted agents still active, else the first active one. */
-export function pickAgent(agents: readonly AgentProfile[], ...wanted: (string | null | undefined)[]): AgentProfile | null {
-  for (const id of wanted) {
-    const found = id ? agents.find((agent) => agent.id === id) : undefined;
-    if (found) return found;
-  }
-  return agents[0] ?? null;
-}
-
 // ---------------------------------------------------------------------------
 // The answer as it comes, from the agent's thread
 // ---------------------------------------------------------------------------
@@ -209,17 +204,13 @@ export function applyCompleted(messages: Message[], { messageId, state }: RpcEve
 // Models and efforts
 // ---------------------------------------------------------------------------
 
-/** One of the three efforts, null for the provider's default or another level. */
-export function effortOf(value: string | null | undefined): Effort | null {
-  return EFFORTS.includes(value as Effort) ? (value as Effort) : null;
+/** The reasoning levels the model offers, as Boite's effort chip shows them; none when it names none. */
+export function levelsOf(model: ModelInfo | null | undefined): EffortLevel[] {
+  return model?.effort?.levels ?? [];
 }
 
-/** The efforts the model takes among low, medium and high; all three when it names none. */
-export function effortsOf(model: ModelInfo | undefined): Effort[] {
-  const levels = model?.effort?.levels.map((level) => level.id) ?? [];
-  const offered = EFFORTS.filter((effort) => levels.includes(effort));
-  return offered.length > 0 ? offered : [...EFFORTS];
-}
+/** What a change of model or level touches in the agent's selection. */
+export type SelectionChange = Partial<Pick<AgentSelection, 'providerId' | 'accountId' | 'model' | 'effort'>>;
 
 /** The models worth offering: the current ones, and a legacy one only when it is in use. */
 export function offeredModels(models: ModelInfo[], current: string | null): ModelInfo[] {
@@ -227,7 +218,7 @@ export function offeredModels(models: ModelInfo[], current: string | null): Mode
 }
 
 /** The agent saved with another model or effort, everything else as it stands. */
-export function selectionSave(profile: AgentProfile, change: { model?: string; effort?: Effort }): AgentSave<AgentProfile> {
+export function selectionSave(profile: AgentProfile, change: SelectionChange): AgentSave<AgentProfile> {
   const { name, domain, instructions, avatar, selection, status, tools, accountIntegration } = profile;
   return { id: profile.id, expectedRevision: profile.revision, value: { name, domain, instructions, avatar, status, tools, accountIntegration, selection: { ...selection, ...change } } };
 }
@@ -238,13 +229,15 @@ export function selectionSave(profile: AgentProfile, change: { model?: string; e
 
 export interface AssistantHost {
   client(): Client | null;
-  /** The agents as the companion last read them. */
+  /** This machine's agents as the companion last read them. */
   snapshot(): AgentsSnapshot | null;
+  /** The other machines' agents, as last read; none without a group. */
+  elsewhere?(): readonly MachineAgents[];
   /** Reads the snapshot again now, after a change made here. */
   reload(): void;
-  /** The agent kept in Bots's settings, null when none. */
+  /** The agent kept in Bots's settings (its key, `group/agents.ts`), null when none. */
   remembered(): string | null;
-  remember(agentId: string): void;
+  remember(key: string): void;
   /** The agent to talk to when none is chosen: the row's leader. */
   fallback(): string | null;
   /** What goes with the next message, the dropped files and the capture, or why they cannot go. */
@@ -260,7 +253,7 @@ export interface AssistantHost {
 }
 
 export class Assistant {
-  /** The agent picked for this session; the kept one, else the leader, else the first. */
+  /** The agent picked for this session, by key; the kept one, else the leader, else the first. */
   chosen = $state<string | null>(null);
   /** Pages read back through `agents.history`. */
   older = $state.raw<AgentConversationMessage[]>([]);
@@ -281,10 +274,21 @@ export class Assistant {
   awaiting = $state<string[]>([]);
 
   // Read lazily, once the host is in: through a function, as TypeScript sees the order.
-  readonly snapshot = $derived.by(() => this.host.snapshot());
-  readonly agents = $derived(this.snapshot?.profiles.filter((profile) => profile.status === 'active') ?? []);
-  readonly agent = $derived.by(() => pickAgent(this.agents, this.chosen, this.host.remembered(), this.host.fallback()));
+  readonly #local = $derived.by(() => this.host.snapshot());
+  readonly #elsewhere = $derived.by(() => this.host.elsewhere?.() ?? []);
+  /** The active agents of every machine, this one's first. */
+  readonly agents = $derived<PlacedAgent[]>(placedAgents(this.#local, this.#elsewhere));
+  readonly placed = $derived.by(() => pickPlaced(this.agents, this.chosen, this.host.remembered(), this.host.fallback()));
+  readonly agent = $derived(this.placed?.profile ?? null);
   readonly agentId = $derived(this.agent?.id ?? null);
+  /** The machine the agent lives on: null for this one. */
+  readonly coreId = $derived(this.placed?.coreId ?? null);
+  /** Its machine's name, shown beside it only when it is another machine's. */
+  readonly machine = $derived(this.placed?.machine ?? null);
+  /** Shown beside each agent: there is more than one machine to tell apart. */
+  readonly machines = $derived(this.#elsewhere.length > 0);
+  /** The agent's own machine's snapshot: its conversation, work and replies. */
+  readonly snapshot = $derived(snapshotAt(this.coreId, this.#local, this.#elsewhere));
   /** The thread the agent works its conversation with the user in, once it has worked there. */
   readonly threadId = $derived(this.agentId ? sessionThreadOf(this.snapshot, this.agentId) : null);
   readonly messages = $derived(this.agentId ? conversation(this.snapshot, this.older, this.agentId) : []);
@@ -299,9 +303,12 @@ export class Assistant {
   readonly failure = $derived(this.agentId && !this.running ? failureOf(this.snapshot, this.messages, this.agentId) : null);
   readonly hasOlder = $derived(this.more ?? this.snapshot?.more.message ?? false);
   readonly model = $derived(this.agent?.selection.model ?? null);
-  readonly effort = $derived(effortOf(this.agent?.selection.effort));
+  /** The level the agent runs, null for its model's own default. */
+  readonly effort = $derived(this.agent?.selection.effort ?? null);
   readonly offered = $derived(offeredModels(this.models, this.model));
-  readonly efforts = $derived(effortsOf(this.models.find((model) => model.id === this.model)));
+  readonly current = $derived(this.models.find((model) => model.id === this.model) ?? null);
+  /** The levels of the agent's model, none when it names none: the effort chip is left out then. */
+  readonly efforts = $derived(levelsOf(this.current));
 
   /** What `follow` last saw, so a change of agent, thread or engine is acted on once. */
   private followed: string | null = null;
@@ -325,9 +332,9 @@ export class Assistant {
     return () => offs.forEach((off) => off());
   }
 
-  /** Opens on `agentId` for this session without keeping it (the demo's), else on the kept agent. */
-  open(agentId?: string): void {
-    if (agentId) this.chosen = agentId;
+  /** Opens on `key` for this session without keeping it (the demo's), else on the kept agent. */
+  open(key?: string): void {
+    if (key) this.chosen = key;
     this.follow();
   }
 
@@ -337,12 +344,19 @@ export class Assistant {
     this.follow();
   }
 
-  /** The user picked another agent: it is kept for the next launch. */
-  pick(agentId: string): void {
-    if (agentId === this.agentId) return;
-    this.chosen = agentId;
-    this.host.remember(agentId);
+  /** The user picked another agent, by key: it is kept for the next launch. */
+  pick(key: string): void {
+    if (key === this.placed?.key) return;
+    this.chosen = key;
+    this.host.remember(key);
     this.follow();
+  }
+
+  /** The client the agent's calls go through: its own machine's. */
+  #client(): Client | null {
+    const client = this.host.client();
+    if (!client || this.coreId === null) return client;
+    return client instanceof GroupClient ? client.at(this.coreId) : null;
   }
 
   /**
@@ -350,11 +364,12 @@ export class Assistant {
    * followed, its models read, and a short conversation reads a page back.
    */
   follow(): void {
-    const client = this.host.client();
+    const client = this.#client();
+    const placed = this.placed;
     const agent = this.agent;
-    if (!client || !agent) return;
-    if (this.followed !== agent.id) {
-      this.followed = agent.id;
+    if (!client || !placed || !agent) return;
+    if (this.followed !== placed.key) {
+      this.followed = placed.key;
       this.older = [];
       this.more = null;
       this.stream = [];
@@ -364,10 +379,10 @@ export class Assistant {
     }
     const threadId = this.threadId;
     if (threadId && threadId !== this.subscribed) void this.watch(client, threadId);
-    const engine = `${agent.selection.providerId}/${agent.selection.accountId}`;
+    const engine = `${placed.coreId ?? ''}/${agent.selection.providerId}/${agent.selection.accountId}`;
     if (engine !== this.probed) void this.readModels(client, engine, agent.selection.providerId, agent.selection.accountId);
-    if (this.messages.length < ASSISTANT_FILL && this.hasOlder && !this.filled.has(agent.id)) {
-      this.filled.add(agent.id);
+    if (this.messages.length < ASSISTANT_FILL && this.hasOlder && !this.filled.has(placed.key)) {
+      this.filled.add(placed.key);
       void this.loadOlder();
     }
   }
@@ -401,7 +416,7 @@ export class Assistant {
 
   /** Older messages, a page more, when the reader scrolls to the top. */
   async loadOlder(): Promise<void> {
-    const client = this.host.client();
+    const client = this.#client();
     const agentId = this.agentId;
     if (!client || !agentId || this.loadingOlder || !this.hasOlder) return;
     this.loadingOlder = true;
@@ -429,7 +444,7 @@ export class Assistant {
     const attachments = this.host.outgoing();
     if (typeof attachments === 'string') return void (this.problem = attachments);
     if (!prompt && attachments.length === 0) return;
-    const client = this.host.client();
+    const client = this.#client();
     if (!client) return void (this.problem = strings.companion.unreachable);
     const agent = this.agent;
     if (!agent) return void (this.problem = copy().noAgent);
@@ -460,7 +475,7 @@ export class Assistant {
 
   /** Cancels the agent's open work in this conversation; a message the core has not made work of yet is let go. */
   async stop(): Promise<void> {
-    const client = this.host.client();
+    const client = this.#client();
     const agentId = this.agentId;
     if (!client || !agentId || this.stopping) return;
     this.stopping = true;
@@ -477,20 +492,31 @@ export class Assistant {
     }
   }
 
-  async setModel(model: string): Promise<void> {
+  /**
+   * Another model, on the agent's own provider and account or on the ones the
+   * picker names. On another provider or account the level goes back to that
+   * model's default, as in Boite's agent editor; on the same one it stays when
+   * the new model takes it.
+   */
+  async setModel(model: string | null, engine?: { providerId: string; accountId: string }): Promise<void> {
+    const selection = this.agent?.selection;
+    if (!selection) return;
+    if (engine && (engine.providerId !== selection.providerId || engine.accountId !== selection.accountId)) {
+      return this.update({ providerId: engine.providerId, accountId: engine.accountId, model, effort: null });
+    }
     if (model === this.model) return;
-    const efforts = effortsOf(this.models.find((entry) => entry.id === model));
-    const effort = this.effort === null || efforts.includes(this.effort) ? this.effort : efforts.at(-1)!;
-    await this.update(effort === null ? { model } : { model, effort });
+    const levels = levelsOf(this.models.find((entry) => entry.id === model)).map((level) => level.id);
+    const effort = this.effort === null || levels.length === 0 || levels.includes(this.effort) ? this.effort : null;
+    await this.update({ model, effort });
   }
 
-  async setEffort(effort: Effort): Promise<void> {
+  async setEffort(effort: string): Promise<void> {
     if (effort !== this.effort) await this.update({ effort });
   }
 
   /** The agent's own model or effort, changed for it everywhere. */
-  private async update(change: { model?: string; effort?: Effort }): Promise<void> {
-    const client = this.host.client();
+  private async update(change: SelectionChange): Promise<void> {
+    const client = this.#client();
     const agent = this.agent;
     if (!client || !agent) return;
     try {

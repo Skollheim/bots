@@ -148,9 +148,10 @@ export class Companion {
   readonly assistant: Assistant = new Assistant({
     client: () => this.client,
     snapshot: () => this.crew.snapshot,
+    elsewhere: () => this.crew.elsewhere,
     reload: () => void this.crew.load(),
     remembered: () => this.prefs.assistantAgent,
-    remember: (agentId) => void (this.prefs = writeCompanionPrefs({ assistantAgent: agentId })),
+    remember: (key) => void (this.prefs = writeCompanionPrefs({ assistantAgent: key })),
     fallback: () => this.crew.members[0]?.id ?? null,
     outgoing: () => joinScreen(this.attached.held, this.shot),
     keep: async (files) => {
@@ -202,7 +203,7 @@ export class Companion {
   readonly senses: Senses;
 
   // With no agent yet, a lone character stands, and says so when asked. The
-  // first one wears the mascot chosen in Settings, else its own box.
+  // first one wears the mascot chosen in Settings, else its own robot.
   readonly members = $derived.by<Member[]>(() =>
     this.crew.members.length > 0
       ? this.crew.members.map((agent, index) => ({ id: agent.id, name: agent.name, skin: (index === 0 && this.prefs.mascot) || skinOf(agent), talk: this.talkOf(agent.id) }))
@@ -730,13 +731,16 @@ export class Companion {
     let assistantAgent: string | undefined;
     const initialize = async () => {
       let client: Client;
-      // The other machines of the group, as they come and go: their threads on the next read.
-      const changed = () => this.soon(0);
+      // The other machines of the group, as they come and go: their threads and agents on the next read.
+      const changed = () => {
+        this.soon(0);
+        this.crew.changed();
+      };
       if (fake) {
         const { FakeClient } = await import('../fake-client');
-        const { demoGroup } = await import('../fake-client/machines-demo');
+        const { demoGroup, DEMO_MACHINES } = await import('../fake-client/machines-demo');
         assistantAgent = (await import('../fake-client/assistant-demo')).ASSISTANT_DEMO_AGENT;
-        const local = new FakeClient({ hudDemo: true, sessionsDemo: true, assistantDemo: true });
+        const local = new FakeClient({ hudDemo: true, sessionsDemo: true, assistantDemo: true, coreName: DEMO_MACHINES.local });
         client = await demoGroup(local, new URLSearchParams(location.search).get('machines'), changed);
         this.notice = strings.bots.demo;
       } else {

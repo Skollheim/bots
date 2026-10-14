@@ -34,14 +34,11 @@ mod tests {
     }
 
     #[test]
-    fn the_settings_window_connects_and_lists_screens_but_does_not_drive_the_companion() {
+    fn the_settings_live_in_the_companion_and_no_settings_webview_is_granted_anything() {
         let mut context: tauri::Context<tauri::test::MockRuntime> = crate::bots_context();
         let authority = context.runtime_authority_mut();
-        for command in ["core_endpoint", "companion_monitors", "plugin:event|listen", "plugin:event|unlisten"] {
-            assert!(authority.resolve_access(command, "settings", "settings", &Origin::Local).is_some(), "settings cannot invoke {command}");
-        }
-        for command in ["companion_place", "island_place", "companion_capture", "companion_keep", "companion_configure", "bots_tray_labels", "bots_settings"] {
-            assert!(authority.resolve_access(command, "settings", "settings", &Origin::Local).is_none(), "settings can invoke {command}");
+        for command in COMPANION {
+            assert!(authority.resolve_access(command, "settings", "settings", &Origin::Local).is_none(), "a settings webview can invoke {command}");
         }
     }
 }

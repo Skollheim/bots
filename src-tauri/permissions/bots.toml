@@ -1,6 +1,6 @@
 [[permission]]
 identifier = "allow-companion-ui"
-description = "Allows the companion to connect to the core, place its window on the desktop or as the island, take clicks where it draws, read the music playing, register its shortcut, see the screen when asked, take the keyboard when files are dropped on it, open its settings and name the tray; and, for the deck's computer tabs, read the system's numbers, close a process, lock, sleep, restart or shut down the computer, list and open the Start menu's apps, keep a clipboard history in memory and copy an entry back, list and set wallpapers, and drive Wallpaper Engine; and, for the island's bar, open a web link the user added there."
+description = "Allows the companion to connect to the core, place its window on the desktop or as the island, take clicks where it draws, read the music playing, register its shortcut, see the screen when asked, take the keyboard when files are dropped on it, open its settings panel and name the tray; and, for the deck's computer tabs, read the system's numbers, close a process, lock, sleep, restart or shut down the computer, list and open the Start menu's apps, keep a clipboard history in memory and copy an entry back, list and set wallpapers, and drive Wallpaper Engine; and, for the island's bar, open a web link the user added there."
 commands.allow = [
   "core_endpoint",
   "companion_monitors",
@@ -42,7 +42,3 @@ commands.allow = [
   "computer_engine_control",
 ]
 
-[[permission]]
-identifier = "allow-settings-ui"
-description = "Allows the settings window to connect to the core and list the screens the companion can sit on."
-commands.allow = ["core_endpoint", "companion_monitors"]

@@ -40,17 +40,27 @@
  *   shield shows (pair it with `calm=1`);
  * - `pr=green|red`: the tests thread opens PR #12, whose CI runs, then goes
  *   green or red (the fake core's side: `fake-client/allow-demo.ts`);
- * - `machines=1|ask`: a second machine of the group, « Serveur », whose
- *   « Corriger le gameplay » thread works among this machine's (`ask`: it
- *   asks to push two seconds in); read by the companion, the fake side in
- *   `fake-client/machines-demo.ts`.
+ * - `machines=1|ask|away`: two more machines of the group, « boite » and
+ *   « laptop », whose threads work among this machine's and whose agents
+ *   the Chat lists (`ask`: boite's thread asks to push two seconds in;
+ *   `away`: laptop is out of reach); read by the companion, the fake side
+ *   in `fake-client/machines-demo.ts`.
  * - `todo=1`: a to-do list in the today tab, one item ticked;
+ * - `tasks=1`: the tests thread keeps a task list, two of five done, so the
+ *   collapsed pill's live line shows its goal bar (wait for the ended
+ *   threads' line to pass);
  * - `mission=ask|list`: a mission waiting for the user's word, or three set
  *   (one paused, one whose project is gone) for Settings;
  * - `bar=custom`: the bar arranged by hand: two tabs left out, one renamed,
  *   two apps and a link added, the pin taken away (`bar.ts`);
+ * - `skin=box|jelly|bubble|capsule|retro`: the lead robot wears a robot of
+ *   that family as its mascot (`SKIN_POSES`);
  * - `edit=1`: with `pose=open` or `pose=deck`, the bar in its edit mode, what
  *   it can take under it (`deck/BarPalette.svelte`);
+ * - `pose=settings&section=<id>`: the open island with its settings panel on
+ *   that section, one of `settings-panel.svelte.ts` (place, mascot, crew,
+ *   brain, island, clipboard, focus, reminders, missions, permissions); pair
+ *   it with `calm=1`, `mission=list` for missions and `rule=1` for permissions;
  * - `pose=decktab&tab=apps|clipboard|wallpaper|system`: one of the deck's
  *   computer tabs alone, in a deck-wide black frame, on a fake computer; its
  *   own states (`q`, `clip`, `source`, `engine`, `press`), in
@@ -63,12 +73,14 @@ import { activeLocale } from '@boite/ui/lib/i18n.svelte';
 import type { Companion } from '../companion/companion.svelte';
 import { nextAt, type Repeat } from '../companion/missions';
 import { PILL_RESTS, writeCompanionPrefs, type PillRest } from '../companion/prefs';
+import type { Robot, RobotFamily } from '../robots';
 import { DEMO_COMMAND, DEMO_THREAD } from '../fake-client/allow-demo';
 import { addApp, addLink, DEFAULT_BAR, removeItem, removeTool, renameItem, writeBar, writeBarEdit, type BarLayout } from './bar';
 import { FAKE_APPS } from '../windows/fake';
 import { isDeckTab } from './deck-tabs';
 import type { IslandFrame } from './frame.svelte';
 import { posed } from './posed.svelte';
+import { settingsPanel } from './settings-panel.svelte';
 import { prLine } from './pr-checks';
 import type { PressureReason } from './pressure';
 import { unfolding } from './sessions.svelte';
@@ -151,6 +163,13 @@ function poseTodo(companion: Companion): void {
   companion.todos.apply([{ kind: 'done', index: 2 }]);
 }
 
+/** The tests thread's task list, two of five done, the third at work. */
+async function poseTasks(companion: Companion): Promise<void> {
+  const texts = ['Pull the merge', 'Install the packages', 'Run the unit tests', 'Run the end-to-end tests', 'Sum up the failures'];
+  const status = (index: number) => (index < 2 ? 'completed' : index === 2 ? 'in_progress' : 'pending') as 'completed' | 'in_progress' | 'pending';
+  await companion.client?.call('threads.tasks.set', { threadId: DEMO_THREAD, tasks: texts.map((text, index) => ({ id: `task-pose-${index}`, text, status: status(index) })) }).catch(() => {});
+}
+
 /** A mission waiting for the user's word (`ask`), or three set, one paused and one whose project is gone (`list`, for Settings). */
 function poseMissions(companion: Companion, kind: 'ask' | 'list'): void {
   const found = [...companion.projects].find(([, name]) => companion.projectNames?.includes(name));
@@ -193,6 +212,15 @@ function poseAway(): void {
     quota: { name: 'Claude', left: 12 }
   };
 }
+
+/** The mascot a `skin=` pose puts on the lead robot: one per family, each wearing something on top. */
+const SKIN_POSES: Record<RobotFamily, Robot> = {
+  box: { family: 'box', shape: 6, color: 4, eyes: 2, top: 3 },
+  jelly: { family: 'jelly', shape: 0, color: 3, eyes: 0, top: 3 },
+  bubble: { family: 'bubble', shape: 0, color: 5, eyes: 2, top: 1 },
+  capsule: { family: 'capsule', shape: 0, color: 1, eyes: 0, top: 1 },
+  retro: { family: 'retro', shape: 0, color: 7, eyes: 1, top: 0 },
+};
 
 const WALLPAPER = 'html[data-companion] body { background: linear-gradient(160deg, #34466e, #7d6797 55%, #d49c78) !important; }';
 
@@ -242,8 +270,11 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
   }
   if (params.get('sessions') === 'none') posed.idle = true;
   if (params.get('todo') === '1') poseTodo(companion);
+  if (params.get('tasks') === '1') await poseTasks(companion);
   const mission = params.get('mission');
   if (mission === 'ask' || mission === 'list') poseMissions(companion, mission);
+  const skin = params.get('skin');
+  if (skin && Object.hasOwn(SKIN_POSES, skin)) companion.prefs = { ...companion.prefs, mascot: SKIN_POSES[skin as RobotFamily] };
   const rest = params.get('rest') as PillRest | null;
   if (rest && PILL_RESTS.includes(rest)) companion.prefs = { ...companion.prefs, pillRest: rest };
   if (params.get('rule') === '1') {
@@ -259,6 +290,9 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     if (deck) await import('../windows/pose').then(({ poseComputer }) => poseComputer(params));
     frame.show(isDeckTab(tab) ? tab : 'threads');
     if (params.get('edit') === '1') writeBarEdit(true);
+  } else if (pose === 'settings') {
+    frame.show(isDeckTab(tab) ? tab : 'threads');
+    settingsPanel.show(params.get('section'));
   } else if (pose === 'desktop') companion.prefs = { ...companion.prefs, robots: 'desktop' };
   else if (pose === 'decktab') await import('../windows/pose').then(({ poseDeckTab }) => poseDeckTab(companion, params));
   else if (pose === 'away') poseAway();

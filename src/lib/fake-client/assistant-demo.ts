@@ -59,7 +59,7 @@ function idle(model: Thread, over: Partial<Thread>): Thread {
   return { ...structuredClone(model), status: 'idle', progress: null, runningSince: null, requestSince: null, doneAt: null, archived: false, unread: false, ...over } as Thread;
 }
 
-function profile(id: string, name: string, domain: string, model: string | null, createdAt: number): AgentProfile {
+export function profile(id: string, name: string, domain: string, model: string | null, createdAt: number): AgentProfile {
   return {
     id, revision: 1, createdAt, updatedAt: createdAt, name, domain,
     instructions: `You are ${name}. Answer briefly and plainly.`,
@@ -75,7 +75,7 @@ function profile(id: string, name: string, domain: string, model: string | null,
  * The agents' rows, written in place: the fake only takes new ones through
  * calls that give them fresh ids and start a run for every message sent.
  */
-function rowsOf(ctx: FakeContext): Map<string, AgentRecord> {
+export function rowsOf(ctx: FakeContext): Map<string, AgentRecord> {
   return (ctx.agents as unknown as { rows: Map<string, AgentRecord> }).rows;
 }
 
@@ -144,6 +144,20 @@ export function seedAssistantDemo(ctx: FakeContext, methods: FakeMethods): void 
       );
     });
   }
+
+  // Boite's starred models, kept in the core's settings where its picker and Bots's read them.
+  ctx.settings = {
+    ...ctx.settings,
+    modelFavorites: {
+      at: now,
+      items: [
+        { providerId: 'claude', model: { id: 'claude-opus-5-5', name: 'Opus 5.5' }, account: 'Default login' },
+        { providerId: 'claude', model: { id: 'claude-sonnet-5-5', name: 'Sonnet 5.5' }, account: 'Default login' },
+        { providerId: 'opencode', model: { id: 'nvidia/gpt-oss-120b', name: 'GPT-OSS 120B' }, account: 'Default' },
+        { providerId: 'opencode', model: { id: 'anthropic/claude-sonnet-5', name: 'Claude Sonnet 5' }, account: 'Default' }
+      ]
+    }
+  } as typeof ctx.settings;
 
   // Two subscriptions, the first one under a quarter left on its week.
   const quotas = (): AccountQuota[] => [

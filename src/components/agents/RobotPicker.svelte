@@ -11,7 +11,7 @@
    * Shuffle for a new one, and one row per part where every choice is drawn
    * on the robot itself, so nothing has to be read. A box's lid, body and
    * eyes are colours, so those rows are swatches. `families` narrows the styles
-   * offered: the island's mascot is a box or a jelly.
+   * offered.
    */
   let { robot, onpick, compact = false, families = ROBOT_FAMILIES }: { robot: Robot; onpick: (robot: Robot) => void; compact?: boolean; families?: readonly RobotFamily[] } = $props();
   const labels = $derived(strings.agents.robot);

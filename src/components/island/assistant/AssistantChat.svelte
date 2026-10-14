@@ -29,6 +29,7 @@
   const copy = strings.island.assistant;
 
   let list = $state<HTMLElement | null>(null);
+  let head = $state<HTMLElement | null>(null);
   let field = $state<HTMLTextAreaElement | null>(null);
   /** The reader is at the end: what streams in keeps it there. */
   let pinned = true;
@@ -112,18 +113,18 @@
   {#if nobody}
     <div class="nobody" data-testid="assistant-no-agent">
       <p>{copy.noAgent}</p>
-      <button class="primary small" onclick={() => void openSettings().catch(() => {})}>{copy.makeAgent}</button>
+      <button class="primary small" onclick={() => void openSettings('crew').catch(() => {})}>{copy.makeAgent}</button>
     </div>
   {:else}
-    <header class="head">
+    <header class="head" bind:this={head}>
       <AgentMenu {assistant} bind:open={agentsOpen} />
       {#if agent}
-        <ModelMenu {assistant} bind:open={menuOpen} />
+        <ModelMenu {assistant} bind:open={menuOpen} anchor={() => head} />
         <button
           class="ghost icon reveal"
           aria-label={fill(copy.openAgent, { name })}
           title={fill(copy.openAgent, { name })}
-          onclick={() => agent && void showAgent(agent.id).catch(() => {})}
+          onclick={() => agent && void showAgent(agent.id, assistant.coreId).catch(() => {})}
           data-testid="assistant-reveal"
         >
           <SquareArrowOutUpRight size={13} />

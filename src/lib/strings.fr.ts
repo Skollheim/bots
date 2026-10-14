@@ -13,8 +13,9 @@ export const fr: Messages = {
     revealFailed: 'Boite n’a pas pu l’afficher : {reason}',
     revealUnsupported: 'Cette version de Boite ne sait pas encore l’afficher. Mettez Boite à jour, puis réessayez.',
     revealElsewhere: 'Ce fil tourne sur {machine} : ouvrez-le dans Boite, sous cette machine.',
+    revealAgentElsewhere: 'Cet agent vit sur {machine} : ouvrez-le dans Boite, sous cette machine.',
+    onMachine: 'Sur {machine}',
     machineAway: '{machine} est injoignable pour le moment.',
-    settingsTitle: 'Réglages de B.O.T.S',
     tray: { tooltip: 'B.O.T.S', settings: 'Réglages', quit: 'Quitter' },
     demo: 'Mode démo : un faux Boite, rien n’est envoyé.',
     demoQuestion: 'Sur quoi travaillent mes agents ?'
@@ -23,6 +24,21 @@ export const fr: Messages = {
   island: {
     label: 'B.O.T.S',
     settings: 'Réglages',
+    settingsPanel: {
+      sections: 'Rubriques des réglages',
+      names: {
+        place: 'Emplacement',
+        mascot: 'Mascotte',
+        crew: 'Équipe',
+        brain: 'Cerveau et modèle',
+        island: 'Île',
+        clipboard: 'Presse-papiers',
+        focus: 'Focus',
+        reminders: 'Rappels',
+        missions: 'Missions',
+        permissions: 'Autorisations'
+      }
+    },
     mute: 'Couper les sons',
     unmute: 'Remettre les sons',
     pin: 'Garder l’île ouverte',
@@ -109,14 +125,6 @@ export const fr: Messages = {
       notKept: 'Les fichiers ne peuvent pas être transmis hors de l’application.',
       notStopped: 'Impossible d’arrêter la réponse : {reason}',
       notChanged: 'Impossible de changer de modèle : {reason}',
-      picker: 'Modèle et effort',
-      model: 'Modèle',
-      effort: 'Effort',
-      efforts: { low: 'Faible', medium: 'Moyen', high: 'Élevé' },
-      defaultModel: 'Modèle par défaut',
-      defaultEffort: 'Effort par défaut',
-      everywhere: 'Ce choix s’applique à {name} partout, dans Boite aussi.',
-      noModels: 'L’agent n’indique encore aucun modèle.',
       quotas: {
         label: 'Quotas : il reste {percent} % sur {name}, {window}. Afficher tous les comptes.',
         title: 'Quotas',
@@ -460,7 +468,6 @@ export const fr: Messages = {
   },
 
   companion: {
-    heading: 'B.O.T.S',
     moods: { idle: 'Au repos', working: 'Au travail', calling: 'A besoin de vous', happy: 'Terminé', worried: 'Boite ne répond pas' },
     open: 'Ouvrir B.O.T.S',
     close: 'Fermer B.O.T.S',
@@ -671,8 +678,6 @@ export const fr: Messages = {
     snooze: 'Dans 10 min',
     snoozeLabel: 'Me le rappeler dans 10 minutes',
     settings: {
-      intro: 'B.O.T.S met vos agents sur votre écran : un robot par agent. Cliquez sur l’un d’eux pour lui demander quelque chose ou pour répondre à vos agents, faites-le glisser pour le déplacer. Chaque robot parle dans sa propre conversation, que vous retrouvez aussi dans la page Agents de Boite.',
-      desktopOnly: 'Les robots tournent dans l’application B.O.T.S : ces réglages s’y appliquent.',
       place: 'Emplacement',
       screen: 'Écran',
       screenHint: 'L’écran où se tient B.O.T.S. S’il est débranché, B.O.T.S revient sur l’écran principal.',
@@ -736,7 +741,6 @@ export const fr: Messages = {
       bar: 'Barre de l’île',
       barHint: 'Ajoutez, renommez, déplacez ou retirez les onglets, contrôles, applis et liens de la barre de l’île ouverte, directement sur l’île. Un clic droit sur la barre y mène aussi.',
       barEdit: 'Modifier',
-      barDone: 'Terminé',
       pillRest: 'Pilule au repos',
       pillRestHint: 'Ce que montre l’île fermée quand rien d’autre ne la demande. Les demandes et les fils terminés passent toujours devant.',
       pillRests: { live: 'Ligne en direct', quota: 'Quota', music: 'Musique', timer: 'Minuteur', robot: 'Robot seul' },
@@ -797,6 +801,38 @@ export const fr: Messages = {
     attachTooLarge: '{name} est trop lourde : une image pèse {max} au maximum.',
     attachTooMany: 'Un tour porte {max} images au maximum, donc {name} a été laissée de côté.',
     attachTotalTooLarge: 'Les fichiers d’un tour pèsent {max} au maximum à eux tous, donc {name} a été laissé de côté.'
+  },
+
+  modelPicker: {
+    connectProvider: 'Connecter un fournisseur',
+    picker: 'Fournisseur et modèle',
+    models: 'Modèles',
+    noModels: 'Aucun modèle ne correspond',
+    noModelsAvailable: "L'agent n'a renvoyé aucun modèle. Actualisez pour réessayer.",
+    showAllModels: 'Afficher les {count} modèles',
+    legacyModels: 'Anciens modèles',
+    refreshModels: 'Actualiser les modèles',
+    probing: "Lecture des modèles de l'agent",
+    notInstalled: 'Pas installé sur cette machine',
+    installInSettings: 'Installer dans les réglages',
+    favorites: 'Favoris',
+    favorite: 'Ajouter aux favoris',
+    unfavorite: 'Retirer des favoris',
+    favoritesEmpty: 'Mettez une étoile à un modèle pour le retrouver ici.',
+    favoriteUnavailable: "Ce favori n'est plus proposé par le compte. Choisissez un autre modèle.",
+    newBadge: 'nouveau',
+    lockedHint: 'Une conversation garde son fournisseur et son compte',
+    unavailable: 'pas installé',
+    noAccount: 'aucun compte',
+    signedOut: 'non connecté',
+    noProvider: 'Aucune IA connectée',
+    accounts: 'Fournisseurs',
+    back: 'Retour',
+    effortTitle: 'Niveau de raisonnement',
+    standardSpeed: 'Vitesse normale',
+    speed: 'Vitesse de réponse',
+    auto: 'Automatique',
+    autoHint: 'Le premier agent activé et connecté, sur son petit modèle.'
   },
 
   quotas: {

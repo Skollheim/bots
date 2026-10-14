@@ -56,15 +56,66 @@ test('without a client yet, the reveal fails quietly too', async () => {
   expect(failed).toHaveBeenCalledTimes(1);
 });
 
-test("a thread of another machine is not revealed here: the notice names where it runs", async () => {
+/** A group client whose thread `t-srv` runs on boite, `core-srv`; `features` is what this machine's core said at hello. */
+function groupWith(call: (method: string, params: unknown) => Promise<unknown>, features: Record<string, unknown> = {}): GroupClient {
+  const group = Object.create(GroupClient.prototype) as GroupClient;
+  Object.defineProperty(group, 'core', { value: { features } });
+  return Object.assign(group, {
+    call,
+    selfId: () => 'core-here',
+    coreIdOf: (threadId: string) => (threadId === 't-srv' ? 'core-srv' : null),
+    machineOf: (threadId: string) => (threadId === 't-srv' ? 'boite' : null),
+    nameOf: (coreId: string) => (coreId === 'core-srv' ? 'boite' : null)
+  });
+}
+
+test('a thread of another machine goes to this machine’s Boite with its machine named', async () => {
   const call = vi.fn(async () => ({ delivered: 1 }));
   const failed = vi.fn();
-  const group = Object.assign(Object.create(GroupClient.prototype) as GroupClient, { call, machineOf: (threadId: string) => (threadId === 't-srv' ? 'Serveur' : null) });
-  useReveal(group, failed);
-  const told = await reveal({ kind: 'thread', threadId: 't-srv' });
-  expect(told).toBe(fill(strings.bots.revealElsewhere, { machine: 'Serveur' }));
-  expect(failed).toHaveBeenCalledWith(told);
-  expect(call).not.toHaveBeenCalled();
+  useReveal(groupWith(call), failed);
+  expect(await reveal({ kind: 'thread', threadId: 't-srv' })).toBeNull();
+  expect(call).toHaveBeenCalledWith('ui.reveal', { target: { kind: 'thread', threadId: 't-srv', coreId: 'core-srv' } });
+  // This machine's own thread names none, as an older core expects.
   await showMain('t-1');
-  expect(call).toHaveBeenCalledWith('ui.reveal', { target: { kind: 'thread', threadId: 't-1' } });
+  expect(call).toHaveBeenLastCalledWith('ui.reveal', { target: { kind: 'thread', threadId: 't-1' } });
+  expect(failed).not.toHaveBeenCalled();
+});
+
+test('a Boite that does not know machines refuses the thread: the notice says where it runs', async () => {
+  const call = vi.fn(async () => {
+    throw new RpcFailure({ code: RpcErrorCode.InvalidParams, message: 'ui.reveal target.threadId t-srv is not a thread of this core' });
+  });
+  const failed = vi.fn();
+  useReveal(groupWith(call), failed);
+  const told = await reveal({ kind: 'thread', threadId: 't-srv' });
+  expect(told).toBe(fill(strings.bots.revealElsewhere, { machine: 'boite' }));
+  expect(failed).toHaveBeenCalledWith(told);
+});
+
+test('an agent of another machine goes only to a Boite known to take machines', async () => {
+  // Unknown: an older core would open an agent of its own with that id. Said instead of sent.
+  const call = vi.fn(async () => ({ delivered: 1 }));
+  const failed = vi.fn();
+  useReveal(groupWith(call), failed);
+  await showAgent('agent-forge', 'core-srv');
+  expect(call).not.toHaveBeenCalled();
+  expect(failed).toHaveBeenCalledWith(fill(strings.bots.revealAgentElsewhere, { machine: 'boite' }));
+
+  // Its hello says so.
+  const said = vi.fn(async () => ({ delivered: 1 }));
+  useReveal(groupWith(said, { revealMachines: true }), () => {});
+  await showAgent('agent-forge', 'core-srv');
+  expect(said).toHaveBeenCalledWith('ui.reveal', { target: { kind: 'agent', agentId: 'agent-forge', coreId: 'core-srv' } });
+
+  // Or it already showed a thread of another machine.
+  const shown = vi.fn(async () => ({ delivered: 1 }));
+  const group = groupWith(shown);
+  useReveal(group, () => {});
+  await showMain('t-srv');
+  await showAgent('agent-forge', 'core-srv');
+  expect(shown).toHaveBeenLastCalledWith('ui.reveal', { target: { kind: 'agent', agentId: 'agent-forge', coreId: 'core-srv' } });
+
+  // This machine's agent names no machine.
+  await showAgent('agent-1', null);
+  expect(shown).toHaveBeenLastCalledWith('ui.reveal', { target: { kind: 'agent', agentId: 'agent-1' } });
 });

@@ -12,6 +12,9 @@
     deck's tabs and the island's controls, and the tab chosen under it, the
     requests waiting and the memory warning laid above it.
 
+  Open, the settings grow out of the deck under its bar
+  (`settings/SettingsPanel.svelte`), over the tab, longer than the deck.
+
   Beside the pill and the peek hang two drops: the timer on the left while
   one runs, the music on the right (`music/MusicBubble.svelte`). Each is born
   from the island's edge on a black neck that snaps, and is taken back the
@@ -28,7 +31,8 @@
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { prefersReducedMotion, Spring } from 'svelte/motion';
+  import { prefersReducedMotion } from 'svelte/motion';
+  import { FrameSpring } from '../../lib/island/spring.svelte';
   import type { Absence } from '../../lib/companion/absence';
   import type { Companion } from '../../lib/companion/companion.svelte';
   import { showMain } from '../../lib/companion/shell';
@@ -46,12 +50,14 @@
   import { MemoryWatch } from '../../lib/island/pressure.svelte';
   import { QuotaWatch } from '../../lib/island/quotas.svelte';
   import { RecapReader } from '../../lib/island/recap.svelte';
+  import { panelHeight, settingsPanel } from '../../lib/island/settings-panel.svelte';
   import { Sessions } from '../../lib/island/sessions.svelte';
   import { UpdateWatch } from '../../lib/island/update.svelte';
   import { strings } from '../../lib/strings';
   import Deck from './deck/Deck.svelte';
   import IslandBar from './IslandBar.svelte';
   import IslandDrop from './IslandDrop.svelte';
+  import SettingsPanel from './settings/SettingsPanel.svelte';
   import MusicBubble from './music/MusicBubble.svelte';
   import TimerBubble from './TimerBubble.svelte';
   import AwayCard from './views/AwayCard.svelte';
@@ -145,7 +151,8 @@
   /** The room between a drop and the island. */
   const SIDE_GAP = 8;
   // Settles within a quarter pixel: the last frames of a smaller step would move nothing one can see.
-  const box = new Spring({ ...COLLAPSED }, { stiffness: 0.18, damping: 0.72, precision: 0.25 });
+  // The same curve at 60 and 240 Hz (`spring.svelte.ts`), where Svelte's `Spring` slows on a faster screen.
+  const box = new FrameSpring({ ...COLLAPSED }, { stiffness: 0.18, damping: 0.72, precision: 0.25 });
   /** The corners grow with the island, from the pill's to the deck's. */
   const opened = $derived(Math.min(1, Math.max(0, (box.current.w - COLLAPSED.w) / (OPEN_WIDTH - COLLAPSED.w))));
   const radius = $derived(Math.min(RADIUS + (DECK_RADIUS - RADIUS) * opened, box.current.h / 2));
@@ -204,6 +211,7 @@
       return frame.call(key);
     },
     hold: (key, on) => frame.hold(key, on),
+    resized: () => onresize(),
     reveal: (threadId) => showMain(threadId),
     show: (tab) => frame.show(tab),
     sessions,
@@ -214,8 +222,9 @@
   });
 
   $effect(() => {
-    void box.set(target, { instant: prefersReducedMotion.current });
+    box.set(target, { instant: prefersReducedMotion.current });
   });
+  $effect(() => () => box.stop());
 
   // Each step of the spring moves the hit area; the page sends only what changed,
   // read once the step is drawn: reading it within the step lays the island out twice.
@@ -403,6 +412,9 @@
     </div>
   {/if}
 </div>
+{#if settingsPanel.open && frame.size === 'open'}
+  <SettingsPanel height={panelHeight(screen.availHeight)} {reduced} late={box.current.w < OPEN_WIDTH - 4} />
+{/if}
 {#if sides && musicShown}
   <IslandDrop side="right" {reduced} {onresize} onside={(on) => (onSide = on)} tint={{ accent: companion.music.accent, playing: companion.media?.playing === true }}>
     <MusicBubble {companion} {onresize} room={sideRoom} />

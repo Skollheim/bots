@@ -5,6 +5,7 @@
  */
 import { reveal } from '../reveal';
 import type { CompanionAnchor, CompanionSpot } from './prefs';
+import { requestSettings, type SettingsSection } from '../island/settings-panel.svelte';
 
 export interface CompanionMonitor {
   name: string;
@@ -115,20 +116,27 @@ export function bytesOf(data: string): Uint8Array {
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
-/** Opens Bots's settings window, or brings it forward. */
-export async function openSettings(): Promise<void> {
-  await invoke('bots_settings');
+/**
+ * Opens Bots's settings, a panel of the island (`lib/island/settings-panel.svelte.ts`),
+ * on `section` when one is named. In the shell the window comes forward with
+ * the keyboard first (`bots_settings`), and answers with `companion://settings`.
+ */
+export async function openSettings(section?: SettingsSection): Promise<void> {
+  if (!inShell()) return requestSettings(section);
+  await invoke('bots_settings', { section: section ?? null }).catch((error: unknown) => {
+    requestSettings(section);
+    throw error;
+  });
 }
 
-/** Shows a thread in Boite's window (`ui.reveal`); null opens Bots's settings. A failure is told, not thrown. */
-export async function showMain(threadId: string | null): Promise<void> {
-  if (threadId === null) return openSettings();
+/** Shows a thread in Boite's window (`ui.reveal`). A failure is told, not thrown. */
+export async function showMain(threadId: string): Promise<void> {
   await reveal({ kind: 'thread', threadId });
 }
 
-/** Shows an agent's conversation in Boite's Agents page (`ui.reveal`). */
-export async function showAgent(agentId: string): Promise<void> {
-  await reveal({ kind: 'agent', agentId });
+/** Shows an agent's conversation in Boite's Agents page (`ui.reveal`); `coreId` names its machine when it is another of the group. */
+export async function showAgent(agentId: string, coreId: string | null = null): Promise<void> {
+  await reveal(coreId === null ? { kind: 'agent', agentId } : { kind: 'agent', agentId, coreId });
 }
 
 /** Opens Boite's app updates, where a newer Boite installs (`ui.reveal`). */

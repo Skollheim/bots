@@ -7,27 +7,14 @@
 -->
 <script lang="ts">
   import RobotFace from '../agents/RobotFace.svelte';
-  import type { Robot } from '../../lib/robots';
+  import { faceState, type CharacterProps } from '../../lib/companion/character';
+  import CharacterMarks from './CharacterMarks.svelte';
+  import { onscreen } from '../../lib/companion/beats';
+  import { useSteppedLoops } from '../../lib/companion/stepped';
 
-  interface Props {
-    robot: Robot;
-    /** `CompanionCharacter`'s face: what it feels now. */
-    face: string;
-    /** The mood's colour, for the light under it. */
-    tone: string;
-    look: { x: number; y: number };
-    bouncing: boolean;
-    dizzy: boolean;
-    act: string | null;
-    size: number;
-    label: string;
-  }
-
-  let { robot, face, tone, look, bouncing, dizzy, act, size, label }: Props = $props();
-
-  const state = $derived<'idle' | 'working' | 'waiting' | 'still'>(
-    face === 'sleep' || face === 'calm' || face === 'rest' || face === 'startled' ? 'still' : face === 'working' ? 'working' : face === 'calling' || face === 'alarm' ? 'waiting' : 'idle'
-  );
+  let { robot, face, tone, look, bouncing, dizzy, act, size, label }: CharacterProps = $props();
+  // Its breath is drawn in steps (`stepped.ts`).
+  useSteppedLoops();
 </script>
 
 <div
@@ -38,17 +25,12 @@
   style:height="{size}px"
   role="img"
   aria-label={label}
+  use:onscreen
 >
   <div class="rig">
-    <RobotFace {robot} {state} gaze={face === 'sleep' ? null : look} bare />
+    <RobotFace {robot} state={faceState(face)} gaze={face === 'sleep' ? null : look} bare />
   </div>
-  {#if face === 'sleep'}
-    <span class="mark z" aria-hidden="true">z</span>
-  {:else if face === 'calling' || face === 'alarm'}
-    <span class="mark shout" aria-hidden="true">!</span>
-  {:else if face === 'happy' || face === 'cheer'}
-    <svg class="mark spark" viewBox="0 0 100 100" aria-hidden="true"><path d="M9 22 l-5 -4 M50 9 v-6 M91 22 l5 -4" /></svg>
-  {/if}
+  <CharacterMarks {face} />
 </div>
 
 <style>
@@ -66,8 +48,8 @@
   .f-sleep .rig :global(.eyes),
   .f-calm .rig :global(.eyes) { transform: scaleY(0.15); }
   .f-startled .rig :global(.eyes) { transform: scale(1.25); }
-  .f-awake .rig, .f-typing .rig, .f-game .rig { animation: breathe 4s ease-in-out infinite; }
-  .f-sleep .rig, .f-calm .rig { animation: breathe 6s ease-in-out infinite; }
+  .f-awake .rig, .f-typing .rig, .f-game .rig { animation: bots-jelly-breathe-4000 4s steps(1, end) infinite; }
+  .f-sleep .rig, .f-calm .rig { animation: bots-jelly-breathe-6000 6s steps(1, end) infinite; }
   .f-groove .rig { animation: groove 0.5s ease-in-out infinite alternate; }
   .t-working .rig { animation: hum 1.4s ease-in-out infinite; }
   .f-happy .rig { animation: hop 1.2s ease-in-out infinite; }
@@ -79,17 +61,7 @@
   .dizzy .rig { animation: wobble 0.6s ease-in-out infinite; }
   .dizzy .rig :global(.eyes) { animation: spin 0.6s linear infinite; }
 
-  .mark {
-    position: absolute;
-    pointer-events: none;
-    color: var(--color-foreground);
-    font: 700 calc(var(--text-sm) * 1) / 1 var(--font-sans);
-  }
-  .z { top: 0; right: 4%; animation: zz 3s ease-in-out infinite; }
-  .shout { top: 2%; right: 0; color: var(--island-attention, var(--color-live)); animation: beacon 0.7s ease-in-out infinite alternate; }
-  .spark { inset: 0; width: 100%; height: 100%; fill: none; stroke: var(--island-done, var(--color-success)); stroke-width: 3; stroke-linecap: round; animation: beacon 1.2s ease-in-out infinite alternate; }
-
-  @keyframes breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.02, 1.04); } }
+  /* The breath: `bots-jelly-breathe-*`, written in steps by `stepped.ts`. */
   @keyframes groove { from { transform: rotate(-4deg); } to { transform: rotate(4deg) translateY(-1.5px); } }
   @keyframes hum { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
   @keyframes hop { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
@@ -100,8 +72,6 @@
   @keyframes boing { 0% { transform: scale(1, 1); } 25% { transform: scale(1.12, 0.84); } 55% { transform: scale(0.93, 1.1); } 80% { transform: scale(1.03, 0.97); } 100% { transform: scale(1, 1); } }
   @keyframes wobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-9deg) translateX(-1px); } 75% { transform: rotate(9deg) translateX(1px); } }
   @keyframes spin { to { transform: rotate(360deg); } }
-  @keyframes zz { 0% { transform: translate(0, 0); opacity: 0; } 25% { opacity: 0.9; } 100% { transform: translate(6px, -10px); opacity: 0; } }
-  @keyframes beacon { from { opacity: 1; } to { opacity: 0.3; } }
   @media (prefers-reduced-motion: reduce) {
     .jelly, .jelly * { animation: none !important; }
   }

@@ -1,7 +1,8 @@
 /*
- * The page's entry: the companion's transparent window, or Bots's settings
- * window on `?view=settings`. The language comes first, so nothing is drawn
- * in English and swapped a tick later.
+ * The page's entry: the companion's transparent window, which draws the
+ * island, the robots and the settings panel (the dev bundle adds
+ * `?view=mascots`, every companion family side by side). The language comes
+ * first, so nothing is drawn in English and swapped a tick later.
  */
 import '@boite/ui/app.css';
 import './bots.css';
@@ -10,11 +11,11 @@ import { startLocale } from '@boite/ui/lib/i18n.svelte';
 import { followTrayLocale } from './lib/tray.svelte';
 
 const target = document.getElementById('app')!;
-const settings = new URLSearchParams(location.search).get('view') === 'settings';
-document.documentElement.dataset.view = settings ? 'settings' : 'bots';
+// Every companion family side by side, for captures: the dev bundle only.
+const mascots = import.meta.env.DEV && new URLSearchParams(location.search).get('view') === 'mascots';
 
 void startLocale().then(async () => {
-  const page = settings ? (await import('./SettingsApp.svelte')).default : (await import('./App.svelte')).default;
+  const page = mascots ? (await import('./MascotGallery.svelte')).default : (await import('./App.svelte')).default;
   mount(page, { target });
-  if (!settings) followTrayLocale();
+  if (!mascots) followTrayLocale();
 });

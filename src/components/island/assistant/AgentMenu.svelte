@@ -1,7 +1,8 @@
 <!--
   Which of the user's Boite agents the assistant talks to: the one in use
   (its robot and name) as a quiet button, and a menu of the active agents
-  with their name and domain. A custom menu: arrows move, Enter picks,
+  of every machine of the group with their name and domain, another
+  machine's with its name in a chip. A custom menu: arrows move, Enter picks,
   Escape closes and gives the focus back. The island stays open while it is.
 -->
 <script lang="ts">
@@ -11,6 +12,7 @@
   import { useView } from '../../../lib/island/contract';
   import { fill, strings } from '../../../lib/strings';
   import RobotFace from '../../agents/RobotFace.svelte';
+  import MachineChip from '../MachineChip.svelte';
 
   let { assistant, open = $bindable(false) }: { assistant: Assistant; open?: boolean } = $props();
   const view = useView();
@@ -20,6 +22,7 @@
   let menu = $state<HTMLDivElement | null>(null);
 
   const agent = $derived(assistant.agent);
+  const current = $derived(assistant.placed?.key ?? null);
 
   $effect(() => {
     view.hold('assistant-agents', open);
@@ -51,8 +54,8 @@
     items[(at + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
   }
 
-  function pick(id: string) {
-    assistant.pick(id);
+  function pick(key: string) {
+    assistant.pick(key);
     close();
   }
 </script>
@@ -71,20 +74,22 @@
     >
       <span class="avatar"><RobotFace robot={skinOf(agent)} state="still" /></span>
       <span class="name">{agent.name}</span>
+      {#if assistant.machine}<MachineChip machine={assistant.machine} />{/if}
       <ChevronDown size={13} />
     </button>
 
     {#if open}
       <div bind:this={menu} class="menu" role="menu" aria-label={copy.agents} tabindex="-1" onkeydown={keys} data-testid="assistant-agent-menu">
         <p class="label">{copy.agents}</p>
-        {#each assistant.agents as entry (entry.id)}
-          <button role="menuitemradio" aria-checked={entry.id === agent.id} class="item" onclick={() => pick(entry.id)}>
-            <span class="avatar"><RobotFace robot={skinOf(entry)} state="still" /></span>
+        {#each assistant.agents as entry (entry.key)}
+          <button role="menuitemradio" aria-checked={entry.key === current} class="item" onclick={() => pick(entry.key)} data-testid="assistant-agent-item">
+            <span class="avatar"><RobotFace robot={skinOf(entry.profile)} state="still" /></span>
             <span class="who">
-              <span class="item-name">{entry.name}</span>
-              {#if entry.domain}<span class="domain">{entry.domain}</span>{/if}
+              <span class="item-name">{entry.profile.name}</span>
+              {#if entry.profile.domain}<span class="domain">{entry.profile.domain}</span>{/if}
             </span>
-            {#if entry.id === agent.id}<Check size={13} />{/if}
+            {#if entry.machine}<MachineChip machine={entry.machine} />{/if}
+            {#if entry.key === current}<Check size={13} />{/if}
           </button>
         {/each}
       </div>

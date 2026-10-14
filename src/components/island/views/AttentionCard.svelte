@@ -9,6 +9,7 @@
 -->
 <script lang="ts">
   import { BellRing, ChevronLeft, ChevronRight } from '@lucide/svelte';
+  import { settingsPanel } from '../../../lib/island/settings-panel.svelte';
   import type { QuestionRequest } from '@boite/contracts';
   import type { RequestAction } from '../../../lib/companion/companion.svelte';
   import { describePermission, threadLabel } from '../../../lib/companion/describe';
@@ -98,6 +99,8 @@
   }
 
   function onkey(event: KeyboardEvent) {
+    // The settings panel covers the card: its keys are the panel's.
+    if (settingsPanel.open) return;
     const target = event.target instanceof HTMLElement ? event.target : null;
     const typing = !!target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
     const control = !!target?.closest('button, a, [role="button"], [role="tab"]');

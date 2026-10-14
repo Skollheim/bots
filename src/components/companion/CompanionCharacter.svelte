@@ -10,6 +10,10 @@
   it. What keeps moving (a breath, a blink, the gaze, the lid, the light) is a
   whole layer moved by transform or opacity only, which the compositor plays
   on its own: the page paints nothing while the robot lives.
+
+  A skin of another family is drawn by that family's character
+  (`characterOf`): a Jelly, a Bubble, a Capsule or a Retro robot, each moved
+  its own way from the same face.
 -->
 <script module lang="ts">
   /** Where it looks, each axis from -1 (left, up) to 1 (right, down). */
@@ -20,12 +24,19 @@
 </script>
 
 <script lang="ts">
+  import type { Component } from 'svelte';
+  import { characterOf, type Act, type CharacterProps, type Face, type Tone } from '../../lib/companion/character';
   import type { Mood } from '../../lib/companion/mood';
+  import { beat, onscreen } from '../../lib/companion/beats';
   import { boxPaint, isBox } from '../../lib/companion/skin';
-  import type { Robot } from '../../lib/robots';
+  import { useSteppedLoops } from '../../lib/companion/stepped';
+  import type { Robot, RobotFamily } from '../../lib/robots';
   import { strings } from '../../lib/strings';
   import BoxTop from './BoxTop.svelte';
+  import BubbleCharacter from './BubbleCharacter.svelte';
+  import CapsuleCharacter from './CapsuleCharacter.svelte';
   import JellyCharacter from './JellyCharacter.svelte';
+  import RetroCharacter from './RetroCharacter.svelte';
 
   interface Props {
     mood: Mood;
@@ -62,13 +73,14 @@
     startled?: boolean;
     /** Poked too often, too fast: it wobbles, eyes spinning. */
     dizzy?: boolean;
-    /** The agent's robot: a box (`lib/companion/skin.ts`) colours the box and puts its accessory on the lid; anything else draws the classic companion. */
+    /** The agent's robot: a box (`lib/companion/skin.ts`) colours the box and puts its accessory on the lid, another family draws its own character; none draws the classic companion. */
     skin?: Robot | null;
   }
 
   let { mood, music = false, busy = false, hover = false, boing = 0, size = 56, lively = true, gaze = null, asleep = false, typing = false, alarm = false, calm = false, rest = false, game = false, coffee = false, cheer = false, startled = false, dizzy = false, skin = null }: Props = $props();
 
-  type Act = 'look' | 'blink' | 'peek' | 'stretch' | 'yawn';
+  /** The characters of the families other than the box. */
+  const CHARACTERS: Record<Exclude<RobotFamily, 'box'>, Component<CharacterProps>> = { jelly: JellyCharacter, bubble: BubbleCharacter, capsule: CapsuleCharacter, retro: RetroCharacter };
   const ACT_MS: Record<Act, number> = { look: 2400, blink: 700, peek: 1200, stretch: 1400, yawn: 2400 };
   let act = $state<Act | null>(null);
   let bouncing = $state(false);
@@ -105,7 +117,6 @@
     return () => clearTimeout(timer);
   });
 
-  type Face = 'awake' | 'sleep' | 'yawn' | 'groove' | 'typing' | 'working' | 'calling' | 'happy' | 'worried' | 'alarm' | 'calm' | 'rest' | 'cheer' | 'game' | 'startled';
   // What needs the user wins over the break and the focus; the pointer wakes it from either.
   // Files dragged over it win over a call: the user is right there, holding them.
   const urgent = $derived(alarm || mood === 'calling' || mood === 'worried');
@@ -119,7 +130,7 @@
     : mood !== 'idle' ? mood : hover ? 'awake' : asleep ? 'sleep' : act === 'yawn' ? 'yawn' : game ? 'game' : typing ? 'typing' : music ? 'groove' : 'awake'
   );
   // The light on the lid: the mood's colour, soft green on a break or a cheer, grey in focus.
-  const tone = $derived(face === 'alarm' || face === 'startled' ? 'calling' : (rest || cheer) && !urgent ? 'happy' : calm && !urgent ? 'idle' : mood);
+  const tone: Tone = $derived(face === 'alarm' || face === 'startled' ? 'calling' : (rest || cheer) && !urgent ? 'happy' : calm && !urgent ? 'idle' : mood);
   const tea = $derived(rest && !urgent);
   // The gaming headset wins over the music's; the coffee waits while it sleeps or calls.
   const headset = $derived(game && !tea);
@@ -131,10 +142,15 @@
   const clamp = (value: number) => Math.max(-1, Math.min(1, value));
   const look = $derived(face === 'typing' ? { x: 0, y: 1 } : face === 'sleep' || face === 'yawn' || !gaze ? { x: 0, y: 0 } : { x: clamp(gaze.x), y: clamp(gaze.y) });
   const label = $derived(alarm ? strings.companion.moods.calling : strings.companion.moods[mood]);
+  const family = $derived(characterOf(skin));
+  // Its breath is drawn in steps (`stepped.ts`), its blink played only while it shows (`beats.ts`).
+  useSteppedLoops();
+  const blinks = $derived(!['sleep', 'yawn', 'happy', 'rest', 'cheer', 'startled'].includes(face));
 </script>
 
-{#if skin?.family === 'jelly'}
-  <JellyCharacter robot={skin} {face} {tone} {look} {bouncing} {dizzy} {act} {size} {label} />
+{#if skin && family !== 'box'}
+  {@const Character = CHARACTERS[family]}
+  <Character robot={skin} {face} {tone} {look} {bouncing} {dizzy} {act} {size} {label} />
 {:else}
 <div
   class="char f-{face} t-{tone} {act ? `a-${act}` : ''}"
@@ -157,12 +173,13 @@
   style:height="{size}px"
   role="img"
   aria-label={label}
+  use:onscreen
 >
   <div class="layer rig">
     <svg class="layer" viewBox="0 0 100 100" aria-hidden="true"><rect class="body" x="15" y="38" width="70" height="50" rx="9" /></svg>
 
     <!-- The gaze, a glance and a blink each move the eyes' own layer. -->
-    <div class="layer eyes"><div class="layer scan"><div class="layer blink">
+    <div class="layer eyes"><div class="layer scan"><div class="layer blink" use:beat={{ name: 'blink', every: 5000, length: 350, active: blinks }}>
       <svg class="layer" viewBox="0 0 100 100" aria-hidden="true">
         {#each [39, 61] as cx, index (cx)}
           <g class="eye" class:right={index === 1}>
@@ -364,7 +381,8 @@
   .with-cup .rig { transform-origin: 52.25% 88%; }
   .with-headset .rig { transform-origin: 50% 88.5%; }
   .lid { transform-origin: 10% 39%; }
-  .blink { transform-origin: 50% var(--blink-y); }
+  /* Kept on its own layer between blinks: made at each blink, it would be painted again each time. */
+  .blink { transform-origin: 50% var(--blink-y); will-change: transform; }
   /* The eyes morph from face to face: every part slides, nothing swaps. */
   .eyes { transform: translate(calc(var(--gx) * 4%), calc(var(--gy) * 2.5%)); transition: transform .35s var(--ease-out-quint); }
   .pupil, .upper { transform-box: fill-box; transform-origin: 50% 50%; }
@@ -379,8 +397,8 @@
   .lower { translate: 0 calc(var(--low) * -1); transition: translate var(--dur-2) var(--ease-out-quint); }
 
   /* Body */
-  .f-awake .rig, .f-typing .rig { animation: breathe 4s ease-in-out infinite; }
-  .f-sleep .rig, .f-calm .rig { animation: breathe 6s ease-in-out infinite; }
+  .f-awake .rig, .f-typing .rig { animation: bots-box-breathe-4000 4s steps(1, end) infinite; }
+  .f-sleep .rig, .f-calm .rig { animation: bots-box-breathe-6000 6s steps(1, end) infinite; }
   .f-rest .rig { animation: sip 5s ease-in-out infinite; }
   .f-groove .rig { animation: groove .5s ease-in-out infinite alternate; }
   .f-typing .rig { animation: nod 1.6s ease-in-out infinite; }
@@ -389,7 +407,7 @@
   .f-worried .rig { animation: shiver .3s linear infinite; }
   .f-alarm .rig { animation: ring .9s ease-in-out infinite; }
   .f-cheer .rig { animation: jump .6s ease-out infinite; }
-  .f-game .rig { animation: breathe 3s ease-in-out infinite; }
+  .f-game .rig { animation: bots-box-breathe-3000 3s steps(1, end) infinite; }
   .a-stretch .rig { animation: stretch 1.4s ease-in-out; }
   .boing .rig { animation: boing .65s ease-out; }
   .dizzy .rig { animation: wobble .6s ease-in-out infinite; }
@@ -405,7 +423,8 @@
   .boing .lid { animation: pop .65s ease-out; }
 
   /* Eyes and light */
-  .blink { animation: blink 5s ease-in-out infinite; }
+  /* A blink about every 5 s, started by the page's one timer (`beats.ts`). */
+  .blink:global([data-beat-blink]) { animation: blink .35s ease-in-out; }
   .a-blink .blink { animation: twice .7s ease-in-out; }
   .f-sleep .blink, .f-yawn .blink, .f-happy .blink, .f-rest .blink, .f-cheer .blink, .f-startled .blink { animation: none; }
   .a-look .scan { animation: glance 2.4s ease-in-out; }
@@ -437,7 +456,7 @@
   /* Leans towards its tea now and then, and back. */
   @keyframes sip { 0%, 30%, 70%, 100% { transform: rotate(0) scale(1, 1); } 15% { transform: rotate(0) scale(1.01, 1.025); } 42%, 58% { transform: rotate(4deg) translateX(1%); } }
   @keyframes steam { 0% { transform: translateY(2%); opacity: 0; } 35% { opacity: .7; } 100% { transform: translateY(-5%); opacity: 0; } }
-  @keyframes breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, 1.03); } }
+  /* The breath: `bots-box-breathe-*`, written in steps by `stepped.ts`. */
   @keyframes groove { from { transform: rotate(-4deg) translateY(0); } to { transform: rotate(4deg) translateY(-1.5%); } }
   @keyframes nod { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1.2%); } }
   @keyframes hum { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5%); } }
@@ -456,7 +475,8 @@
   @keyframes yawn-lid { 0%, 100% { transform: rotate(0); } 30%, 70% { transform: rotate(-14deg); } }
   @keyframes peek { 0%, 100% { transform: rotate(0); } 25%, 60% { transform: rotate(-9deg); } }
   @keyframes pop { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-26deg); } 60% { transform: rotate(-8deg); } }
-  @keyframes blink { 0%, 93%, 100% { transform: scale(1, 1); } 96% { transform: scale(1, .08); } }
+  /* The last 7 % of the 5 s loop it was: shut at 3/7 of the way, open again by the end. */
+  @keyframes blink { 0%, 100% { transform: scale(1, 1); } 42.857% { transform: scale(1, .08); } }
   @keyframes twice { 0%, 40%, 100% { transform: scale(1, 1); } 20%, 60% { transform: scale(1, .08); } 80% { transform: scale(1, 1); } }
   @keyframes glance { 0%, 100% { transform: translate(0, 0); } 20%, 40% { transform: translate(-4%, 0); } 60%, 80% { transform: translate(4%, -1%); } }
   @keyframes scan { from { transform: translateX(-3%); } to { transform: translateX(3%); } }

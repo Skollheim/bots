@@ -6,6 +6,10 @@
  * whose directives (`directives.ts`) are carried out once: the facts go to the
  * agent's own memory, the reminders to this computer, the rest to the page.
  *
+ * The other machines' agents are read too, after this machine's and without
+ * waiting on them (`group/agents.ts`): the island's assistant lists them. The
+ * companion's row, its roles and its memory stay this machine's.
+ *
  * The companion keeps its role in each of its agents' instructions
  * (`withRole`), with Boite's projects, and the first time it makes an agent of
  * its own, Bots, which takes over the facts the companion kept on this
@@ -13,6 +17,8 @@
  */
 import type { AgentConversationMessage, AgentProfile, AgentsSnapshot } from '@boite/contracts';
 import type { Client } from '@boite/ui/lib/client';
+import { GroupClient } from '../group/group-client';
+import { mergeElsewhere, type MachineAgents } from '../group/agents';
 import { fill, strings } from '../strings';
 import { COMPANION_DOMAIN, permissionModeOf, pickBrain, ROLE_START, roleBlock, settleModel, withoutRole, withRole } from './brain';
 import { CLASSIC_SKIN, companionAgent, FIRST_AGENT_NAME, lastMessageAt, liveMemories, membersOf, memoriesToForget, memoryToKeep, needsFirstAgent, profileWith, repliesAfter, sessionThreadOf } from './crew';
@@ -70,6 +76,8 @@ export async function releaseAgent(client: Client, profile: AgentProfile): Promi
 
 export class Crew {
   snapshot = $state.raw<AgentsSnapshot | null>(null);
+  /** The agents of the group's other connected machines, in roster order. */
+  elsewhere = $state.raw<MachineAgents[]>([]);
   /** Why the companion has no agent of its own yet: none could run, or making it failed. */
   problem = $state<string | null>(null);
 
@@ -117,6 +125,8 @@ export class Crew {
       return;
     }
     this.loading = true;
+    // Asked at the same time and never waited for: a slow member does not hold this machine's list.
+    if (client instanceof GroupClient) void this.readElsewhere(client);
     try {
       const snapshot = await client.call('agents.snapshot', {});
       if (this.disposed) return;
@@ -135,6 +145,15 @@ export class Crew {
       }
     }
     if (!this.disposed) this.host.loaded();
+  }
+
+  /** The other machines' agents; a member that does not answer in time keeps its last list while connected. */
+  private async readElsewhere(client: GroupClient): Promise<void> {
+    const answers = await client.elsewhere('agents.snapshot', {});
+    if (this.disposed) return;
+    const read = answers.map(({ core, result }) => ({ coreId: core.coreId, machine: core.name, snapshot: result }));
+    this.elsewhere = mergeElsewhere(this.elsewhere, read, client.machines().filter((machine) => machine.state === 'ready'));
+    this.host.loaded();
   }
 
   /**

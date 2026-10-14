@@ -9,6 +9,11 @@
   (`components/desktop/`). Dragging a robot out of the island sets it loose;
   dragging it back against the top edge, or "Back to the island", returns it.
   The shell places the window for either (`island_place`, `companion_place`).
+
+  The settings are a panel of the island (`island/settings/SettingsPanel.svelte`):
+  asked for from the tray, a gear or "Make an agent", the island opens for
+  them, drawn for them even while the robots are loose, and held open while
+  they show.
 -->
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
@@ -17,11 +22,12 @@
   import BotsNotice from './components/BotsNotice.svelte';
   import { writeStatus } from './lib/companion/memory';
   import { captureZone, type ScreenShot } from './lib/companion/screen';
-  import { companionHitRects, configureCompanion, coverScreen, inShell, layoutOf, placeCompanion, placeIsland, type CompanionLayout, type HitRect } from './lib/companion/shell';
+  import { companionHitRects, configureCompanion, coverScreen, inShell, layoutOf, listenShell, placeCompanion, placeIsland, type CompanionLayout, type HitRect } from './lib/companion/shell';
   import { Companion } from './lib/companion/companion.svelte';
   import { IslandFrame } from './lib/island/frame.svelte';
   import { readBar, readBarEdit, shownTab, subscribeBarEdit, writeBarEdit } from './lib/island/bar';
   import { readDeckTab, writeDeckTab } from './lib/island/deck-tabs';
+  import { answerSettings, panelWindowHeight, requestSettings, settingsPanel } from './lib/island/settings-panel.svelte';
   import CompanionZone from './components/companion/CompanionZone.svelte';
   import DesktopCompanion from './components/desktop/DesktopCompanion.svelte';
   import Island from './components/island/Island.svelte';
@@ -43,7 +49,7 @@
     focusInput: () =>
       requestAnimationFrame(() => setTimeout(() => document.querySelector<HTMLElement>('.assistant-input, .askbar input')?.focus({ preventScroll: true }))),
     summoned: () => frame.show('chat'),
-    // A click elsewhere leaves a pinned island open, and one being edited: Settings may be where the click went.
+    // A click elsewhere leaves a pinned island open, and one being edited.
     pinned: () => frame.pinned || frame.editing
   });
   const frame = new IslandFrame({
@@ -58,6 +64,43 @@
   });
 
   const island = $derived(companion.prefs.robots === 'island');
+  /** The island is drawn: the robots live in it, or the settings panel is open over loose ones. */
+  const shown = $derived(island || settingsPanel.open);
+
+  // The settings, asked for: the island opens on its tab, then the panel on the section asked.
+  $effect(() =>
+    answerSettings((section) => {
+      if (frame.editing) writeBarEdit(false);
+      frame.show(frame.tab);
+      settingsPanel.show(section);
+    })
+  );
+  // While the panel shows it holds the island open; closed over loose robots, it takes the island away.
+  $effect(() => {
+    if (!settingsPanel.open) return;
+    untrack(() => frame.hold('settings', true));
+    return () =>
+      untrack(() => {
+        frame.hold('settings', false);
+        if (!island) companion.close();
+      });
+  });
+  // The island closing, or its bar being edited, closes the panel.
+  $effect(() => {
+    if (!companion.open || frame.editing) untrack(() => settingsPanel.close());
+  });
+
+  /** The system says the page is out of sight. */
+  let pageHidden = $state(document.hidden);
+  /**
+   * Nobody sees the window: hidden by the system, or by the shell under a
+   * full-screen app (`hideFullscreen`), which the page hears without being
+   * told it is hidden. The endless animations then wait (`bots.css`).
+   */
+  const dormant = $derived(pageHidden || companion.senses.fullscreen);
+  $effect(() => {
+    document.documentElement.toggleAttribute('data-dormant', dormant);
+  });
 
   // The bar's edit mode (`lib/island/bar.ts`), asked from Settings or by a right-click on the bar, ended by
   // Done, Escape or Settings. It is the island's: the robots set loose, or the island closed, end it.
@@ -87,6 +130,27 @@
     }
   }
 
+  /** The shell reads the hit areas every 40 ms (`WATCH_EVERY`, `companion_window.rs`): sent more often, a send is never read. */
+  const RECTS_EVERY = 40;
+  let rectsTimer: ReturnType<typeof setTimeout> | undefined;
+  let rectsAt = 0;
+  /**
+   * Sends the hit areas soon, once for a burst of changes: a spring moving
+   * the island asks on every frame, 240 times a second on a 240 Hz screen.
+   * The send reads them when it runs, so the last change is always in it.
+   */
+  function requestRects() {
+    if (rectsTimer !== undefined) return;
+    rectsTimer = setTimeout(
+      () => {
+        rectsTimer = undefined;
+        rectsAt = performance.now();
+        sendRects();
+      },
+      Math.max(0, rectsAt + RECTS_EVERY - performance.now())
+    );
+  }
+
   let lastRects = '';
   function sendRects() {
     const rects: HitRect[] = [...document.querySelectorAll<HTMLElement>('[data-hit]')].map((element) => {
@@ -102,15 +166,15 @@
   }
 
   $effect(() => {
-    void [island, companion.open, picking, frame.size, frame.tab, frame.editing, companion.notice, companion.waiting, companion.blocking];
+    void [shown, companion.open, picking, frame.size, frame.tab, frame.editing, settingsPanel.open, settingsPanel.section, companion.notice, companion.waiting, companion.blocking];
     // Measured once the frame is drawn, when its layout is done: measuring before would lay it out twice.
-    void tick().then(() => requestAnimationFrame(() => setTimeout(sendRects)));
+    void tick().then(() => requestAnimationFrame(requestRects));
   });
 
-  // The island's window grows at once when it opens, and
-  // shrinks once the island's spring has followed.
+  // The island's window grows at once when it opens, longer for the settings
+  // panel, and shrinks once the island's spring or the panel has followed.
   $effect(() => {
-    const wanted = companion.open ? ISLAND_WINDOW.open : ISLAND_WINDOW.closed;
+    const wanted = settingsPanel.open ? Math.max(ISLAND_WINDOW.open, panelWindowHeight(screen.availHeight)) : companion.open ? ISLAND_WINDOW.open : ISLAND_WINDOW.closed;
     if (wanted >= untrack(() => islandHeight)) {
       islandHeight = wanted;
       return;
@@ -123,7 +187,7 @@
   // its place: the top of its screen for the island, where it was left for
   // the loose robots.
   $effect(() => {
-    const [onIsland, monitor, anchor, spot, height] = [island, companion.prefs.monitor, companion.prefs.anchor, companion.prefs.spot, islandHeight];
+    const [onIsland, monitor, anchor, spot, height] = [shown, companion.prefs.monitor, companion.prefs.anchor, companion.prefs.spot, islandHeight];
     if (picking || companion.dragging) return;
     if (onIsland) void placeIsland(monitor, ISLAND_WINDOW.width, height).catch(() => {});
     else
@@ -133,7 +197,7 @@
   });
 
   // Hiding for full-screen apps and the shortcut live in the shell; how the
-  // shortcut fared goes to Settings, in the other window.
+  // shortcut fared goes to the settings panel (`writeStatus`).
   $effect(() => {
     const [hideFullscreen, hotkey] = [companion.prefs.hideFullscreen, companion.prefs.hotkey];
     if (!inShell()) return;
@@ -148,13 +212,22 @@
     if (readBarEdit()) writeBarEdit(false);
     // The clipboard history records while the setting is on, deck open or not.
     const off: (() => void)[] = [startTheme(), companion.start(), () => frame.dispose(), clipboardHistory.start()];
-    const rects = setInterval(sendRects, 500);
+    // The tray's Settings, and the companion's own request, come back from the shell (`bots_settings`).
+    let gone = false;
+    void listenShell<string | null>('settings', (section) => requestSettings(section)).then((stop) => (gone ? stop() : off.push(stop)));
+    off.push(() => (gone = true));
+    // Hidden, nothing can be clicked: the areas wait until the window shows again.
+    const rects = setInterval(() => !dormant && requestRects(), 500);
+    const seen = () => (pageHidden = document.hidden);
+    document.addEventListener('visibilitychange', seen);
     // Demo poses for captures (`?fake=1&pose=…`), in the dev bundle only.
     if (import.meta.env.DEV && new URLSearchParams(location.search).has('pose')) {
       void import('./lib/island/pose').then(({ strikePose }) => strikePose(companion, frame, new URLSearchParams(location.search)));
     }
     return () => {
       clearInterval(rects);
+      clearTimeout(rectsTimer);
+      document.removeEventListener('visibilitychange', seen);
       off.forEach((stop) => stop());
     };
   });
@@ -162,6 +235,7 @@
   function onkeydown(event: KeyboardEvent) {
     if (event.key !== 'Escape') return;
     if (picking) pickDone?.(null);
+    else if (settingsPanel.open) settingsPanel.close();
     else if (frame.editing) writeBarEdit(false);
     else if (companion.open) companion.close();
     else companion.talks.forEach((talk) => talk.hide());
@@ -169,21 +243,21 @@
 
   // Files dragged over the loose robots' window; the island takes its own.
   function dragover(event: DragEvent) {
-    if (!island) companion.attached.dragover(event);
+    if (!shown) companion.attached.dragover(event);
   }
   function drop(event: DragEvent) {
-    if (!island) companion.dropFiles(event);
+    if (!shown) companion.dropFiles(event);
   }
 </script>
 
 <svelte:window {onkeydown} />
 
-<main class="stage" class:picking class:island data-align={layout.align} data-edge={layout.edge} data-testid="companion" ondragenter={dragover} ondragover={dragover} ondrop={drop}>
+<main class="stage" class:picking class:island={shown} data-align={layout.align} data-edge={layout.edge} data-testid="companion" ondragenter={dragover} ondragover={dragover} ondrop={drop}>
   <div class="companion">
-    {#if island}
-      <Island {companion} {frame} onresize={sendRects} />
+    {#if shown}
+      <Island {companion} {frame} onresize={requestRects} />
     {:else}
-      <DesktopCompanion {companion} {layout} onresize={sendRects} />
+      <DesktopCompanion {companion} {layout} onresize={requestRects} />
     {/if}
     <div class="notice">
       <BotsNotice

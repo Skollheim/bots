@@ -1,8 +1,8 @@
 /*
- * What Bots's settings window knows of Boite: its providers, accounts,
+ * What Bots's settings panel knows of Boite: its providers, accounts,
  * projects, settings and agents, read once connected and kept current from
  * the core's events. Boite's own `Store` does this for the whole app; the
- * settings window needs only this much of it.
+ * settings panel needs only this much of it, on its own connection.
  *
  * `accountsOf` and `modelsOf` follow Boite's store (packages/ui/src/lib/store/
  * accounts.svelte.ts and models.svelte.ts at c4a8b0f7), so the settings offer
@@ -19,7 +19,7 @@ import {
   type ProviderSummary,
   type Settings
 } from '@boite/contracts';
-import { WsClient, type ClientState, type ObservableClient } from '@boite/ui/lib/client';
+import { WsClient, type Client, type ClientState, type ObservableClient } from '@boite/ui/lib/client';
 import { waitForCore, watchEndpoint } from './connection';
 
 const probeKey = (providerId: ProviderId, accountId: string) => `${providerId}::${accountId}`;
@@ -35,6 +35,8 @@ export class CoreLink {
   projects = $state.raw<Project[]>([]);
   settings = $state.raw<Settings | null>(null);
   probedModels = $state.raw<Record<string, ModelInfo[]>>({});
+  /** The model reads running, by `providerId::accountId`: the model picker says it is reading. */
+  probing = $state.raw<string[]>([]);
   #off: (() => void)[] = [];
   #stopped = false;
   /** The model reads asked of the core, by agent and account, answered or not. */
@@ -49,19 +51,33 @@ export class CoreLink {
   async start(make: () => Promise<ObservableClient | null> = () => this.#open()): Promise<void> {
     const client = await make();
     if (!client || this.#stopped) return client?.close();
-    this.client = client;
-    this.#off.push(
-      client.onState((state) => {
+    this.#off.push(this.follow(client));
+    await client.connect().catch(() => {});
+  }
+
+  /**
+   * Keeps the lists current from a client someone else opened and closes: the
+   * island's, which the companion owns. Read at once when it is connected
+   * already, and again on each connection. Returns the release.
+   */
+  follow(client: Client & { onState?: ObservableClient['onState'] }): () => void {
+    this.client = client as ObservableClient;
+    const offs = [
+      client.onState?.((state) => {
         this.connection = state;
         if (state === 'ready') void this.load();
-      }),
+      }) ?? (() => {}),
       client.on('providers.updated', ({ loaded }) => (this.providers = loaded)),
       client.on('accounts.updated', (account) => (this.accounts = [...this.accounts.filter((a) => a.id !== account.id), account])),
       client.on('accounts.removed', ({ accountId }) => (this.accounts = this.accounts.filter((a) => a.id !== accountId))),
       client.on('settings.updated', (settings) => (this.settings = settings)),
       client.on('providers.probed', ({ providerId, accountId, models }) => (this.probedModels = { ...this.probedModels, [probeKey(providerId, accountId)]: models }))
-    );
-    await client.connect().catch(() => {});
+    ];
+    if (client.state === 'ready') {
+      this.connection = 'ready';
+      void this.load();
+    }
+    return () => offs.forEach((off) => off());
   }
 
   async #open(): Promise<ObservableClient | null> {
@@ -111,19 +127,36 @@ export class CoreLink {
    * Reads the models an agent lists with this account. Each read starts the
    * agent's executable for a moment, so it runs once per window, a failed one
    * included: account updates come with every quota change and must not start
-   * it again.
+   * it again. `refresh` asks the agent again, past the core's cache: the model
+   * picker's refresh button.
    */
-  probeModels(providerId: ProviderId, accountId: string): Promise<void> {
+  probeModels(providerId: ProviderId, accountId: string, refresh = false): Promise<void> {
     const client = this.client;
     const key = probeKey(providerId, accountId);
-    if (!client || this.probedModels[key]) return Promise.resolve();
     const known = this.#probes.get(key);
-    if (known) return known;
-    const read = client.call('providers.probe', { providerId, accountId }).then(({ models }) => {
-      if (client === this.client) this.probedModels = { ...this.probedModels, [key]: models };
-    });
+    if (!client || (!refresh && this.probedModels[key])) return Promise.resolve();
+    if (known && (!refresh || this.probing.includes(key))) return known;
+    this.probing = [...this.probing, key];
+    const read = client
+      .call('providers.probe', { providerId, accountId, ...(refresh ? { refresh: true } : {}) })
+      .then(({ models }) => {
+        if (client === this.client) this.probedModels = { ...this.probedModels, [key]: models };
+      })
+      .finally(() => (this.probing = this.probing.filter((entry) => entry !== key)));
     this.#probes.set(key, read);
     return read;
+  }
+
+  isProbing(providerId: ProviderId, accountId: string | null): boolean {
+    return accountId !== null && this.probing.includes(probeKey(providerId, accountId));
+  }
+
+  /** Stores the starred models in the core's settings, where Boite reads them. */
+  async saveSettings(patch: Partial<Settings> & Record<string, unknown>): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    const settings = await client.call('settings.set', patch as Partial<Settings>);
+    if (client === this.client) this.settings = settings;
   }
 
   stop(): void {

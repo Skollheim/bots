@@ -18,17 +18,6 @@ mod tray;
 #[link(name = "resource", kind = "static", modifiers = "-bundle")]
 unsafe extern "C" {}
 
-use tauri::Webview;
-
-/// Bots's own pages, the companion and its settings: the only ones that may
-/// ask for the core's token or list the screens.
-pub(crate) fn only_bots(webview: &Webview) -> Result<(), String> {
-    match webview.label() {
-        companion_window::LABEL | tray::SETTINGS_LABEL => Ok(()),
-        other => Err(format!("the webview {other:?} may not invoke this command")),
-    }
-}
-
 // One expansion: on macOS generate_context also embeds the application plist.
 fn bots_context<R: tauri::Runtime>() -> tauri::Context<R> {
     tauri::generate_context!()
@@ -102,8 +91,7 @@ pub fn run() {
         }
     };
     app.run(|_app, event| {
-        // The settings window closing leaves the companion: Bots stops on Quit
-        // alone, or when Boite stops it.
+        // Bots stops on Quit alone, or when Boite stops it.
         if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event { api.prevent_exit(); }
     });
 }
