@@ -69,10 +69,12 @@
     scrollbar-width: thin;
     scrollbar-color: var(--island-line-strong) transparent;
   }
-  /* The island's cards, drawn inside a tile: the tile is their box. */
+  /* The island's cards, drawn inside a tile: the tile is their box, and the surface what fades over them. */
   .content :global(.island-card) {
+    --island-card: var(--deck-tile);
     padding: 0;
     border: none;
     background: none;
+    box-shadow: none;
   }
 </style>

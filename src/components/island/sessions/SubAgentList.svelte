@@ -67,6 +67,12 @@
     font-size: 11px;
     line-height: 20px;
   }
+  /* The count heads the list: apart from the row's line above, close to the list it counts. */
+  .progress {
+    margin: 4px 0 2px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
   .lines {
     display: flex;
     flex-direction: column;
