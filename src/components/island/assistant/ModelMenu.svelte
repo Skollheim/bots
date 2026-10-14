@@ -10,7 +10,7 @@
   import { untrack } from 'svelte';
   import type { Assistant } from '../../../lib/island/assistant.svelte';
   import { useView } from '../../../lib/island/contract';
-  import { pickerStoreFor } from '../../../lib/model-picker/link';
+  import { pickerStoreAt } from '../../../lib/model-picker/link';
   import type { PickerChoice } from '../../../lib/model-picker/store.svelte';
   import EffortSlider from '../../model-picker/EffortSlider.svelte';
   import ModelPicker from '../../model-picker/ModelPicker.svelte';
@@ -27,7 +27,8 @@
   /** The closing animation's length, after which a popover leaves the page. */
   const GONE_MS = 400;
 
-  const store = $derived(view.core.client ? pickerStoreFor(view.core.client) : null);
+  // The agent's own machine's providers: a remote agent runs on what that machine has signed in.
+  const store = $derived(view.core.client ? pickerStoreAt(view.core.client, assistant.coreId) : null);
   const selection = $derived(assistant.agent?.selection ?? null);
   const choice = $derived<PickerChoice | null>(
     selection ? { providerId: selection.providerId, accountId: selection.accountId, model: selection.model, effort: selection.effort } : null
