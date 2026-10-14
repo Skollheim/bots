@@ -11,13 +11,21 @@
  *   bun x vite build --config scripts/perf.vite.config.ts
  *   bun x vite preview --config scripts/perf.vite.config.ts --port 5282
  *   bun scripts/perf-probe.ts --base http://localhost:5282 [--seconds 10]
- *     [--only closed,deck-music] [--json out.json] [--profile] [--unthrottled]
+ *     [--only closed,deck-music] [--json out.json] [--profile] [--frames] [--unthrottled]
  *
  * Each pose runs two phases of `--seconds`: the metrics alone, so a probe
  * does not add frames to an idle page, then the rAF probe for the intervals.
  * `--profile` adds the functions that took the most main thread time
  * during the metrics phase, by self time, a browser call named with the
  * page's function that made it.
+ * `--frames` traces the compositor over the metrics phase instead and
+ * counts, per second, the frames it drew (`DrawFrame`), the frames it was
+ * woken for (`BeginFrame`) and the frames the display put out. At the
+ * default 60 Hz, a page that animates smoothly draws about 60 a second and
+ * would draw 240 on a 240 Hz screen; a page at rest draws none.
+ * `--unthrottled` makes Chrome draw as fast as the GPU allows: on a
+ * machine whose GPU is shared (a game, another guest), it takes that GPU
+ * from them; keep to the 60 Hz runs there.
  * `--unthrottled` lifts Chrome's frame cap, the closest a headless browser
  * gets to a high refresh screen: what the page does per frame then shows as
  * frames it cannot keep. A headless Linux Chrome says nothing of WebView2's
@@ -31,6 +39,8 @@ import { join } from 'node:path';
 /** `motion`: the island opened from the pill and closed again, four times, measured while it moves. */
 type Pose = { name: string; query: string; motion?: boolean };
 
+const FAMILIES = ['box', 'jelly', 'bubble', 'capsule', 'retro'];
+
 /** The poses of `src/lib/island/pose.ts` the measures go through. */
 export const POSES: Pose[] = [
   { name: 'closed', query: 'pose=collapsed&calm=1' },
@@ -41,7 +51,14 @@ export const POSES: Pose[] = [
   { name: 'deck-music', query: 'pose=deck&tab=music&calm=1' },
   { name: 'assistant', query: 'pose=open&tab=chat&scene=running&calm=1' },
   { name: 'desktop-idle', query: 'pose=desktop&calm=1&sessions=none' },
-  { name: 'desktop-working', query: 'pose=desktop' }
+  { name: 'desktop-working', query: 'pose=desktop' },
+  // At rest, for `--frames`: each family's companion awake and asleep (the gallery, `MascotGallery.svelte`), and in the app.
+  ...FAMILIES.flatMap((family) => [
+    { name: `rest-${family}`, query: `view=mascots&family=${family}&mood=idle` },
+    { name: `asleep-${family}`, query: `view=mascots&family=${family}&mood=asleep` },
+    { name: `closed-${family}`, query: `pose=collapsed&calm=1&skin=${family}` },
+    { name: `desktop-${family}`, query: `pose=desktop&calm=1&skin=${family}` }
+  ])
 ];
 
 const METRICS = ['TaskDuration', 'ScriptDuration', 'LayoutDuration', 'RecalcStyleDuration', 'LayoutCount', 'RecalcStyleCount'] as const;
@@ -55,9 +72,15 @@ function arg(name: string): string | null {
 export class Cdp {
   private next = 0;
   private waiting = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
+  private handlers = new Map<string, ((params: unknown) => void)[]>();
+  /** Hears an event of the page (`Tracing.dataCollected`). */
+  on(method: string, handler: (params: unknown) => void): void {
+    this.handlers.set(method, [...(this.handlers.get(method) ?? []), handler]);
+  }
   private constructor(private socket: WebSocket) {
     socket.addEventListener('message', (event) => {
-      const data = JSON.parse(String(event.data)) as { id?: number; result?: unknown; error?: { message: string } };
+      const data = JSON.parse(String(event.data)) as { id?: number; method?: string; params?: unknown; result?: unknown; error?: { message: string } };
+      if (data.method) for (const handler of this.handlers.get(data.method) ?? []) handler(data.params);
       if (data.id === undefined) return;
       const pending = this.waiting.get(data.id);
       this.waiting.delete(data.id);
@@ -145,6 +168,8 @@ export type PoseResult = {
   perSecond: Record<(typeof METRICS)[number], number>;
   frames: { count: number; p50: number; p95: number; p99: number; dropped: number };
   animations: { running: number; props: Record<string, number> };
+  /** With `--frames`: what the compositor did per second over the phase (`DrawFrame`: frames drawn; `BeginFrame`: woken for a frame; `swaps`: frames the display put out). */
+  compositor?: { draws: number; wakes: number; swaps: number };
   /** With `--profile`: the heaviest functions, self time in ms over the phase. */
   hot?: { at: string; ms: number }[];
 };
@@ -174,7 +199,7 @@ function hottest(profile: Profile, count = 12): { at: string; ms: number }[] {
   return [...self].sort((a, b) => b[1] - a[1]).slice(0, count).map(([at, ms]) => ({ at, ms: Math.round(ms * 10) / 10 }));
 }
 
-async function measure(port: number, base: string, pose: Pose, seconds: number, profile = false): Promise<PoseResult> {
+async function measure(port: number, base: string, pose: Pose, seconds: number, profile = false, frames = false): Promise<PoseResult> {
   const created = (await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: 'PUT' })).json()) as { id: string; webSocketDebuggerUrl: string };
   const cdp = await Cdp.open(created.webSocketDebuggerUrl);
   try {
@@ -189,10 +214,24 @@ async function measure(port: number, base: string, pose: Pose, seconds: number, 
       await cdp.send('Profiler.setSamplingInterval', { interval: 200 });
       await cdp.send('Profiler.start');
     }
+    const traced: { name: string }[] = [];
+    let traceDone: Promise<void> = Promise.resolve();
+    if (frames) {
+      cdp.on('Tracing.dataCollected', (params) => traced.push(...(params as { value: { name: string }[] }).value));
+      traceDone = new Promise((resolve) => cdp.on('Tracing.tracingComplete', () => resolve()));
+      await cdp.send('Tracing.start', { traceConfig: { includedCategories: ['disabled-by-default-devtools.timeline.frame', 'viz'] }, transferMode: 'ReportEvents' });
+    }
     const before = await metrics(cdp);
     const moving = pose.motion ? cdp.evaluate<number[]>(MOTION) : sleep(seconds * 1000).then(() => null);
     const motionGaps = await moving;
     const after = await metrics(cdp);
+    let compositor: PoseResult['compositor'];
+    if (frames) {
+      await cdp.send('Tracing.end');
+      await traceDone;
+      const count = (name: string) => traced.filter((event) => event.name === name).length / seconds;
+      compositor = { draws: count('DrawFrame'), wakes: count('BeginFrame'), swaps: count('Display::DrawAndSwap') };
+    }
     const hot = profile ? hottest((await cdp.send<{ profile: Profile }>('Profiler.stop')).profile) : undefined;
     // A moving pose lasts as long as its moves: 4 rounds of two 900 ms moves.
     const span = motionGaps ? 7.2 : seconds;
@@ -204,7 +243,7 @@ async function measure(port: number, base: string, pose: Pose, seconds: number, 
       })
     ) as PoseResult['perSecond'];
     const animations = await cdp.evaluate<PoseResult['animations']>(ANIMATIONS);
-    const stamps = motionGaps ? [] : await cdp.evaluate<number[]>(PROBE(seconds * 1000));
+    const stamps = motionGaps || frames ? [] : await cdp.evaluate<number[]>(PROBE(seconds * 1000));
     const gaps = (motionGaps ?? stamps.slice(1).map((stamp, index) => stamp - stamps[index]!)).sort((a, b) => a - b);
     const p50 = quantile(gaps, 0.5);
     return {
@@ -212,6 +251,7 @@ async function measure(port: number, base: string, pose: Pose, seconds: number, 
       perSecond,
       frames: { count: gaps.length, p50, p95: quantile(gaps, 0.95), p99: quantile(gaps, 0.99), dropped: gaps.filter((gap) => gap > p50 * 1.5).length },
       animations,
+      ...(compositor ? { compositor } : {}),
       ...(hot ? { hot } : {})
     };
   } finally {
@@ -274,6 +314,13 @@ export function table(results: PoseResult[]): string {
   return [head, '|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|', ...rows].join('\n');
 }
 
+/** With `--frames`: the compositor's work per second, pose by pose. */
+export function framesTable(results: PoseResult[]): string {
+  const head = '| Pose | Frames drawn/s | Compositor wakes/s | Display swaps/s | Task ms/s | Running anims |';
+  const rows = results.map(({ pose, compositor: c, perSecond: m, animations: a }) => `| ${pose} | ${fixed(c?.draws ?? 0)} | ${fixed(c?.wakes ?? 0)} | ${fixed(c?.swaps ?? 0)} | ${fixed(m.TaskDuration)} | ${a.running} |`);
+  return [head, '|---|---:|---:|---:|---:|---:|', ...rows].join('\n');
+}
+
 if (import.meta.main) {
   const base = arg('base') ?? 'http://localhost:5174';
   const seconds = Number(arg('seconds') ?? 10);
@@ -286,12 +333,12 @@ if (import.meta.main) {
     await measure(port, base, poses[0]!, 1);
     const results: PoseResult[] = [];
     for (const pose of poses) {
-      const result = await measure(port, base, pose, seconds, process.argv.includes('--profile'));
+      const result = await measure(port, base, pose, seconds, process.argv.includes('--profile'), process.argv.includes('--frames'));
       results.push(result);
       for (const { at, ms } of result.hot ?? []) console.error(`  ${ms.toFixed(1)} ms  ${at}`);
       console.error(`${pose.name}: task ${fixed(result.perSecond.TaskDuration)} ms/s, frames p50 ${fixed(result.frames.p50)} ms, anims ${JSON.stringify(result.animations.props)}`);
     }
-    console.log(table(results));
+    console.log(process.argv.includes('--frames') ? framesTable(results) : table(results));
     const json = arg('json');
     if (json) writeFileSync(json, JSON.stringify(results, null, 2));
   } finally {

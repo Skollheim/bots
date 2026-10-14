@@ -2,7 +2,8 @@
   Every companion family in a few moods side by side, for captures and for
   looking at them move: `index.html?view=mascots`, in the dev bundle only
   (`main.ts`). `size=<px>` sets their size (64 by default, the desktop's);
-  `family=<family>` shows every shape of that family instead.
+  `family=<family>` shows every shape of that family instead; `mood=<mood>`
+  (or `mood=asleep`) keeps that one column, for measuring a robot at rest.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
@@ -20,7 +21,7 @@
     { family: 'capsule', shape: 0, color: 1, eyes: 0, top: 1 },
     { family: 'retro', shape: 0, color: 7, eyes: 1, top: 0 },
   ];
-  const MOODS: { mood: Mood; asleep?: boolean; caption: string }[] = [
+  const ALL_MOODS: { mood: Mood; asleep?: boolean; caption: string }[] = [
     { mood: 'idle', caption: strings.companion.moods.idle },
     { mood: 'working', caption: strings.companion.moods.working },
     { mood: 'calling', caption: strings.companion.moods.calling },
@@ -28,6 +29,8 @@
     { mood: 'idle', asleep: true, caption: 'z' },
   ];
   const params = new URLSearchParams(location.search);
+  const only = params.get('mood');
+  const MOODS = only ? ALL_MOODS.filter((column) => (only === 'asleep' ? column.asleep : column.mood === only && !column.asleep)) : ALL_MOODS;
   const size = Number(params.get('size')) || 64;
   const family = params.get('family') as RobotFamily | null;
   const own = family && ROBOT_FAMILIES.includes(family) ? FAMILIES.find((robot) => robot.family === family)! : null;
