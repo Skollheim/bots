@@ -14,7 +14,7 @@ The pictures below come from the [demo mode](#demo-mode), on Boite's fake core.
 
 ### Every session at a glance
 
-Point at the pill and the island opens as a deck of tabs. **Threads** lists every conversation running in Boite, however many there are, including those running on your other machines. Sub-agents fold under the conversation that started them. A click opens the thread in Boite.
+Point at the pill and the island opens as a deck of tabs. **Threads** lists every conversation running in Boite, however many there are, including those running on your other machines, each with its machine's name. Sub-agents fold under the conversation that started them. A click opens the thread in Boite.
 
 <p align="center">
   <img src="docs/media/sessions.png" width="720" alt="The deck open on its threads tab, listing the sessions at work, one of them unfolded on its sub-agents">
@@ -36,7 +36,7 @@ When an agent asks for a permission or has a question, the pill says so. Open it
 
 - **Threads**: the sessions at work and the requests waiting for you.
 - **Today**: the clock and the week, the next scheduled mission, your to-do list, a focus timer and the day's numbers.
-- **Chat**: your conversation with B.O.T.S.
+- **Chat**: your conversation with B.O.T.S, or with any agent of your Boite, on this machine or another one.
 - **Stats**: each subscription's quota windows and when they reset, the threads finished today with their files, time and tokens, and the memory your agents hold.
 - **Music**: the player, with the words.
 - **Apps**, **Clipboard**, **Wallpapers** and **System**: your computer, on Windows.

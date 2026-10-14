@@ -17,6 +17,10 @@ export const strings = {
     revealUnsupported: 'This version of Boite cannot show it. Update Boite, then try again.',
     /** A thread of another machine of the group: Boite's window here cannot be pointed at it yet. */
     revealElsewhere: 'This thread runs on {machine}: open it in Boite, under that machine.',
+    /** An agent of another machine, on a Boite that cannot be pointed at it yet. */
+    revealAgentElsewhere: 'This agent lives on {machine}: open it in Boite, under that machine.',
+    /** The chip on a thread or an agent of another machine of the group. */
+    onMachine: 'On {machine}',
     /** A call for a thread whose machine is not connected now. */
     machineAway: '{machine} is out of reach right now.',
     settingsTitle: 'B.O.T.S settings',

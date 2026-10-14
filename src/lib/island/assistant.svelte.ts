@@ -5,8 +5,11 @@
  * only engine; Bots reads and acts through the core alone, after Boite's own
  * `AgentConversation.svelte`.
  *
- * - Which agent: an active profile of `agents.snapshot`, picked in the chat;
- *   its id is kept in Bots's settings (`CompanionPrefs.assistantAgent`).
+ * - Which agent: an active profile of `agents.snapshot`, on this machine or
+ *   another of the group (`group/agents.ts`), picked in the chat; its key is
+ *   kept in Bots's settings (`CompanionPrefs.assistantAgent`). Every call for
+ *   it goes to its own machine (`GroupClient.at`), and its conversation is
+ *   read in that machine's snapshot.
  * - Sending: `agents.message.send` to the direct conversation, the dropped
  *   files kept on disk where the agent can open them, their paths at the end.
  *   Typing during a run sends a follow-up, as Boite does.
@@ -22,6 +25,8 @@
 import type { AgentConversationMessage, AgentProfile, AgentSave, AgentsSnapshot, AgentWork, Attachment, Message, MessagePart, ModelInfo, RpcEvents, ThreadSummary } from '@boite/contracts';
 import type { Client } from '@boite/ui/lib/client';
 import { directScope, replyTo, sessionThreadOf, workFor } from '../companion/crew';
+import { pickPlaced, placedAgents, snapshotAt, type MachineAgents, type PlacedAgent } from '../group/agents';
+import { GroupClient } from '../group/group-client';
 import { visibleReply } from '../companion/directives';
 import { describeTool } from '@boite/ui/lib/tool-summary';
 import { fill, strings } from '../strings';
@@ -124,15 +129,6 @@ export function failureOf(snapshot: AgentsSnapshot | null, messages: readonly Ag
   if (!last || last.senderId !== null) return null;
   const work = workFor(snapshot, agentId, last.id);
   return work && ENDED.has(work.status) ? fill(copy().failed, { reason: work.error ?? work.status }) : null;
-}
-
-/** The first of the wanted agents still active, else the first active one. */
-export function pickAgent(agents: readonly AgentProfile[], ...wanted: (string | null | undefined)[]): AgentProfile | null {
-  for (const id of wanted) {
-    const found = id ? agents.find((agent) => agent.id === id) : undefined;
-    if (found) return found;
-  }
-  return agents[0] ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -238,13 +234,15 @@ export function selectionSave(profile: AgentProfile, change: { model?: string; e
 
 export interface AssistantHost {
   client(): Client | null;
-  /** The agents as the companion last read them. */
+  /** This machine's agents as the companion last read them. */
   snapshot(): AgentsSnapshot | null;
+  /** The other machines' agents, as last read; none without a group. */
+  elsewhere?(): readonly MachineAgents[];
   /** Reads the snapshot again now, after a change made here. */
   reload(): void;
-  /** The agent kept in Bots's settings, null when none. */
+  /** The agent kept in Bots's settings (its key, `group/agents.ts`), null when none. */
   remembered(): string | null;
-  remember(agentId: string): void;
+  remember(key: string): void;
   /** The agent to talk to when none is chosen: the row's leader. */
   fallback(): string | null;
   /** What goes with the next message, the dropped files and the capture, or why they cannot go. */
@@ -260,7 +258,7 @@ export interface AssistantHost {
 }
 
 export class Assistant {
-  /** The agent picked for this session; the kept one, else the leader, else the first. */
+  /** The agent picked for this session, by key; the kept one, else the leader, else the first. */
   chosen = $state<string | null>(null);
   /** Pages read back through `agents.history`. */
   older = $state.raw<AgentConversationMessage[]>([]);
@@ -281,10 +279,21 @@ export class Assistant {
   awaiting = $state<string[]>([]);
 
   // Read lazily, once the host is in: through a function, as TypeScript sees the order.
-  readonly snapshot = $derived.by(() => this.host.snapshot());
-  readonly agents = $derived(this.snapshot?.profiles.filter((profile) => profile.status === 'active') ?? []);
-  readonly agent = $derived.by(() => pickAgent(this.agents, this.chosen, this.host.remembered(), this.host.fallback()));
+  readonly #local = $derived.by(() => this.host.snapshot());
+  readonly #elsewhere = $derived.by(() => this.host.elsewhere?.() ?? []);
+  /** The active agents of every machine, this one's first. */
+  readonly agents = $derived<PlacedAgent[]>(placedAgents(this.#local, this.#elsewhere));
+  readonly placed = $derived.by(() => pickPlaced(this.agents, this.chosen, this.host.remembered(), this.host.fallback()));
+  readonly agent = $derived(this.placed?.profile ?? null);
   readonly agentId = $derived(this.agent?.id ?? null);
+  /** The machine the agent lives on: null for this one. */
+  readonly coreId = $derived(this.placed?.coreId ?? null);
+  /** Its machine's name, shown beside it only when it is another machine's. */
+  readonly machine = $derived(this.placed?.machine ?? null);
+  /** Shown beside each agent: there is more than one machine to tell apart. */
+  readonly machines = $derived(this.#elsewhere.length > 0);
+  /** The agent's own machine's snapshot: its conversation, work and replies. */
+  readonly snapshot = $derived(snapshotAt(this.coreId, this.#local, this.#elsewhere));
   /** The thread the agent works its conversation with the user in, once it has worked there. */
   readonly threadId = $derived(this.agentId ? sessionThreadOf(this.snapshot, this.agentId) : null);
   readonly messages = $derived(this.agentId ? conversation(this.snapshot, this.older, this.agentId) : []);
@@ -325,9 +334,9 @@ export class Assistant {
     return () => offs.forEach((off) => off());
   }
 
-  /** Opens on `agentId` for this session without keeping it (the demo's), else on the kept agent. */
-  open(agentId?: string): void {
-    if (agentId) this.chosen = agentId;
+  /** Opens on `key` for this session without keeping it (the demo's), else on the kept agent. */
+  open(key?: string): void {
+    if (key) this.chosen = key;
     this.follow();
   }
 
@@ -337,12 +346,19 @@ export class Assistant {
     this.follow();
   }
 
-  /** The user picked another agent: it is kept for the next launch. */
-  pick(agentId: string): void {
-    if (agentId === this.agentId) return;
-    this.chosen = agentId;
-    this.host.remember(agentId);
+  /** The user picked another agent, by key: it is kept for the next launch. */
+  pick(key: string): void {
+    if (key === this.placed?.key) return;
+    this.chosen = key;
+    this.host.remember(key);
     this.follow();
+  }
+
+  /** The client the agent's calls go through: its own machine's. */
+  #client(): Client | null {
+    const client = this.host.client();
+    if (!client || this.coreId === null) return client;
+    return client instanceof GroupClient ? client.at(this.coreId) : null;
   }
 
   /**
@@ -350,11 +366,12 @@ export class Assistant {
    * followed, its models read, and a short conversation reads a page back.
    */
   follow(): void {
-    const client = this.host.client();
+    const client = this.#client();
+    const placed = this.placed;
     const agent = this.agent;
-    if (!client || !agent) return;
-    if (this.followed !== agent.id) {
-      this.followed = agent.id;
+    if (!client || !placed || !agent) return;
+    if (this.followed !== placed.key) {
+      this.followed = placed.key;
       this.older = [];
       this.more = null;
       this.stream = [];
@@ -364,10 +381,10 @@ export class Assistant {
     }
     const threadId = this.threadId;
     if (threadId && threadId !== this.subscribed) void this.watch(client, threadId);
-    const engine = `${agent.selection.providerId}/${agent.selection.accountId}`;
+    const engine = `${placed.coreId ?? ''}/${agent.selection.providerId}/${agent.selection.accountId}`;
     if (engine !== this.probed) void this.readModels(client, engine, agent.selection.providerId, agent.selection.accountId);
-    if (this.messages.length < ASSISTANT_FILL && this.hasOlder && !this.filled.has(agent.id)) {
-      this.filled.add(agent.id);
+    if (this.messages.length < ASSISTANT_FILL && this.hasOlder && !this.filled.has(placed.key)) {
+      this.filled.add(placed.key);
       void this.loadOlder();
     }
   }
@@ -401,7 +418,7 @@ export class Assistant {
 
   /** Older messages, a page more, when the reader scrolls to the top. */
   async loadOlder(): Promise<void> {
-    const client = this.host.client();
+    const client = this.#client();
     const agentId = this.agentId;
     if (!client || !agentId || this.loadingOlder || !this.hasOlder) return;
     this.loadingOlder = true;
@@ -429,7 +446,7 @@ export class Assistant {
     const attachments = this.host.outgoing();
     if (typeof attachments === 'string') return void (this.problem = attachments);
     if (!prompt && attachments.length === 0) return;
-    const client = this.host.client();
+    const client = this.#client();
     if (!client) return void (this.problem = strings.companion.unreachable);
     const agent = this.agent;
     if (!agent) return void (this.problem = copy().noAgent);
@@ -460,7 +477,7 @@ export class Assistant {
 
   /** Cancels the agent's open work in this conversation; a message the core has not made work of yet is let go. */
   async stop(): Promise<void> {
-    const client = this.host.client();
+    const client = this.#client();
     const agentId = this.agentId;
     if (!client || !agentId || this.stopping) return;
     this.stopping = true;
@@ -490,7 +507,7 @@ export class Assistant {
 
   /** The agent's own model or effort, changed for it everywhere. */
   private async update(change: { model?: string; effort?: Effort }): Promise<void> {
-    const client = this.host.client();
+    const client = this.#client();
     const agent = this.agent;
     if (!client || !agent) return;
     try {

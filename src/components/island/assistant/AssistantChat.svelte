@@ -123,7 +123,7 @@
           class="ghost icon reveal"
           aria-label={fill(copy.openAgent, { name })}
           title={fill(copy.openAgent, { name })}
-          onclick={() => agent && void showAgent(agent.id).catch(() => {})}
+          onclick={() => agent && void showAgent(agent.id, assistant.coreId).catch(() => {})}
           data-testid="assistant-reveal"
         >
           <SquareArrowOutUpRight size={13} />

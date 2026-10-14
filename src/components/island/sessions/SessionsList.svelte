@@ -5,9 +5,12 @@
   the lead robot naps beside "Nothing running": a few breaths, then still.
   An archived row leaves a line in its place for a few seconds, to undo it
   (`archive-undo.ts`); a row followed in the pill says so (`followed.ts`).
-  A row with sub-agents counts the ones at work and unfolds them all.
+  A row with sub-agents counts the ones at work and unfolds them all. A
+  thread of another machine of the group names it in a chip.
 -->
 <script lang="ts">
+  import { GroupClient } from '../../../lib/group/group-client';
+  import { unplacedName } from '../../../lib/group/routing';
   import { listed } from '../../../lib/island/archive-undo';
   import { useView } from '../../../lib/island/contract';
   import { posed } from '../../../lib/island/posed.svelte';
@@ -27,6 +30,7 @@
   const ended = $derived(new Set(sessions.ended));
   const notices = $derived(new Map(notes.notices.filter((notice) => ended.has(notice.threadId)).map((notice) => [notice.threadId, notice])));
   const copy = strings.island.sessions;
+  const group = $derived(view.core.client instanceof GroupClient ? view.core.client : null);
   const reveal = (threadId: string) => void view.reveal(threadId).catch(() => {});
   /** Some row has sub-agents: every row keeps the chevron's place, so that the times line up. */
   const foldSpace = $derived(rows.some((row) => (sessions.agents.get(row.id)?.length ?? 0) > 0));
@@ -51,9 +55,11 @@
           <ArchiveUndoLine line={undo} onundo={() => void sessions.undo.undo(row.id)} />
         {:else}
           {@const notice = notices.get(row.id) ?? null}
+          {@const machine = group?.machineOf(row.id) ?? null}
           <SessionRow
             {row}
-            project={(row.projectId && projects.get(row.projectId)) || ''}
+            project={unplacedName((row.projectId && projects.get(row.projectId)) || '', machine)}
+            {machine}
             now={sessions.now}
             agents={sessions.agents.get(row.id) ?? []}
             {foldSpace}

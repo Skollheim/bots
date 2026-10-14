@@ -8,7 +8,8 @@
   here. An ended row offers to start the thread again, archive it, or show the
   changes in its folder (`NoticeActions.svelte`); archived, it can be undone
   for a few seconds (`archive-undo.ts`). A row can be followed in the pill
-  (`followed.ts`): a small eye before its time says so. The actions show on
+  (`followed.ts`): a small eye before its time says so. A thread of another
+  machine of the group names it in a chip after its project. The actions show on
   the row under the pointer or the focus, over the row's end and over its
   second line, so they take no room and the list never moves. The time
   reads calm (`session-time.ts`): seconds under a minute only.
@@ -25,12 +26,15 @@
   import { strings } from '../../../lib/strings';
   import RobotFace from '../../agents/RobotFace.svelte';
   import CompanionReply from '../../companion/CompanionReply.svelte';
+  import MachineChip from '../MachineChip.svelte';
   import NoticeActions from './NoticeActions.svelte';
   import SubAgentList from './SubAgentList.svelte';
 
   interface Props {
     row: SessionRow;
     project: string;
+    /** The machine of the group it runs on, when it is not this one. */
+    machine?: string | null;
     now: number;
     /** The sub-agents of its current run, in start order (`sub-agents.ts`). */
     agents: readonly SubAgent[];
@@ -47,7 +51,7 @@
     onarchive(): Promise<void>;
   }
 
-  let { row, project, now, agents, foldSpace, notice, notes, followed, onreveal, onfollow, onarchive }: Props = $props();
+  let { row, project, machine = null, now, agents, foldSpace, notice, notes, followed, onreveal, onfollow, onarchive }: Props = $props();
 
   const copy = strings.island.sessions;
   const foldable = $derived(agents.length > 0);
@@ -70,7 +74,7 @@
   <div class="head">
     <span class="avatar" aria-hidden="true"><RobotFace {robot} state={face} /></span>
     <button class="title" title={copy.reveal} onclick={() => onreveal(row.id)}>
-      <span class="name">{row.title}{#if project}<span class="project">&nbsp;· {project}</span>{/if}</span>
+      <span class="name">{row.title}{#if project}<span class="project">&nbsp;· {project}</span>{/if}{#if machine}&nbsp;<MachineChip {machine} />{/if}</span>
       <span class="sub" data-testid="session-line">
         <span class="state">{state}</span>{#if line}<span class="step">&nbsp;· {line}</span>{/if}
       </span>

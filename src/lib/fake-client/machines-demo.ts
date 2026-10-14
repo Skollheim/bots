@@ -1,30 +1,58 @@
 /**
- * The group's demo, with `?fake=1&machines=1|ask`: a second fake core,
- * « Serveur » (`server-demo.ts`), joins this one's group, so Home, the pill
- * and the HUD show a thread of another machine (« Corriger le gameplay ·
- * Petites-Rives · Serveur »). With `ask`, that thread asks to push a moment
- * after the island opens: the request shows here and is answered there.
+ * The group's demo, with `?fake=1&machines=1|ask|away`: two more fake cores,
+ * « boite » (the server) and « laptop » (`server-demo.ts`), join this one's
+ * group, « PC ». Home, the pill and the HUD show a thread of each (« Corriger
+ * le gameplay » on boite, « Write the install guide » on laptop), and the
+ * island's Chat lists their agents, Forge and Scout, beside this machine's.
+ * With `ask`, boite's thread asks to push a moment after the island opens:
+ * the request shows here and is answered there. With `away`, laptop never
+ * answers: it shows as offline in the deck's machines tile, and nothing of it
+ * waits on it.
  *
- * Bots reaches the server the way it reaches a real member (`group.ticket`,
+ * Bots reaches each member the way it reaches a real one (`group.ticket`,
  * then a client of its own), except that the socket is the fake itself.
  */
 import { GroupClient } from '../group/group-client';
 import { memoryKeys } from '../group/member-keys';
 import { FakeClient } from '../fake-client';
 
-const SERVER_CORE = 'fake-core-serveur';
+export const DEMO_MACHINES = { local: 'PC', server: 'boite', laptop: 'laptop' } as const;
+export const SERVER_CORE = 'fake-core-boite';
+export const LAPTOP_CORE = 'fake-core-laptop';
+const SERVER_URL = 'http://100.64.0.2:8777';
+const LAPTOP_URL = 'http://100.64.0.3:8777';
+
+/** Whether the page asks for the group's demo. */
+export function wantsMachines(machines: string | null): boolean {
+  return machines === '1' || machines === 'ask' || machines === 'away';
+}
 
 /**
- * This fake core under the group client; with `machines`, grouped with the
- * server first, the way two machines are: one makes the group and invites,
- * the other joins.
+ * This fake core under the group client; with `machines`, grouped with
+ * boite and laptop first, the way machines are: one makes the group and
+ * invites, the others join.
  */
-export async function demoGroup(local: FakeClient, machines: string | null, changed: () => void): Promise<GroupClient> {
-  if (machines !== '1' && machines !== 'ask') return new GroupClient(local, { keys: memoryKeys(), changed });
-  const server = new FakeClient({ coreId: SERVER_CORE, coreName: 'Serveur', publicUrl: 'http://100.64.0.2:8777', hudDemo: false, serverDemo: machines === 'ask' ? 'ask' : 'on' });
-  await Promise.all([local.connect(), server.connect()]);
+export async function demoGroup(local: FakeClient, machines: string | null, changed: () => void, tests: { delayMs?: number; made?: FakeClient[] } = {}): Promise<GroupClient> {
+  if (!wantsMachines(machines)) return new GroupClient(local, { keys: memoryKeys(), changed });
+  const delay = tests.delayMs === undefined ? {} : { delayMs: tests.delayMs };
+  const server = new FakeClient({ ...delay, coreId: SERVER_CORE, coreName: DEMO_MACHINES.server, publicUrl: SERVER_URL, hudDemo: false, serverDemo: machines === 'ask' ? 'ask' : 'on' });
+  const laptop = new FakeClient({ ...delay, coreId: LAPTOP_CORE, coreName: DEMO_MACHINES.laptop, publicUrl: LAPTOP_URL, hudDemo: false, serverDemo: 'laptop' });
+  // A test closes them, the laptop out of reach included.
+  tests.made?.push(server, laptop);
+  await Promise.all([local.connect(), server.connect(), laptop.connect()]);
   await local.call('group.create', { name: 'Maison' });
-  const { invite } = await local.call('group.invite', {});
-  await server.call('group.join', { invite });
-  return new GroupClient(local, { keys: memoryKeys(), changed, open: () => server, reach: async (addresses) => addresses[0] ?? null });
+  for (const member of [server, laptop]) {
+    const { invite } = await local.call('group.invite', {});
+    await member.call('group.join', { invite });
+  }
+  const byUrl = new Map<string, FakeClient>([
+    [SERVER_URL, server],
+    [LAPTOP_URL, laptop]
+  ]);
+  return new GroupClient(local, {
+    keys: memoryKeys(),
+    changed,
+    open: (link) => byUrl.get(link.url) ?? server,
+    reach: async (addresses) => (machines === 'away' && addresses.includes(LAPTOP_URL) ? null : (addresses[0] ?? null))
+  });
 }
