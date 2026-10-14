@@ -2,6 +2,7 @@ import type { AgentConversationMessage, AgentProfile, AgentsSnapshot, AgentWork,
 import { expect, test, vi } from 'vitest';
 import { FakeClient } from '../fake-client';
 import { ASSISTANT_DEMO_AGENT } from '../fake-client/assistant-demo';
+import { pickPlaced, placedAgents } from '../group/agents';
 import {
   applyCompleted,
   applyDelta,
@@ -15,7 +16,6 @@ import {
   liveText,
   offeredModels,
   openWork,
-  pickAgent,
   selectionSave,
   settled,
   splitFiles,
@@ -97,11 +97,12 @@ test('the newest request that failed says why', () => {
 });
 
 test('the agent in use is the chosen one, else the kept one, else the first active one', () => {
-  const agents = [profile('a'), profile('b'), profile('c')];
-  expect(pickAgent(agents, 'b', 'c')?.id).toBe('b');
-  expect(pickAgent(agents, null, 'gone', 'c')?.id).toBe('c');
-  expect(pickAgent(agents, 'gone')?.id).toBe('a');
-  expect(pickAgent([], 'a')).toBeNull();
+  const agents = placedAgents(snapshotOf({ profiles: [profile('a'), profile('b'), profile('c'), profile('d', { status: 'archived' } as Partial<AgentProfile>)] }), []);
+  expect(pickPlaced(agents, 'b', 'c')?.key).toBe('b');
+  expect(pickPlaced(agents, null, 'gone', 'c')?.key).toBe('c');
+  expect(pickPlaced(agents, 'gone')?.key).toBe('a');
+  expect(pickPlaced(agents, 'd')?.key).toBe('a');
+  expect(pickPlaced([], 'a')).toBeNull();
 });
 
 test('the tool line names the running call and its target', () => {
@@ -265,10 +266,10 @@ test('picking another agent keeps it for the next launch and starts clean', asyn
   const { assistant, load, kept, close } = harness(client);
   assistant.open(ASSISTANT_DEMO_AGENT);
   await load();
-  const other = assistant.agents.find((agent) => agent.id !== ASSISTANT_DEMO_AGENT)!;
-  assistant.pick(other.id);
-  expect(kept()).toBe(other.id);
-  expect(assistant.agentId).toBe(other.id);
+  const other = assistant.agents.find((agent) => agent.key !== ASSISTANT_DEMO_AGENT)!;
+  assistant.pick(other.key);
+  expect(kept()).toBe(other.key);
+  expect(assistant.agentId).toBe(other.profile.id);
   expect(assistant.bubbles.every((bubble) => bubble.id.startsWith('m-atlas') === false)).toBe(true);
   close();
   client.close();

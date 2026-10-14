@@ -134,9 +134,9 @@ export async function showMain(threadId: string): Promise<void> {
   await reveal({ kind: 'thread', threadId });
 }
 
-/** Shows an agent's conversation in Boite's Agents page (`ui.reveal`). */
-export async function showAgent(agentId: string): Promise<void> {
-  await reveal({ kind: 'agent', agentId });
+/** Shows an agent's conversation in Boite's Agents page (`ui.reveal`); `coreId` names its machine when it is another of the group. */
+export async function showAgent(agentId: string, coreId: string | null = null): Promise<void> {
+  await reveal(coreId === null ? { kind: 'agent', agentId } : { kind: 'agent', agentId, coreId });
 }
 
 /** Opens Boite's app updates, where a newer Boite installs (`ui.reveal`). */

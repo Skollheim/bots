@@ -6,8 +6,11 @@
  *   `questions.list` without a thread) are asked of every machine and merged.
  * - A call that names a thread goes to the machine that thread runs on; an
  *   answer to a permission, to the machine that asked it.
- * - Everything else is this machine's own: projects, the crew and the
- *   assistant chat, settings, quotas, resources, new threads.
+ * - An agent's calls go to the machine that owns it: the group client hands
+ *   a client bound to that machine (`GroupClient.at`), since an agent id says
+ *   nothing of where it lives and two machines may hold the same one.
+ * - Everything else is this machine's own: projects, the companion's crew,
+ *   settings, quotas, resources, new threads.
  */
 import type { GroupCore, RpcEventName, RpcMethodName } from '@boite/contracts';
 import { usableAddresses } from '@boite/ui/lib/group-addresses';
@@ -64,6 +67,14 @@ export const THREAD_EVENTS: ReadonlySet<RpcEventName> = new Set<RpcEventName>([
   'threads.pullRequestsChanged'
 ]);
 
+/** The events about agents, heard from every machine: the assistant lists the agents of all of them. */
+export const AGENT_EVENTS: ReadonlySet<RpcEventName> = new Set<RpcEventName>(['agents.changed']);
+
+/** An event every member is listened to for, not this machine alone. */
+export function heardEverywhere(event: RpcEventName): boolean {
+  return THREAD_EVENTS.has(event) || AGENT_EVENTS.has(event);
+}
+
 /** The thread an event is about: a summary carries its id, the others a `threadId`. */
 export function threadOfEvent(event: RpcEventName, payload: unknown): string | null {
   if (!payload || typeof payload !== 'object') return null;
@@ -85,4 +96,11 @@ export function memberBackoff(attempt: number): number {
 /** A project of another machine, named so a row says where it runs: « Petites-Rives · Portable ». */
 export function placedName(project: string, machine: string): string {
   return `${project} · ${machine}`;
+}
+
+/** The project's own name, for a row that shows its machine apart, as a chip. */
+export function unplacedName(label: string, machine: string | null): string {
+  if (machine === null) return label;
+  const suffix = ` · ${machine}`;
+  return label.endsWith(suffix) ? label.slice(0, -suffix.length) : label;
 }

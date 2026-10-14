@@ -40,10 +40,11 @@
  *   shield shows (pair it with `calm=1`);
  * - `pr=green|red`: the tests thread opens PR #12, whose CI runs, then goes
  *   green or red (the fake core's side: `fake-client/allow-demo.ts`);
- * - `machines=1|ask`: a second machine of the group, « Serveur », whose
- *   « Corriger le gameplay » thread works among this machine's (`ask`: it
- *   asks to push two seconds in); read by the companion, the fake side in
- *   `fake-client/machines-demo.ts`.
+ * - `machines=1|ask|away`: two more machines of the group, « boite » and
+ *   « laptop », whose threads work among this machine's and whose agents
+ *   the Chat lists (`ask`: boite's thread asks to push two seconds in;
+ *   `away`: laptop is out of reach); read by the companion, the fake side
+ *   in `fake-client/machines-demo.ts`.
  * - `todo=1`: a to-do list in the today tab, one item ticked;
  * - `tasks=1`: the tests thread keeps a task list, two of five done, so the
  *   collapsed pill's live line shows its goal bar (wait for the ended

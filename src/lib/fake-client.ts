@@ -34,7 +34,7 @@ import { seedHudDemo } from './fake-client/hud-demo';
 import { seedAssistantDemo } from './fake-client/assistant-demo';
 import { seedSessionsDemo } from './fake-client/sessions-demo';
 import { seedAllowDemo } from './fake-client/allow-demo';
-import { seedServerDemo } from './fake-client/server-demo';
+import { seedMachineDemo } from './fake-client/server-demo';
 import { groupMethods } from '@boite/ui/lib/fake-client/group';
 import { pairingMethods } from '@boite/ui/lib/fake-client/pairing';
 import { projectMethods } from '@boite/ui/lib/fake-client/projects';
@@ -78,8 +78,8 @@ export type BotsFakeOptions = FakeClientOptions & {
   hudDemo?: boolean;
   sessionsDemo?: boolean;
   assistantDemo?: boolean;
-  /** The other machine of the group's demo (`fake-client/server-demo.ts`); `ask` adds its request. */
-  serverDemo?: 'on' | 'ask';
+  /** Another machine of the group's demo (`fake-client/server-demo.ts`): the server, `ask` adding its request, or the laptop. */
+  serverDemo?: 'on' | 'ask' | 'laptop';
 };
 
 /**
@@ -119,7 +119,7 @@ export class FakeClient implements ObservableClient {
     if (options.assistantDemo) seedAssistantDemo(ctx, this.#methods);
     if (options.sessionsDemo) seedSessionsDemo(ctx);
     if (options.sessionsDemo && typeof location !== 'undefined') seedAllowDemo(ctx, this.#methods, new URLSearchParams(location.search));
-    if (options.serverDemo) seedServerDemo(ctx, options.serverDemo === 'ask');
+    if (options.serverDemo) seedMachineDemo(ctx, options.serverDemo === 'laptop' ? 'laptop' : 'server', options.serverDemo === 'ask');
     if (options.uninstalled) {
       ctx.providers = ctx.providers.filter(provider => provider.id !== 'echo').map(provider => ({
         ...provider, available: false, executable: null,

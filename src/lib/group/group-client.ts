@@ -16,17 +16,20 @@
  *   member slow to answer gives its last list, one that is off gives none.
  * - A call that names a thread goes to that thread's machine, an answer to a
  *   permission to the machine that asked (`routing.ts`); the rest stays here.
- * - Events about threads are heard from every member; the rest from here only.
+ * - An agent's calls go to its own machine through `at(coreId)`: agents are
+ *   keyed by machine and id, as the same id may stand on two machines.
+ * - Events about threads and agents are heard from every member; the rest
+ *   from here only.
  *
  * Nothing waits on a member: this machine's calls and events never pass
  * through one, and no group, or a core older than groups, is the old Bots.
  * A timer runs only while a member is out of reach, once a minute.
  */
 import { RPC_PATH, RpcErrorCode, type CoreInfo, type Group, type GroupCore, type PermissionRequest, type Principal, type QuestionRequest, type RpcEventName, type RpcMethodName, type RpcParams, type RpcResult, type ThreadSummary } from '@boite/contracts';
-import { RpcFailure, WsClient, type CallOptions, type ClientState, type EventHandler, type ObservableClient, type Session } from '@boite/ui/lib/client';
+import { RpcFailure, WsClient, type CallOptions, type Client, type ClientState, type EventHandler, type ObservableClient, type Session } from '@boite/ui/lib/client';
 import { fill, strings } from '../strings';
 import type { MemberKeys } from './member-keys';
-import { isMerged, memberBackoff, membersOf, requestOfCall, THREAD_EVENTS, threadOfCall, threadOfEvent, type MergedMethod } from './routing';
+import { heardEverywhere, isMerged, memberBackoff, membersOf, requestOfCall, threadOfCall, threadOfEvent, type MergedMethod } from './routing';
 
 /** Between two tickets for one member, and between two tries of one that is out of reach (Boite's group links wait as long). */
 export const RETRY_MS = 60_000;
@@ -219,7 +222,7 @@ export class GroupClient implements ObservableClient {
       set = new Set();
       this.#handlers.set(event, set);
       this.#off.push(this.local.on(event, (payload) => this.#dispatch(event, payload, null)));
-      if (THREAD_EVENTS.has(event)) for (const member of this.#members.values()) this.#hear(member, event);
+      if (heardEverywhere(event)) for (const member of this.#members.values()) this.#hear(member, event);
     }
     const erased = handler as (payload: unknown) => void;
     set.add(erased);
@@ -230,6 +233,44 @@ export class GroupClient implements ObservableClient {
     if (this.#members.size > 0 && isMerged(method, params)) return this.#merged(method, params, options) as Promise<RpcResult<M>>;
     const coreId = this.#placeOf(method, params);
     if (coreId === null) return this.local.call(method, params, options);
+    return this.#callOn(coreId, method, params, options);
+  }
+
+  /**
+   * A client bound to one machine: this one for null or this core's own id, else
+   * that member, refused while it is out of reach. What an agent's calls go
+   * through, since an agent id does not say where it lives. Its events are the
+   * group's: the agents and threads of every member are heard here already.
+   */
+  at(coreId: string | null): Client {
+    if (coreId === null || coreId === this.#group?.self) return this.local;
+    const client = () => this.#members.get(coreId)?.client ?? null;
+    return {
+      connect: () => this.connect(),
+      call: (method, params, options) => this.#callOn(coreId, method, params, options),
+      on: (event, handler) => this.on(event, handler),
+      // The member's connection is the group client's to close.
+      close: () => undefined,
+      get state(): ClientState {
+        return client()?.state ?? 'closed';
+      },
+      get principal(): Principal | null {
+        return client()?.principal ?? null;
+      }
+    };
+  }
+
+  /** This machine's id in the group, null outside one. */
+  selfId(): string | null {
+    return this.#group?.self ?? null;
+  }
+
+  /** The name the roster gives a member; null for one not in it. */
+  nameOf(coreId: string): string | null {
+    return this.#members.get(coreId)?.core.name ?? null;
+  }
+
+  #callOn<M extends RpcMethodName>(coreId: string, method: M, params: RpcParams<M>, options?: CallOptions): Promise<RpcResult<M>> {
     const member = this.#members.get(coreId);
     if (!member?.client || member.client.state !== 'ready') {
       const machine = member?.core.name ?? coreId;
@@ -462,7 +503,7 @@ export class GroupClient implements ObservableClient {
         }
       })
     );
-    for (const event of this.#handlers.keys()) if (THREAD_EVENTS.has(event)) this.#hear(member, event);
+    for (const event of this.#handlers.keys()) if (heardEverywhere(event)) this.#hear(member, event);
     void client.connect().catch(() => undefined);
   }
 
