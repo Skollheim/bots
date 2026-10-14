@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { DECK_TAB_KEY, DECK_TABS, FIRST_TAB, readDeckTab, tabKey, travel, writeDeckTab } from './deck-tabs';
+import { DECK_TAB_ICONS, DECK_TAB_KEY, DECK_TABS, FIRST_TAB, readDeckTab, tabKey, travel, writeDeckTab } from './deck-tabs';
 
 function memory(seed: Record<string, string> = {}) {
   const items = new Map(Object.entries(seed));
@@ -44,4 +44,10 @@ test('with the bar arranged by hand, the arrows and the slide follow its order',
   expect(tabKey('Home', 'chat', [])).toBeNull();
   expect(travel('music', 'chat', order)).toBe(-1);
   expect(travel('chat', 'system', order)).toBe(0);
+});
+
+test('every tab has an icon of its own', () => {
+  const icons = DECK_TABS.map((tab) => DECK_TAB_ICONS[tab]);
+  expect(icons.every(Boolean)).toBe(true);
+  expect(new Set(icons).size).toBe(DECK_TABS.length);
 });

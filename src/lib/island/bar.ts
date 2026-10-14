@@ -126,6 +126,30 @@ export function parseBar(raw: unknown): BarLayout {
 /** The tabs the bar shows, in its order. */
 export const barTabs = (layout: BarLayout): DeckTab[] => layout.items.flatMap((item) => (item.kind === 'tab' ? [item.tab] : []));
 
+/**
+ * Whether a thing shows its name beside its icon: the tab the deck shows,
+ * an app the user named, a link always. The other tabs and apps are their
+ * icon alone, and say their name in a tooltip (`barTip`).
+ */
+export function nameShown(item: BarItem, shown: DeckTab): boolean {
+  if (item.kind === 'tab') return item.tab === shown;
+  if (item.kind === 'app') return item.label !== null;
+  return true;
+}
+
+/** What a thing's tooltip says: in edit mode, its name and how to edit it; else its name when only its icon shows; nothing when its name shows already. */
+export type BarTip = 'name' | 'edit' | null;
+
+export function barTip(item: BarItem, shown: DeckTab, editing: boolean): BarTip {
+  if (editing) return 'edit';
+  return nameShown(item, shown) ? null : 'name';
+}
+
+/** The left edge of a tooltip `width` wide centred under `centre`, kept `margin` inside a bar `room` wide. */
+export function tipLeft(centre: number, width: number, room: number, margin = 6): number {
+  return Math.max(margin, Math.min(centre - width / 2, room - width - margin));
+}
+
 /** The tabs left out, in the deck's order. */
 export function hiddenTabs(layout: BarLayout): DeckTab[] {
   const shown = new Set(barTabs(layout));
