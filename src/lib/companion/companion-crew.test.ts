@@ -6,7 +6,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import type { Account, AgentConversationMessage, AgentMemory, AgentProfile, AgentScope, AgentsSnapshot, ProviderSummary } from '@boite/contracts';
 import type { Client } from '@boite/ui/lib/client';
-import { BOX_COLORS, encodeRobot, ROBOT_PARTS, robotOf, seededRobot } from '../robots';
+import { BOX_COLORS, boxColorOf, encodeRobot, ROBOT_FAMILIES, ROBOT_PARTS, robotOf, seededRobot, type Robot } from '../robots';
 import { strings } from '../strings';
 import type { Brain } from './brain';
 import { ROLE_START } from './brain';
@@ -15,7 +15,6 @@ import { Crew } from './crew.svelte';
 import { addReminder, readMemory, readReminders, remember } from './memory';
 import { Notes } from './notes.svelte';
 import { readCompanionPrefs, writeCompanionPrefs } from './prefs';
-import { toBox } from './skin';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -65,33 +64,49 @@ const snapshotOf = (part: Partial<AgentsSnapshot>) => ({ profiles: [], messages:
 // Looks
 // ---------------------------------------------------------------------------
 
-test('an agent stands as a box: its own box, any other robot made one in its colour, or the box its id draws', () => {
+test('an agent stands as its own robot, of any family, or the box its id draws when its picture is text', () => {
   expect(skinOf(profile('bots', { avatar: CLASSIC_SKIN }))).toEqual({ family: 'box', shape: 0, color: 0, eyes: 0, top: 0 });
   const box = { family: 'box', shape: 4, color: 7, eyes: 2, top: 5 } as const;
   expect(skinOf(profile('a', { avatar: encodeRobot(box) }))).toEqual(box);
-  // A jelly robot keeps its colour (one up, past the classic body) and its top as the accessory.
-  expect(skinOf(profile('a', { avatar: encodeRobot({ family: 'jelly', shape: 1, color: 2, eyes: 1, top: 3 }) }))).toMatchObject({ family: 'box', color: 3, top: 3 });
-  // No avatar: the robot the Agents page draws for its id, as a box.
-  expect(skinOf(profile('seeded'))).toEqual(toBox(seededRobot('seeded')));
+  for (const family of ['jelly', 'bubble', 'capsule', 'retro'] as const) {
+    const robot = { family, shape: 1, color: 2, eyes: 1, top: 3 };
+    expect(skinOf(profile('a', { avatar: encodeRobot(robot) }))).toEqual(robot);
+  }
+  // No avatar: the robot the Agents page draws for its id.
+  expect(skinOf(profile('seeded'))).toEqual(seededRobot('seeded'));
   expect(skinOf(profile('emoji', { avatar: '🦊' }))).toEqual(seededRobot('emoji', 'box'));
 });
 
-test('a fresh look takes a body colour nobody wears, never the classic one, and always an accessory', () => {
-  const worn = (color: number) => ({ family: 'box' as const, shape: 0, color, eyes: 0, top: 0 });
-  for (const seed of ['a', 'b', 'c', 'd', 'e', 'f']) {
-    const others = [worn(0), worn(1), worn(2), worn(3)];
+test('a fresh look takes a family and a colour nobody wears, never the classic body, a box always with an accessory', () => {
+  const box = (color: number): Robot => ({ family: 'box', shape: 0, color, eyes: 0, top: 0 });
+  const seeds = Array.from({ length: 40 }, (_, index) => `seed-${index}`);
+  for (const seed of seeds) {
+    const others = [box(0), box(1), box(2), box(3)];
     const skin = robotOf('x', freshSkin(seed, others))!;
-    expect(skin.family).toBe('box');
-    expect(skin.color).toBeGreaterThan(3);
-    expect(skin.color).toBeLessThan(BOX_COLORS);
-    expect(skin.top).toBeGreaterThan(0);
-    expect(skin.top).toBeLessThan(ROBOT_PARTS.box.top);
+    expect(skin.family).not.toBe('box');
+    expect(boxColorOf(skin)).toBeGreaterThan(3);
     expect(freshSkin(seed, others)).toBe(freshSkin(seed, others));
   }
-  const all = Array.from({ length: BOX_COLORS }, (_, color) => worn(color));
-  expect(robotOf('x', freshSkin('crowded', all))!.color).toBeGreaterThan(0);
-  const lastFree = all.filter((robot) => robot.color !== 6);
-  expect(robotOf('x', freshSkin('one-left', lastFree))!.color).toBe(6);
+  // Over many seeds, every family but the one worn comes up.
+  const drawn = new Set(seeds.map((seed) => robotOf('x', freshSkin(seed, [box(0)]))!.family));
+  expect([...drawn].sort()).toEqual(['bubble', 'capsule', 'jelly', 'retro']);
+  // Every family worn: any family again, a box with an accessory on its lid.
+  const crowd: Robot[] = ROBOT_FAMILIES.map((family) => ({ family, shape: 0, color: 0, eyes: 0, top: 0 }));
+  const boxes = seeds.map((seed) => robotOf('x', freshSkin(seed, crowd))!).filter((skin) => skin.family === 'box');
+  expect(boxes.length).toBeGreaterThan(0);
+  for (const skin of boxes) {
+    expect(skin.color).toBeGreaterThan(0);
+    expect(skin.top).toBeGreaterThan(0);
+    expect(skin.top).toBeLessThan(ROBOT_PARTS.box.top);
+  }
+  // Every colour worn: still never the classic body.
+  const all = [...crowd, ...Array.from({ length: BOX_COLORS }, (_, color) => box(color))];
+  for (const seed of seeds) expect(boxColorOf(robotOf('x', freshSkin(seed, all))!)).toBeGreaterThan(0);
+  // One box colour left: a jelly takes it, as its own colour one below.
+  const jellies: Robot[] = ['box', 'bubble', 'capsule', 'retro'].map((family) => ({ family, shape: 0, color: 0, eyes: 0, top: 0 }) as Robot);
+  const lastFree = [...jellies, ...Array.from({ length: BOX_COLORS }, (_, color) => box(color)).filter((robot) => robot.color !== 6)];
+  const last = robotOf('x', freshSkin('one-left', lastFree))!;
+  expect(last).toMatchObject({ family: 'jelly', color: 5 });
 });
 
 // ---------------------------------------------------------------------------

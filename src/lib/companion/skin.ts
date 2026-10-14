@@ -1,13 +1,14 @@
 /*
- * The companion's skin: the colours and the accessory a box robot gives the
+ * The box's skin: the colours and the accessory a box robot gives the
  * companion box, so several agents standing side by side as companions can be
- * told apart. The skin is the agent's robot (`lib/robots.ts`, family `box`),
- * kept in its profile's `avatar`, so the Agents page draws the same look.
+ * told apart. The skin is the agent's robot (`lib/robots.ts`), kept in its
+ * profile's `avatar`, so the Agents page draws the same look; a robot of
+ * another family is drawn by its own character (`lib/companion/character.ts`).
  *
  * What a caller needs:
  * - `seededRobot(seed, 'box')` (robots.ts): the box an id draws.
- * - `isBox(robot)`: whether a robot is a box; `CompanionCharacter` draws the
- *   classic companion for anything else, or for no skin at all.
+ * - `isBox(robot)`: whether a robot is a box, which `CompanionCharacter`
+ *   paints; no skin at all draws the classic companion.
  * - `toBox(robot)`: any robot as a box that keeps its colour and accessory slot.
  * - `boxPaint(robot)`: the CSS colours a box wears, for anything drawing it.
  *

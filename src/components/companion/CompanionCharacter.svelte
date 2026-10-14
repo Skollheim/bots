@@ -10,6 +10,10 @@
   it. What keeps moving (a breath, a blink, the gaze, the lid, the light) is a
   whole layer moved by transform or opacity only, which the compositor plays
   on its own: the page paints nothing while the robot lives.
+
+  A skin of another family is drawn by that family's character
+  (`characterOf`): a Jelly, a Bubble, a Capsule or a Retro robot, each moved
+  its own way from the same face.
 -->
 <script module lang="ts">
   /** Where it looks, each axis from -1 (left, up) to 1 (right, down). */
@@ -20,12 +24,17 @@
 </script>
 
 <script lang="ts">
+  import type { Component } from 'svelte';
+  import { characterOf, type Act, type CharacterProps, type Face, type Tone } from '../../lib/companion/character';
   import type { Mood } from '../../lib/companion/mood';
   import { boxPaint, isBox } from '../../lib/companion/skin';
-  import type { Robot } from '../../lib/robots';
+  import type { Robot, RobotFamily } from '../../lib/robots';
   import { strings } from '../../lib/strings';
   import BoxTop from './BoxTop.svelte';
+  import BubbleCharacter from './BubbleCharacter.svelte';
+  import CapsuleCharacter from './CapsuleCharacter.svelte';
   import JellyCharacter from './JellyCharacter.svelte';
+  import RetroCharacter from './RetroCharacter.svelte';
 
   interface Props {
     mood: Mood;
@@ -62,13 +71,14 @@
     startled?: boolean;
     /** Poked too often, too fast: it wobbles, eyes spinning. */
     dizzy?: boolean;
-    /** The agent's robot: a box (`lib/companion/skin.ts`) colours the box and puts its accessory on the lid; anything else draws the classic companion. */
+    /** The agent's robot: a box (`lib/companion/skin.ts`) colours the box and puts its accessory on the lid, another family draws its own character; none draws the classic companion. */
     skin?: Robot | null;
   }
 
   let { mood, music = false, busy = false, hover = false, boing = 0, size = 56, lively = true, gaze = null, asleep = false, typing = false, alarm = false, calm = false, rest = false, game = false, coffee = false, cheer = false, startled = false, dizzy = false, skin = null }: Props = $props();
 
-  type Act = 'look' | 'blink' | 'peek' | 'stretch' | 'yawn';
+  /** The characters of the families other than the box. */
+  const CHARACTERS: Record<Exclude<RobotFamily, 'box'>, Component<CharacterProps>> = { jelly: JellyCharacter, bubble: BubbleCharacter, capsule: CapsuleCharacter, retro: RetroCharacter };
   const ACT_MS: Record<Act, number> = { look: 2400, blink: 700, peek: 1200, stretch: 1400, yawn: 2400 };
   let act = $state<Act | null>(null);
   let bouncing = $state(false);
@@ -105,7 +115,6 @@
     return () => clearTimeout(timer);
   });
 
-  type Face = 'awake' | 'sleep' | 'yawn' | 'groove' | 'typing' | 'working' | 'calling' | 'happy' | 'worried' | 'alarm' | 'calm' | 'rest' | 'cheer' | 'game' | 'startled';
   // What needs the user wins over the break and the focus; the pointer wakes it from either.
   // Files dragged over it win over a call: the user is right there, holding them.
   const urgent = $derived(alarm || mood === 'calling' || mood === 'worried');
@@ -119,7 +128,7 @@
     : mood !== 'idle' ? mood : hover ? 'awake' : asleep ? 'sleep' : act === 'yawn' ? 'yawn' : game ? 'game' : typing ? 'typing' : music ? 'groove' : 'awake'
   );
   // The light on the lid: the mood's colour, soft green on a break or a cheer, grey in focus.
-  const tone = $derived(face === 'alarm' || face === 'startled' ? 'calling' : (rest || cheer) && !urgent ? 'happy' : calm && !urgent ? 'idle' : mood);
+  const tone: Tone = $derived(face === 'alarm' || face === 'startled' ? 'calling' : (rest || cheer) && !urgent ? 'happy' : calm && !urgent ? 'idle' : mood);
   const tea = $derived(rest && !urgent);
   // The gaming headset wins over the music's; the coffee waits while it sleeps or calls.
   const headset = $derived(game && !tea);
@@ -131,10 +140,12 @@
   const clamp = (value: number) => Math.max(-1, Math.min(1, value));
   const look = $derived(face === 'typing' ? { x: 0, y: 1 } : face === 'sleep' || face === 'yawn' || !gaze ? { x: 0, y: 0 } : { x: clamp(gaze.x), y: clamp(gaze.y) });
   const label = $derived(alarm ? strings.companion.moods.calling : strings.companion.moods[mood]);
+  const family = $derived(characterOf(skin));
 </script>
 
-{#if skin?.family === 'jelly'}
-  <JellyCharacter robot={skin} {face} {tone} {look} {bouncing} {dizzy} {act} {size} {label} />
+{#if skin && family !== 'box'}
+  {@const Character = CHARACTERS[family]}
+  <Character robot={skin} {face} {tone} {look} {bouncing} {dizzy} {act} {size} {label} />
 {:else}
 <div
   class="char f-{face} t-{tone} {act ? `a-${act}` : ''}"
