@@ -3,7 +3,7 @@
   /* The soft shadow under a robot, the same on light and dark desktops. */
   --bots-shadow: drop-shadow(0 1.5px 2px rgb(0 0 0 / 0.35));
 
-  /* The island and the settings window: pure black, dark cards, hairlines. */
+  /* The island and its settings panel: pure black, dark cards, hairlines. */
   --island-bg: #000;
   --island-card: #0e0e12;
   --island-card-hover: #16161c;

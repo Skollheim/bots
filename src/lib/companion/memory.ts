@@ -2,7 +2,7 @@
  * What the companion keeps between conversations, on this computer only, in
  * `localStorage` beside its preferences: the facts it learnt about the user,
  * the reminders it was asked for, and how its shortcut fared, which the
- * Settings page reads from the other window. Nothing of it goes to the core
+ * settings panel reads. Nothing of it goes to the core
  * except the facts, which ride in front of a conversation's first request.
  */
 

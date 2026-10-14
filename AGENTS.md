@@ -31,7 +31,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
   or an agent in Boite). It never reads Boite's files beyond `core.json`.
 - Tests and manual runs use a throwaway core on a temporary data folder, never
   the data of a Boite someone uses.
-- Native commands check which webview calls them (`only_bots`,
-  `only_companion`), and every command is listed in
+- Native commands check which webview calls them (`only_companion`: the
+  companion's window is Bots's only page), and every command is listed in
   `src-tauri/permissions/bots.toml` and covered by `src-tauri/src/acl.rs`.
 - Quit exits with code 0; any other exit tells Boite to start Bots again.

@@ -19,8 +19,8 @@
   const when = $derived(new Intl.DateTimeFormat(formatLocale(), { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }));
 </script>
 
+<!-- Titled by the settings panel's section. -->
 <section class="card" data-testid="companion-reminders">
-  <h2>{copy.reminders}</h2>
   {#if reminders.length === 0}
     <p class="hint">{copy.remindersEmpty}</p>
   {:else}
@@ -42,6 +42,9 @@
     margin: 0;
     padding: 0;
     list-style: none;
+  }
+  .hint {
+    padding: 12px 0;
   }
   .list li {
     display: flex;

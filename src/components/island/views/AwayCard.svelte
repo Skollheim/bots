@@ -6,6 +6,7 @@
 -->
 <script lang="ts">
   import { Bell, CircleCheck, CircleX, Clock, Gauge, GitPullRequest, MemoryStick, Sunrise } from '@lucide/svelte';
+  import { settingsPanel } from '../../../lib/island/settings-panel.svelte';
   import type { AwayIcon, AwayLine } from '../../../lib/island/away';
   import { fill, strings } from '../../../lib/strings';
 
@@ -31,7 +32,8 @@
   };
 
   function onkey(event: KeyboardEvent) {
-    if (event.key !== 'Escape' || event.ctrlKey || event.altKey || event.metaKey) return;
+    // The settings panel covers the card: its Escape is the panel's.
+    if (event.key !== 'Escape' || event.ctrlKey || event.altKey || event.metaKey || settingsPanel.open) return;
     const target = event.target instanceof HTMLElement ? event.target : null;
     if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA'].includes(target.tagName))) return;
     // The island's own Escape (it closes) waits behind the card's.

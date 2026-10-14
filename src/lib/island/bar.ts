@@ -5,8 +5,8 @@
  * sound). Settings stays there whatever happens: it is the way back here.
  *
  * Kept in `localStorage` under `bots.bar`, apart from the companion's prefs,
- * so the settings window and the island share it and a write from one
- * reaches the other through `storage`. A missing or odd field takes the
+ * so the settings panel and the island share it, and a write from another
+ * page reaches this one through `storage`. A missing or odd field takes the
  * default: every tab in `DECK_TABS` order, every control.
  *
  * The bar is edited on the island itself, in its edit mode (`DeckBar`,

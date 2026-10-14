@@ -12,6 +12,9 @@
     deck's tabs and the island's controls, and the tab chosen under it, the
     requests waiting and the memory warning laid above it.
 
+  Open, the settings grow out of the deck under its bar
+  (`settings/SettingsPanel.svelte`), over the tab, longer than the deck.
+
   Beside the pill and the peek hang two drops: the timer on the left while
   one runs, the music on the right (`music/MusicBubble.svelte`). Each is born
   from the island's edge on a black neck that snaps, and is taken back the
@@ -46,12 +49,14 @@
   import { MemoryWatch } from '../../lib/island/pressure.svelte';
   import { QuotaWatch } from '../../lib/island/quotas.svelte';
   import { RecapReader } from '../../lib/island/recap.svelte';
+  import { panelHeight, settingsPanel } from '../../lib/island/settings-panel.svelte';
   import { Sessions } from '../../lib/island/sessions.svelte';
   import { UpdateWatch } from '../../lib/island/update.svelte';
   import { strings } from '../../lib/strings';
   import Deck from './deck/Deck.svelte';
   import IslandBar from './IslandBar.svelte';
   import IslandDrop from './IslandDrop.svelte';
+  import SettingsPanel from './settings/SettingsPanel.svelte';
   import MusicBubble from './music/MusicBubble.svelte';
   import TimerBubble from './TimerBubble.svelte';
   import AwayCard from './views/AwayCard.svelte';
@@ -404,6 +409,9 @@
     </div>
   {/if}
 </div>
+{#if settingsPanel.open && frame.size === 'open'}
+  <SettingsPanel height={panelHeight(screen.availHeight)} {reduced} late={box.current.w < OPEN_WIDTH - 4} />
+{/if}
 {#if sides && musicShown}
   <IslandDrop side="right" {reduced} {onresize} onside={(on) => (onSide = on)} tint={{ accent: companion.music.accent, playing: companion.media?.playing === true }}>
     <MusicBubble {companion} {onresize} room={sideRoom} />

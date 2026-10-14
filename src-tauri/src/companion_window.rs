@@ -254,7 +254,7 @@ fn place<R: Runtime>(window: &WebviewWindow<R>, monitor: Option<&str>, anchor: A
 
 /// The page's query: `BOTS_DEMO=1` runs a development build on the fake core,
 /// `BOTS_DEMO=hud` with the HUD demo seeded too. A release build ignores it.
-pub fn demo_query() -> &'static str {
+fn demo_query() -> &'static str {
     if !cfg!(debug_assertions) { return ""; }
     match std::env::var("BOTS_DEMO").as_deref() {
         Ok("hud") => "fake=1&hud=1",
@@ -428,12 +428,18 @@ fn watch<R: Runtime>(app: AppHandle<R>, shared: Shared, mine: u64) {
 /// The shortcut, or Bots launched again: the companion comes forward, over a
 /// full-screen app too, and the page opens its question bar.
 pub fn summon<R: Runtime>(app: &AppHandle<R>) {
-    let Some(window) = app.get_webview_window(LABEL) else { return };
+    if let Some(window) = bring_forward(app) { let _ = window.emit("companion://summon", ()); }
+}
+
+/// The companion's window over the others, with the keyboard, back from
+/// hiding for a full-screen app: for the shortcut and for Settings.
+pub fn bring_forward<R: Runtime>(app: &AppHandle<R>) -> Option<WebviewWindow<R>> {
+    let window = app.get_webview_window(LABEL)?;
     app.state::<CompanionState>().shared.hidden.store(false, Ordering::Release);
     let _ = window.show();
     crate::platform::keep_on_top(&window);
     let _ = window.set_focus();
-    let _ = window.emit("companion://summon", ());
+    Some(window)
 }
 
 /// Opens the companion, at start. It stays until Bots quits: closing it is
@@ -465,7 +471,7 @@ fn window_of(app: &AppHandle) -> Result<WebviewWindow, String> {
 /// The screens connected now, for the setting that picks one.
 #[tauri::command]
 pub async fn companion_monitors(app: AppHandle, webview: Webview) -> Result<Vec<MonitorInfo>, String> {
-    crate::only_bots(&webview)?;
+    only_companion(&webview)?;
     let primary = app.primary_monitor().map_err(|error| error.to_string())?.map(|monitor| monitor_name(&monitor));
     Ok(app.available_monitors().map_err(|error| error.to_string())?.into_iter().map(|monitor| {
         let name = monitor_name(&monitor);

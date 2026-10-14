@@ -22,14 +22,13 @@
   }
 </script>
 
+<!-- Titled by the settings panel's section, which tells what a rule is behind its "i". -->
 <section class="card" data-testid="companion-allow-rules">
-  <div class="head">
-    <h2>{copy.title}</h2>
-    {#if rules.length > 0}
+  {#if rules.length > 0}
+    <div class="head">
       <button class="ghost small" onclick={forgetAllRules} data-testid="companion-allow-forget">{copy.forgetAll}</button>
-    {/if}
-  </div>
-  <p class="hint">{copy.lead}</p>
+    </div>
+  {/if}
   {#if rules.length === 0}
     <p class="hint">{copy.empty}</p>
   {:else}
@@ -50,9 +49,11 @@
 <style>
   .head {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    justify-content: flex-end;
+    padding-top: 8px;
+  }
+  .hint {
+    padding: 12px 0;
   }
   .list {
     display: flex;

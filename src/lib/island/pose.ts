@@ -56,6 +56,10 @@
  *   that family as its mascot (`SKIN_POSES`);
  * - `edit=1`: with `pose=open` or `pose=deck`, the bar in its edit mode, what
  *   it can take under it (`deck/BarPalette.svelte`);
+ * - `pose=settings&section=<id>`: the open island with its settings panel on
+ *   that section, one of `settings-panel.svelte.ts` (place, mascot, crew,
+ *   brain, island, clipboard, focus, reminders, missions, permissions); pair
+ *   it with `calm=1`, `mission=list` for missions and `rule=1` for permissions;
  * - `pose=decktab&tab=apps|clipboard|wallpaper|system`: one of the deck's
  *   computer tabs alone, in a deck-wide black frame, on a fake computer; its
  *   own states (`q`, `clip`, `source`, `engine`, `press`), in
@@ -75,6 +79,7 @@ import { FAKE_APPS } from '../windows/fake';
 import { isDeckTab } from './deck-tabs';
 import type { IslandFrame } from './frame.svelte';
 import { posed } from './posed.svelte';
+import { settingsPanel } from './settings-panel.svelte';
 import { prLine } from './pr-checks';
 import type { PressureReason } from './pressure';
 import { unfolding } from './sessions.svelte';
@@ -284,6 +289,9 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     if (deck) await import('../windows/pose').then(({ poseComputer }) => poseComputer(params));
     frame.show(isDeckTab(tab) ? tab : 'threads');
     if (params.get('edit') === '1') writeBarEdit(true);
+  } else if (pose === 'settings') {
+    frame.show(isDeckTab(tab) ? tab : 'threads');
+    settingsPanel.show(params.get('section'));
   } else if (pose === 'desktop') companion.prefs = { ...companion.prefs, robots: 'desktop' };
   else if (pose === 'decktab') await import('../windows/pose').then(({ poseDeckTab }) => poseDeckTab(companion, params));
   else if (pose === 'away') poseAway();
