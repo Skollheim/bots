@@ -45,6 +45,9 @@
  *   asks to push two seconds in); read by the companion, the fake side in
  *   `fake-client/machines-demo.ts`.
  * - `todo=1`: a to-do list in the today tab, one item ticked;
+ * - `tasks=1`: the tests thread keeps a task list, two of five done, so the
+ *   collapsed pill's live line shows its goal bar (wait for the ended
+ *   threads' line to pass);
  * - `mission=ask|list`: a mission waiting for the user's word, or three set
  *   (one paused, one whose project is gone) for Settings;
  * - `bar=custom`: the bar arranged by hand: two tabs left out, one renamed,
@@ -151,6 +154,13 @@ function poseTodo(companion: Companion): void {
   companion.todos.apply([{ kind: 'done', index: 2 }]);
 }
 
+/** The tests thread's task list, two of five done, the third at work. */
+async function poseTasks(companion: Companion): Promise<void> {
+  const texts = ['Pull the merge', 'Install the packages', 'Run the unit tests', 'Run the end-to-end tests', 'Sum up the failures'];
+  const status = (index: number) => (index < 2 ? 'completed' : index === 2 ? 'in_progress' : 'pending') as 'completed' | 'in_progress' | 'pending';
+  await companion.client?.call('threads.tasks.set', { threadId: DEMO_THREAD, tasks: texts.map((text, index) => ({ id: `task-pose-${index}`, text, status: status(index) })) }).catch(() => {});
+}
+
 /** A mission waiting for the user's word (`ask`), or three set, one paused and one whose project is gone (`list`, for Settings). */
 function poseMissions(companion: Companion, kind: 'ask' | 'list'): void {
   const found = [...companion.projects].find(([, name]) => companion.projectNames?.includes(name));
@@ -242,6 +252,7 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
   }
   if (params.get('sessions') === 'none') posed.idle = true;
   if (params.get('todo') === '1') poseTodo(companion);
+  if (params.get('tasks') === '1') await poseTasks(companion);
   const mission = params.get('mission');
   if (mission === 'ask' || mission === 'list') poseMissions(companion, mission);
   const rest = params.get('rest') as PillRest | null;

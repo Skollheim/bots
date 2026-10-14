@@ -1,7 +1,7 @@
 <!--
   The music bubble: a small black drop beside the island's pill, the music's
   own (`lib/companion/music.svelte.ts`). Folded, the cover and a meter that
-  moves with the sound, the track's progress along its bottom edge. Under the
+  moves with the sound, the track's progress under the meter. Under the
   pointer or the keyboard it unfolds into the player: the cover (which opens
   Spotify), the title and the artist, the meter, previous, play or pause, and
   next, and the timeline, where a click or a drag moves the track
@@ -372,15 +372,16 @@
   .paused .thumb {
     filter: saturate(0.4) brightness(0.8);
   }
+  /* The track's progress, under the meter beside the cover, clear of the bubble's edge. */
   .line {
     position: absolute;
-    right: 12px;
-    bottom: 3px;
-    left: 12px;
+    right: 10px;
+    bottom: 4px;
+    left: 36px;
     height: 2px;
     overflow: hidden;
-    border-radius: 1px;
-    background: rgb(255 255 255 / 0.1);
+    border-radius: 999px;
+    background: var(--island-line-strong);
     pointer-events: none;
   }
   .line i {

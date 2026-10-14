@@ -291,7 +291,7 @@
 
 <div class="pill" class:asking in:bloom={{ reduced }} out:blurAway={{ reduced }}>
   <span class="measure" aria-hidden="true" bind:offsetWidth={statusWidth}>{line.text}</span>
-  {#if live}<span class="measure live-measure" aria-hidden="true" data-kind={live.kind} bind:offsetWidth={liveWidth}>{#if live.kind !== 'live'}<i class="kind"></i>{/if}<b>{live.name}</b> <span class="doing">{live.doing}</span></span>{/if}
+  {#if live}<span class="measure live-measure" aria-hidden="true" data-kind={live.kind} bind:offsetWidth={liveWidth}>{#if live.kind !== 'live'}<i class="kind"></i>{/if}<b>{live.name}</b> {#if live.progress !== null}<span class="goal"></span>{/if}<span class="doing">{live.doing}</span></span>{/if}
   <button
     class="bar"
     data-testid="island-bar"
@@ -325,16 +325,13 @@
     {:else if live}
       <!-- The timer's clock ticks in place: only its name rolls the line. -->
       <span class="live roll" in:bloom={{ reduced }} data-kind={live.kind} data-tone={live.tone} data-paused={live.paused || undefined} data-testid="island-live">
-        {#key live.kind === 'timer' ? `timer\n${live.name}` : `${live.name}\n${live.doing}`}<span class="line" in:rollIn={{ reduced, back }} out:rollOut={{ reduced, back }}>{#if live.kind === 'quota'}<Gauge class="kind" size={12} strokeWidth={2} aria-hidden="true" />{:else if live.kind === 'music'}<Music class="kind" size={12} strokeWidth={2} aria-hidden="true" />{:else if live.kind === 'timer'}<Timer class="kind" size={12} strokeWidth={2} aria-hidden="true" />{/if}<b>{live.name}</b> <span class="doing">{live.doing}</span></span>{/key}
+        {#key live.kind === 'timer' ? `timer\n${live.name}` : `${live.name}\n${live.doing}`}<span class="line" in:rollIn={{ reduced, back }} out:rollOut={{ reduced, back }}>{#if live.kind === 'quota'}<Gauge class="kind" size={12} strokeWidth={2} aria-hidden="true" />{:else if live.kind === 'music'}<Music class="kind" size={12} strokeWidth={2} aria-hidden="true" />{:else if live.kind === 'timer'}<Timer class="kind" size={12} strokeWidth={2} aria-hidden="true" />{/if}<b>{live.name}</b> {#if live.progress !== null}<span class="goal" aria-hidden="true"><i style:width="{(live.progress * 100).toFixed(1)}%"></i></span>{/if}<span class="doing">{live.doing}</span></span>{/key}
       </span>
     {/if}
     <span class="dots" aria-hidden="true">
       {#if trace}<span class="dot rule" data-testid="island-rule-trace" title={traceLine?.text} in:bloom={{ reduced }}><ShieldCheck size={11} strokeWidth={2.4} /></span>{/if}
       {#each dots as dot (dot.key)}<span class="dot" class:on={dot.key === hoveredKey} data-dot={dot.key}><i data-tone={dot.tone}></i></span>{/each}
     </span>
-    {#if !peeking && live?.progress}
-      <span class="progress" aria-hidden="true"><i style:transform="scaleX({live.progress.toFixed(3)})"></i></span>
-    {/if}
   </button>
   {#if ask && said}
     {@const request = ask.request}
@@ -468,23 +465,26 @@
   .live[data-paused] .doing {
     opacity: 0.55;
   }
-  .progress {
-    position: absolute;
-    right: 16px;
-    bottom: 3px;
-    left: 16px;
-    height: 2px;
+  /* The goal: how far the task list is, a short rounded meter before its count ("2/5"), in the line. */
+  .goal {
+    display: inline-block;
+    width: 28px;
+    height: 5px;
+    margin: 0 7px 0 3px;
     overflow: hidden;
-    border-radius: 1px;
-    background: rgb(255 255 255 / 0.1);
+    border-radius: 999px;
+    background: var(--island-line-strong);
+    vertical-align: 1px;
   }
-  .progress i {
+  .goal i {
     display: block;
-    width: 100%;
     height: 100%;
+    border-radius: inherit;
     background: var(--island-working);
-    transform-origin: left;
-    transition: transform 400ms ease;
+    transition: width 400ms ease;
+  }
+  .live[data-tone='waiting'] .goal i {
+    background: var(--island-attention);
   }
   .dots {
     display: flex;
