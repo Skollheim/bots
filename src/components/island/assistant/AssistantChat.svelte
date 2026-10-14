@@ -7,9 +7,11 @@
   Enter sends, also while the agent works (a follow-up), Shift+Enter breaks
   the line, Escape leaves the field. While the field has the keyboard, the
   island stays. With no agent yet, one button leads to where one is made.
+  The page that holds the chat may add its own buttons beside the field
+  (`tools`), as the deck's chat tab does with its screen captures.
 -->
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { tick, type Snippet } from 'svelte';
   import { ArrowUp, SquareArrowOutUpRight, Square } from '@lucide/svelte';
   import { installExternalLinks } from '@boite/ui/lib/links';
   import { openSettings, showAgent } from '../../../lib/companion/shell';
@@ -21,7 +23,7 @@
   import AssistantMessage from './AssistantMessage.svelte';
   import ModelMenu from './ModelMenu.svelte';
 
-  let { menuOpen = $bindable(false), agentsOpen = $bindable(false) }: { menuOpen?: boolean; agentsOpen?: boolean } = $props();
+  let { menuOpen = $bindable(false), agentsOpen = $bindable(false), tools }: { menuOpen?: boolean; agentsOpen?: boolean; tools?: Snippet } = $props();
 
   const view = useView();
   const companion = $derived(view.companion);
@@ -174,6 +176,7 @@
           {@attach grow}
           data-testid="assistant-input"
         ></textarea>
+        {@render tools?.()}
         {#if assistant.running}
           <button class="round stop" aria-label={copy.stop} title={copy.stop} disabled={assistant.stopping} onclick={() => void assistant.stop()} data-testid="assistant-stop">
             <Square size={12} fill="currentColor" />

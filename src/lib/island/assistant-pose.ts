@@ -4,6 +4,7 @@
  *
  * - `running`: an answer streaming in, a tool at work and Stop showing;
  * - `chips`: two files waiting for the next message;
+ * - `dragging`: files held over the deck, where they go showing on top of the tab;
  * - `menu` / `agents`: the model picker open (on the favorites, as Boite
  *   opens it while some are starred), or the agents menu;
  * - `models`: the picker on the agent's provider, its models listed;
@@ -61,6 +62,8 @@ export async function strikeAssistantPose(companion: Companion, params: URLSearc
   const assistant = companion.assistant;
   await until(() => assistant.agent !== null && assistant.bubbles.length > 0);
   if (scenes.has('chips')) companion.attached.held = [file('night.log', 'text/plain'), file('retries.png', 'image/png')];
+  // No `dragover` comes to end it: the drag stays until the page is left.
+  if (scenes.has('dragging')) companion.attached.over = true;
   if (scenes.has('running')) {
     assistant.sending = true;
     assistant.stream = [streaming()];
