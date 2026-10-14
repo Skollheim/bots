@@ -90,6 +90,18 @@
     if (!companion.open || frame.editing) untrack(() => settingsPanel.close());
   });
 
+  /** The system says the page is out of sight. */
+  let pageHidden = $state(document.hidden);
+  /**
+   * Nobody sees the window: hidden by the system, or by the shell under a
+   * full-screen app (`hideFullscreen`), which the page hears without being
+   * told it is hidden. The endless animations then wait (`bots.css`).
+   */
+  const dormant = $derived(pageHidden || companion.senses.fullscreen);
+  $effect(() => {
+    document.documentElement.toggleAttribute('data-dormant', dormant);
+  });
+
   // The bar's edit mode (`lib/island/bar.ts`), asked from Settings or by a right-click on the bar, ended by
   // Done, Escape or Settings. It is the island's: the robots set loose, or the island closed, end it.
   $effect(() => subscribeBarEdit((on) => frame.edit(on && untrack(() => island))));
@@ -118,6 +130,27 @@
     }
   }
 
+  /** The shell reads the hit areas every 40 ms (`WATCH_EVERY`, `companion_window.rs`): sent more often, a send is never read. */
+  const RECTS_EVERY = 40;
+  let rectsTimer: ReturnType<typeof setTimeout> | undefined;
+  let rectsAt = 0;
+  /**
+   * Sends the hit areas soon, once for a burst of changes: a spring moving
+   * the island asks on every frame, 240 times a second on a 240 Hz screen.
+   * The send reads them when it runs, so the last change is always in it.
+   */
+  function requestRects() {
+    if (rectsTimer !== undefined) return;
+    rectsTimer = setTimeout(
+      () => {
+        rectsTimer = undefined;
+        rectsAt = performance.now();
+        sendRects();
+      },
+      Math.max(0, rectsAt + RECTS_EVERY - performance.now())
+    );
+  }
+
   let lastRects = '';
   function sendRects() {
     const rects: HitRect[] = [...document.querySelectorAll<HTMLElement>('[data-hit]')].map((element) => {
@@ -135,7 +168,7 @@
   $effect(() => {
     void [shown, companion.open, picking, frame.size, frame.tab, frame.editing, settingsPanel.open, settingsPanel.section, companion.notice, companion.waiting, companion.blocking];
     // Measured once the frame is drawn, when its layout is done: measuring before would lay it out twice.
-    void tick().then(() => requestAnimationFrame(() => setTimeout(sendRects)));
+    void tick().then(() => requestAnimationFrame(requestRects));
   });
 
   // The island's window grows at once when it opens, longer for the settings
@@ -183,13 +216,18 @@
     let gone = false;
     void listenShell<string | null>('settings', (section) => requestSettings(section)).then((stop) => (gone ? stop() : off.push(stop)));
     off.push(() => (gone = true));
-    const rects = setInterval(sendRects, 500);
+    // Hidden, nothing can be clicked: the areas wait until the window shows again.
+    const rects = setInterval(() => !dormant && requestRects(), 500);
+    const seen = () => (pageHidden = document.hidden);
+    document.addEventListener('visibilitychange', seen);
     // Demo poses for captures (`?fake=1&pose=…`), in the dev bundle only.
     if (import.meta.env.DEV && new URLSearchParams(location.search).has('pose')) {
       void import('./lib/island/pose').then(({ strikePose }) => strikePose(companion, frame, new URLSearchParams(location.search)));
     }
     return () => {
       clearInterval(rects);
+      clearTimeout(rectsTimer);
+      document.removeEventListener('visibilitychange', seen);
       off.forEach((stop) => stop());
     };
   });
@@ -217,9 +255,9 @@
 <main class="stage" class:picking class:island={shown} data-align={layout.align} data-edge={layout.edge} data-testid="companion" ondragenter={dragover} ondragover={dragover} ondrop={drop}>
   <div class="companion">
     {#if shown}
-      <Island {companion} {frame} onresize={sendRects} />
+      <Island {companion} {frame} onresize={requestRects} />
     {:else}
-      <DesktopCompanion {companion} {layout} onresize={sendRects} />
+      <DesktopCompanion {companion} {layout} onresize={requestRects} />
     {/if}
     <div class="notice">
       <BotsNotice
