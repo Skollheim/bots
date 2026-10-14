@@ -8,8 +8,11 @@ import {
   BAR_MAX,
   BAR_STORAGE_KEY,
   barTabs,
+  barTip,
   canRemove,
   cleanLabel,
+  nameShown,
+  tipLeft,
   DEFAULT_BAR,
   hiddenTabs,
   hiddenTools,
@@ -168,4 +171,34 @@ test('the edit mode is asked for and ended through one key both windows hear', (
   writeBarEdit(false);
   expect(heard).toEqual([true, false, false]);
   stop();
+});
+
+test('the tab shown, a named app and a link show their name; other tabs and apps are their icon', () => {
+  const tab = { kind: 'tab', key: 'tab:chat', tab: 'chat', label: null } as const;
+  const renamed = { kind: 'tab', key: 'tab:today', tab: 'today', label: 'Jour' } as const;
+  const app = { kind: 'app', key: 'app:a', app: 'a', name: 'Spotify', label: null } as const;
+  const link = { kind: 'link', key: 'link:x', url: 'https://github.com/', label: null } as const;
+  expect(nameShown(tab, 'chat')).toBe(true);
+  expect(nameShown(tab, 'threads')).toBe(false);
+  expect(nameShown(renamed, 'threads')).toBe(false);
+  expect(nameShown(app, 'chat')).toBe(false);
+  expect(nameShown({ ...app, label: 'Music' }, 'chat')).toBe(true);
+  expect(nameShown(link, 'chat')).toBe(true);
+});
+
+test('the tooltip names what shows as an icon, and in edit mode names everything with how to edit it', () => {
+  const tab = { kind: 'tab', key: 'tab:system', tab: 'system', label: null } as const;
+  const link = { kind: 'link', key: 'link:x', url: 'https://github.com/', label: null } as const;
+  expect(barTip(tab, 'threads', false)).toBe('name');
+  expect(barTip(tab, 'system', false)).toBeNull();
+  expect(barTip(link, 'threads', false)).toBeNull();
+  expect(barTip(tab, 'system', true)).toBe('edit');
+  expect(barTip(link, 'threads', true)).toBe('edit');
+});
+
+test('a tooltip sits centred under its thing, kept inside the bar', () => {
+  expect(tipLeft(400, 80, 860)).toBe(360);
+  expect(tipLeft(20, 80, 860)).toBe(6);
+  expect(tipLeft(850, 80, 860)).toBe(774);
+  expect(tipLeft(400, 900, 860)).toBe(6);
 });
