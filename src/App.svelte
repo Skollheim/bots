@@ -20,6 +20,7 @@
   import { companionHitRects, configureCompanion, coverScreen, inShell, layoutOf, placeCompanion, placeIsland, type CompanionLayout, type HitRect } from './lib/companion/shell';
   import { Companion } from './lib/companion/companion.svelte';
   import { IslandFrame } from './lib/island/frame.svelte';
+  import { readBar, readBarEdit, shownTab, subscribeBarEdit, writeBarEdit } from './lib/island/bar';
   import { readDeckTab, writeDeckTab } from './lib/island/deck-tabs';
   import CompanionZone from './components/companion/CompanionZone.svelte';
   import DesktopCompanion from './components/desktop/DesktopCompanion.svelte';
@@ -42,7 +43,8 @@
     focusInput: () =>
       requestAnimationFrame(() => setTimeout(() => document.querySelector<HTMLElement>('.assistant-input, .askbar input')?.focus({ preventScroll: true }))),
     summoned: () => frame.show('chat'),
-    pinned: () => frame.pinned
+    // A click elsewhere leaves a pinned island open, and one being edited: Settings may be where the click went.
+    pinned: () => frame.pinned || frame.editing
   });
   const frame = new IslandFrame({
     isOpen: () => companion.open,
@@ -50,11 +52,19 @@
     openOnHover: () => companion.prefs.openOnHover,
     waiting: () => companion.blocking > 0,
     talking: () => companion.talking,
-    lastTab: () => readDeckTab(localStorage),
+    // The last tab used, unless the bar left it out since.
+    lastTab: () => shownTab(readBar(), readDeckTab(localStorage)),
     keepTab: (tab) => writeDeckTab(localStorage, tab)
   });
 
   const island = $derived(companion.prefs.robots === 'island');
+
+  // The bar's edit mode (`lib/island/bar.ts`), asked from Settings or by a right-click on the bar, ended by
+  // Done, Escape or Settings. It is the island's: the robots set loose, or the island closed, end it.
+  $effect(() => subscribeBarEdit((on) => frame.edit(on && untrack(() => island))));
+  $effect(() => {
+    if (frame.editing && (!island || !companion.open)) untrack(() => writeBarEdit(false));
+  });
   let layout = $state<CompanionLayout>(layoutOf(companion.prefs.anchor, companion.prefs.spot));
   let islandHeight = $state(ISLAND_WINDOW.closed);
 
@@ -92,7 +102,7 @@
   }
 
   $effect(() => {
-    void [island, companion.open, picking, frame.size, frame.tab, companion.notice, companion.waiting, companion.blocking];
+    void [island, companion.open, picking, frame.size, frame.tab, frame.editing, companion.notice, companion.waiting, companion.blocking];
     // Measured once the frame is drawn, when its layout is done: measuring before would lay it out twice.
     void tick().then(() => requestAnimationFrame(() => setTimeout(sendRects)));
   });
@@ -134,6 +144,8 @@
 
   onMount(() => {
     document.documentElement.dataset.companion = '';
+    // An edit mode a closed Bots left behind is over: Settings shows its button again.
+    if (readBarEdit()) writeBarEdit(false);
     // The clipboard history records while the setting is on, deck open or not.
     const off: (() => void)[] = [startTheme(), companion.start(), () => frame.dispose(), clipboardHistory.start()];
     const rects = setInterval(sendRects, 500);
@@ -150,6 +162,7 @@
   function onkeydown(event: KeyboardEvent) {
     if (event.key !== 'Escape') return;
     if (picking) pickDone?.(null);
+    else if (frame.editing) writeBarEdit(false);
     else if (companion.open) companion.close();
     else companion.talks.forEach((talk) => talk.hide());
   }

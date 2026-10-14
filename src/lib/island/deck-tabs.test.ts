@@ -33,3 +33,15 @@ test('the arrows move along the tab bar and wrap, Home and End go to its ends', 
   expect(tabKey('End', 'music')).toBe('system');
   expect(tabKey('Enter', 'music')).toBeNull();
 });
+
+test('with the bar arranged by hand, the arrows and the slide follow its order', () => {
+  const order = ['chat', 'threads', 'music'] as const;
+  expect(tabKey('ArrowRight', 'chat', order)).toBe('threads');
+  expect(tabKey('ArrowLeft', 'chat', order)).toBe('music');
+  expect(tabKey('End', 'chat', order)).toBe('music');
+  // A tab the bar leaves out (the shortcut opened the chat): the arrows start from the bar's first.
+  expect(tabKey('ArrowRight', 'system', order)).toBe('threads');
+  expect(tabKey('Home', 'chat', [])).toBeNull();
+  expect(travel('music', 'chat', order)).toBe(-1);
+  expect(travel('chat', 'system', order)).toBe(0);
+});

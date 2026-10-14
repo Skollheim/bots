@@ -47,6 +47,10 @@
  * - `todo=1`: a to-do list in the today tab, one item ticked;
  * - `mission=ask|list`: a mission waiting for the user's word, or three set
  *   (one paused, one whose project is gone) for Settings;
+ * - `bar=custom`: the bar arranged by hand: two tabs left out, one renamed,
+ *   two apps and a link added, the pin taken away (`bar.ts`);
+ * - `edit=1`: with `pose=open` or `pose=deck`, the bar in its edit mode, what
+ *   it can take under it (`deck/BarPalette.svelte`);
  * - `pose=decktab&tab=apps|clipboard|wallpaper|system`: one of the deck's
  *   computer tabs alone, in a deck-wide black frame, on a fake computer; its
  *   own states (`q`, `clip`, `source`, `engine`, `press`), in
@@ -60,6 +64,8 @@ import type { Companion } from '../companion/companion.svelte';
 import { nextAt, type Repeat } from '../companion/missions';
 import { PILL_RESTS, writeCompanionPrefs, type PillRest } from '../companion/prefs';
 import { DEMO_COMMAND, DEMO_THREAD } from '../fake-client/allow-demo';
+import { addApp, addLink, DEFAULT_BAR, removeItem, removeTool, renameItem, writeBar, writeBarEdit, type BarLayout } from './bar';
+import { FAKE_APPS } from '../windows/fake';
 import { isDeckTab } from './deck-tabs';
 import type { IslandFrame } from './frame.svelte';
 import { posed } from './posed.svelte';
@@ -244,6 +250,7 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
     const request = { id: 'perm-rule-pose', threadId: DEMO_THREAD, turnId: '', toolName: 'Bash', input: { command: DEMO_COMMAND }, description: '', createdAt: Date.now() };
     companion.rules.add(request, 'thread', companion.threads, companion.projects);
   }
+  if (params.get('bar') === 'custom') poseBar();
   const tab = params.get('tab');
   if (pose === 'peek') {
     companion.prefs = { ...companion.prefs, openOnHover: false };
@@ -251,8 +258,22 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
   } else if (pose === 'open' || deck) {
     if (deck) await import('../windows/pose').then(({ poseComputer }) => poseComputer(params));
     frame.show(isDeckTab(tab) ? tab : 'threads');
+    if (params.get('edit') === '1') writeBarEdit(true);
   } else if (pose === 'desktop') companion.prefs = { ...companion.prefs, robots: 'desktop' };
   else if (pose === 'decktab') await import('../windows/pose').then(({ poseDeckTab }) => poseDeckTab(companion, params));
   else if (pose === 'away') poseAway();
   await (await import('./assistant-pose')).strikeAssistantPose(companion, params);
+}
+
+/** A bar arranged by hand, on the fake computer's apps (`windows/fake.ts`). */
+function poseBar(): void {
+  let layout: BarLayout = structuredClone(DEFAULT_BAR);
+  layout = removeItem(removeItem(layout, 'tab:clipboard'), 'tab:wallpaper');
+  layout = renameItem(layout, 'tab:today', activeLocale() === 'fr' ? 'Jour' : 'Day');
+  for (const name of ['Steam', 'Visual Studio Code']) {
+    const app = FAKE_APPS.find((known) => known.name === name);
+    if (app) layout = addApp(layout, app);
+  }
+  layout = addLink(layout, 'github.com', 'GitHub', 'link:pose') ?? layout;
+  writeBar(removeTool(layout, 'pin'));
 }

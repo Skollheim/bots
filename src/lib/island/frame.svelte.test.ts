@@ -142,3 +142,19 @@ test('a hush coming during a hover stops the opening under way', () => {
   vi.advanceTimersByTime(HOVER_OPEN_MS * 2);
   expect(state.open).toBe(false);
 });
+
+test('the edit mode opens the island and holds it open until it ends', () => {
+  const { state, frame } = source();
+  frame.edit(true);
+  expect(frame.editing).toBe(true);
+  expect(state.open).toBe(true);
+  frame.hover(true);
+  frame.hover(false);
+  vi.advanceTimersByTime(LEAVE_MS * 3);
+  expect(state.open).toBe(true);
+  frame.edit(true);
+  frame.edit(false);
+  expect(frame.editing).toBe(false);
+  vi.advanceTimersByTime(LEAVE_MS);
+  expect(state.open).toBe(false);
+});

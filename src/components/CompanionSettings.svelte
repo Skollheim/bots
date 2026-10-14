@@ -6,7 +6,7 @@
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { ChevronDown } from '@lucide/svelte';
+  import { Check, ChevronDown, PencilRuler } from '@lucide/svelte';
   import { defaultTitleModel, providerEnabled, type ModelInfo } from '@boite/contracts';
   import InfoTip from '@boite/ui/components/InfoTip.svelte';
   import Menu from '@boite/ui/components/Menu.svelte';
@@ -19,6 +19,7 @@
   import { hudGauges } from '../lib/companion/hud';
   import { COMPANION_HOTKEYS, MASCOT_FAMILIES, PILL_RESTS, readCompanionPrefs, subscribeCompanionPrefs, writeCompanionPrefs, type CompanionAnchor, type CompanionControl, type CompanionPrefs, type CompanionRobots, type Mascot, type PillRest } from '../lib/companion/prefs';
   import { CLASSIC_SKIN } from '../lib/companion/crew';
+  import { readBarEdit, subscribeBarEdit, writeBarEdit } from '../lib/island/bar';
   import { parseRobot } from '../lib/robots';
   import RobotPicker from './agents/RobotPicker.svelte';
   import { readStatus, subscribeCompanionData } from '../lib/companion/memory';
@@ -47,6 +48,9 @@
   let windowsPrefs = $state(readWindowsPrefs());
   $effect(() => subscribeWindowsPrefs((next) => (windowsPrefs = next)));
   $effect(() => subscribeCompanionData(() => (status = readStatus())));
+  /** The island's bar is being edited, here or on the island (`lib/island/bar.ts`). */
+  let editingBar = $state(readBarEdit());
+  $effect(() => subscribeBarEdit((on) => (editingBar = on)));
   $effect(() => {
     void companionMonitors().then((list) => (monitors = list)).catch(() => {});
   });
@@ -226,6 +230,12 @@
         <input type="checkbox" role="switch" checked={prefs.openOnHover} onchange={(event) => save({ openOnHover: event.currentTarget.checked })} data-testid="companion-open-on-hover" />
       </label>
       {@render picker(copy.pillRest, copy.pillRestHint, pillRestItems, copy.pillRests[prefs.pillRest], (id) => save({ pillRest: id as PillRest }), 'companion-pill-rest')}
+      <div class="switch-row">
+        <span class="text ui-label-box"><span class="ui-label">{copy.bar}</span><InfoTip topic={copy.bar} text={copy.barHint} /></span>
+        <button type="button" class={editingBar ? 'primary small' : 'small'} aria-pressed={editingBar} onclick={() => writeBarEdit(!editingBar)} data-testid="companion-bar-edit">
+          {#if editingBar}<Check size={13} />{copy.barDone}{:else}<PencilRuler size={13} />{copy.barEdit}{/if}
+        </button>
+      </div>
     {/if}
     {@render picker(copy.screen, copy.screenHint, screenItems, prefs.monitor ?? copy.primary, (id) => save({ monitor: id === PRIMARY ? null : id }), 'companion-screen')}
     {#if prefs.robots === 'desktop'}

@@ -41,6 +41,14 @@ When an agent asks for a permission or has a question, the pill says so. Open it
 - **Music**: the player, with the words.
 - **Apps**, **Clipboard**, **Wallpapers** and **System**: your computer, on Windows.
 
+### Arrange the bar
+
+Right-click the deck's bar, or click Edit beside "Island bar" in Settings, and the bar goes into edit mode. Drag a tab to move it, click its name to rename it, click its × to take it out. Under the bar, put back what you took out, add an app of the Start menu or a web link. Done or Escape ends it, and the bar stays as you left it.
+
+<p align="center">
+  <img src="docs/media/bar-edit.gif" width="780" alt="The bar in edit mode: two tabs taken out, the chat tab dragged to the front, today renamed day, Steam and a GitHub link added, then done">
+</p>
+
 ### Ask B.O.T.S
 
 Call B.O.T.S from any app with its shortcut, or click a robot on the desktop, and ask. B.O.T.S answers as one of your Boite agents, with its own conversation and memory, and you follow its work in the chat tab as it goes. It also keeps reminders ("remind me at 6 pm to call Paul"), timers and stopwatches, your to-do list and your missions.
@@ -168,7 +176,7 @@ The demo runs the robots on Boite's in-memory fake core: no Boite needed.
 - In a browser: `bun run dev`, then open `http://localhost:5174/?fake=1` (add `&hud=1` for busy agents and quotas, or open `?view=settings&fake=1` for the settings).
 - In the desktop window: `BOTS_DEMO=1 bun run tauri dev` (`BOTS_DEMO=hud` for the busy version). Development builds only.
 
-In the browser, a few more parameters set a scene for captures: `pose=collapsed|peek|open|deck|desktop|away`, `tab=threads|today|chat|stats|music|apps|clipboard|wallpaper|system`, `calm=1` to answer the starting requests, `music=playing&lyrics=1`, `rest=live|quota|music|timer|robot`, `timer=1`, `todo=1`, `mission=ask|list`, `source=engine|recent|folder` for the wallpapers, and more. [`src/lib/island/pose.ts`](src/lib/island/pose.ts) lists them all. The pictures of this README were taken that way, with the English interface.
+In the browser, a few more parameters set a scene for captures: `pose=collapsed|peek|open|deck|desktop|away`, `tab=threads|today|chat|stats|music|apps|clipboard|wallpaper|system`, `calm=1` to answer the starting requests, `music=playing&lyrics=1`, `rest=live|quota|music|timer|robot`, `timer=1`, `todo=1`, `mission=ask|list`, `source=engine|recent|folder` for the wallpapers, `bar=custom` and `edit=1` for the bar, and more. [`src/lib/island/pose.ts`](src/lib/island/pose.ts) lists them all. The pictures of this README were taken that way, with the English interface.
 
 ### Against a throwaway core
 
