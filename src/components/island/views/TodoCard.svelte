@@ -12,6 +12,13 @@
   import { todoCount } from '../../../lib/companion/todo';
   import { fill, strings } from '../../../lib/strings';
 
+  interface Props {
+    /** The list scrolls inside a deck tile with no bar, its edges fading (`deck-scroll`); its height is the tile's to set. */
+    tile?: boolean;
+  }
+
+  let { tile = false }: Props = $props();
+
   const view = useView();
   const todos = $derived(view.companion.todos);
   const copy = strings.companion.todo;
@@ -51,7 +58,7 @@
   </h3>
 
   {#if items.length > 0}
-    <ul>
+    <ul class:deck-scroll={tile} class:island-fade={tile}>
       {#each items as item (item.id)}
         {@const done = item.doneAt !== null}
         <li class:done animate:flip={{ duration: motion }} out:fade={{ duration: motion }} data-testid="island-todo-item">
