@@ -3,7 +3,7 @@
   looking at them move: `index.html?view=mascots`, in the dev bundle only
   (`main.ts`). `size=<px>` sets their size (64 by default, the desktop's);
   `family=<family>` shows every shape of that family instead; `mood=<mood>`
-  (or `mood=asleep`) keeps that one column, for measuring a robot at rest.
+  (or `mood=asleep`) keeps that one column and `shapes=<n>` the first rows, for measuring one robot at rest.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
@@ -34,7 +34,8 @@
   const size = Number(params.get('size')) || 64;
   const family = params.get('family') as RobotFamily | null;
   const own = family && ROBOT_FAMILIES.includes(family) ? FAMILIES.find((robot) => robot.family === family)! : null;
-  const ROBOTS: Robot[] = own ? Array.from({ length: ROBOT_PARTS[own.family].shape }, (_, shape) => ({ ...own, shape, top: (own.top + shape) % ROBOT_PARTS[own.family].top })) : FAMILIES;
+  const shapes = Number(params.get('shapes')) || Infinity;
+  const ROBOTS: Robot[] = (own ? Array.from({ length: ROBOT_PARTS[own.family].shape }, (_, shape) => ({ ...own, shape, top: (own.top + shape) % ROBOT_PARTS[own.family].top })) : FAMILIES).slice(0, shapes);
   onMount(() => startTheme());
 </script>
 

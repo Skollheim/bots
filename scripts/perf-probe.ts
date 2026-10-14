@@ -54,8 +54,8 @@ export const POSES: Pose[] = [
   { name: 'desktop-working', query: 'pose=desktop' },
   // At rest, for `--frames`: each family's companion awake and asleep (the gallery, `MascotGallery.svelte`), and in the app.
   ...FAMILIES.flatMap((family) => [
-    { name: `rest-${family}`, query: `view=mascots&family=${family}&mood=idle` },
-    { name: `asleep-${family}`, query: `view=mascots&family=${family}&mood=asleep` },
+    { name: `rest-${family}`, query: `view=mascots&family=${family}&mood=idle&shapes=1` },
+    { name: `asleep-${family}`, query: `view=mascots&family=${family}&mood=asleep&shapes=1` },
     { name: `closed-${family}`, query: `pose=collapsed&calm=1&skin=${family}` },
     { name: `desktop-${family}`, query: `pose=desktop&calm=1&skin=${family}` }
   ])
