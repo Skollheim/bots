@@ -28,7 +28,8 @@
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { prefersReducedMotion, Spring } from 'svelte/motion';
+  import { prefersReducedMotion } from 'svelte/motion';
+  import { FrameSpring } from '../../lib/island/spring.svelte';
   import type { Absence } from '../../lib/companion/absence';
   import type { Companion } from '../../lib/companion/companion.svelte';
   import { showMain } from '../../lib/companion/shell';
@@ -145,7 +146,8 @@
   /** The room between a drop and the island. */
   const SIDE_GAP = 8;
   // Settles within a quarter pixel: the last frames of a smaller step would move nothing one can see.
-  const box = new Spring({ ...COLLAPSED }, { stiffness: 0.18, damping: 0.72, precision: 0.25 });
+  // The same curve at 60 and 240 Hz (`spring.svelte.ts`), where Svelte's `Spring` slows on a faster screen.
+  const box = new FrameSpring({ ...COLLAPSED }, { stiffness: 0.18, damping: 0.72, precision: 0.25 });
   /** The corners grow with the island, from the pill's to the deck's. */
   const opened = $derived(Math.min(1, Math.max(0, (box.current.w - COLLAPSED.w) / (OPEN_WIDTH - COLLAPSED.w))));
   const radius = $derived(Math.min(RADIUS + (DECK_RADIUS - RADIUS) * opened, box.current.h / 2));
@@ -214,8 +216,9 @@
   });
 
   $effect(() => {
-    void box.set(target, { instant: prefersReducedMotion.current });
+    box.set(target, { instant: prefersReducedMotion.current });
   });
+  $effect(() => () => box.stop());
 
   // Each step of the spring moves the hit area; the page sends only what changed,
   // read once the step is drawn: reading it within the step lays the island out twice.
