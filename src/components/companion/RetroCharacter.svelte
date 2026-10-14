@@ -15,6 +15,7 @@
   import RobotFace, { retroHead } from '../agents/RobotFace.svelte';
   import { faceState, type CharacterProps } from '../../lib/companion/character';
   import CharacterMarks from './CharacterMarks.svelte';
+  import { beat, onscreen } from '../../lib/companion/beats';
 
   let { robot, face, tone, look, bouncing, dizzy, act, size, label }: CharacterProps = $props();
 
@@ -25,6 +26,10 @@
   const fit = $derived(+(64 / (retro.head.y + retro.head.h + 29)).toFixed(3));
   // Calling, it shakes itself: RobotFace's own hop would move the head out from under the screen's layer.
   const state = $derived(faceState(face) === 'waiting' ? 'idle' : faceState(face));
+  // At rest the antenna wiggles and the screen flickers now and then, started by the page's one timer (`beats.ts`);
+  // at work, or when it calls, they keep going.
+  const wiggles = $derived(['awake', 'typing', 'game', 'groove'].includes(face));
+  const flickers = $derived(face !== 'sleep' && face !== 'alarm' && face !== 'calling' && tone !== 'working');
 </script>
 
 <div
@@ -35,12 +40,14 @@
   style:height="{size}px"
   role="img"
   aria-label={label}
+  use:onscreen
+  use:beat={{ name: 'wiggle', every: 4200, length: 1260, active: wiggles }}
 >
   <div class="layer rig">
     <div class="layer fit" style:scale={fit}>
       <RobotFace {robot} {state} gaze={face === 'sleep' ? null : look} bare />
       <div class="glass" style:left={pc(screen.x)} style:top={pc(screen.y)} style:width={pc(screen.w)} style:height={pc(screen.h)} style:border-radius="{(size * 6) / 64}px" aria-hidden="true">
-        <div class="glow"></div>
+        <div class="glow" use:beat={{ name: 'flicker', every: 5000, length: 350, active: flickers }}></div>
         <div class="scanline"></div>
         <div class="dim"></div>
       </div>
@@ -90,7 +97,8 @@
   .dizzy .rig :global(.eyes) { animation: spin 0.8s steps(8, end) infinite; }
 
   /* The antenna: a wiggle now and then at rest, all the time at work, waving when it calls. */
-  .f-awake .rig :global(.antenna), .f-typing .rig :global(.antenna), .f-game .rig :global(.antenna), .f-groove .rig :global(.antenna) { animation: wiggle 4.2s ease-in-out infinite; }
+  /* No weightier than the rule it replaced: a poke's wave still wins over a wiggle under way. */
+  .retro:global(:where([data-beat-wiggle])) .rig :global(.antenna) { animation: wiggle-once 1.26s ease-in-out; }
   .t-working .rig :global(.antenna) { animation: wiggle 1.2s ease-in-out infinite; }
   .f-alarm .rig :global(.antenna), .f-calling .rig :global(.antenna) { animation: wave 0.45s ease-in-out infinite alternate; }
   .f-happy .rig :global(.antenna), .f-cheer .rig :global(.antenna), .boing .rig :global(.antenna) { animation: wave 0.25s ease-in-out infinite alternate; }
@@ -101,8 +109,8 @@
   .scanline { animation: scan 2.8s linear infinite; }
   .t-working .scanline { animation-duration: 1.1s; }
   .f-sleep .scanline { animation-duration: 6s; opacity: 0.2; }
-  .glow { animation: flicker 5s steps(1, end) infinite; }
-  .t-working .glow { animation-duration: 1.7s; }
+  .glow:global([data-beat-flicker]) { animation: flicker-once 0.35s steps(1, end); }
+  .t-working .glow { animation: flicker 1.7s steps(1, end) infinite; }
   .f-alarm .glow, .f-calling .glow { animation: alert 0.7s steps(1, end) infinite; }
   .f-sleep .glow { animation: none; }
 
@@ -126,9 +134,13 @@
   @keyframes rattle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg) translateX(-1.5%); } 50% { transform: rotate(0); } 75% { transform: rotate(8deg) translateX(1.5%); } }
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes wiggle { 0%, 70%, 100% { transform: rotate(0); } 76% { transform: rotate(-12deg); } 84% { transform: rotate(10deg); } 92% { transform: rotate(-5deg); } }
+  /* The moving 30 % of `wiggle`, played once. */
+  @keyframes wiggle-once { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-12deg); } 46.667% { transform: rotate(10deg); } 73.333% { transform: rotate(-5deg); } }
   @keyframes wave { from { transform: rotate(-16deg); } to { transform: rotate(16deg); } }
   @keyframes scan { from { transform: translateY(-100%); } to { transform: translateY(420%); } }
   @keyframes flicker { 0%, 100% { opacity: 0; } 62% { opacity: 0.14; } 64% { opacity: 0; } 67% { opacity: 0.1; } 69% { opacity: 0; } }
+  /* The lit 7 % of `flicker`, played once. */
+  @keyframes flicker-once { 0% { opacity: 0.14; } 28.571% { opacity: 0; } 71.429% { opacity: 0.1; } 100% { opacity: 0; } }
   @keyframes alert { 0%, 100% { opacity: 0; } 50% { opacity: 0.22; } }
 
   @media (prefers-reduced-motion: reduce) {

@@ -9,8 +9,12 @@
   import RobotFace from '../agents/RobotFace.svelte';
   import { faceState, type CharacterProps } from '../../lib/companion/character';
   import CharacterMarks from './CharacterMarks.svelte';
+  import { onscreen } from '../../lib/companion/beats';
+  import { useSteppedLoops } from '../../lib/companion/stepped';
 
   let { robot, face, tone, look, bouncing, dizzy, act, size, label }: CharacterProps = $props();
+  // Its breath is drawn in steps (`stepped.ts`).
+  useSteppedLoops();
 </script>
 
 <div
@@ -21,6 +25,7 @@
   style:height="{size}px"
   role="img"
   aria-label={label}
+  use:onscreen
 >
   <div class="rig">
     <RobotFace {robot} state={faceState(face)} gaze={face === 'sleep' ? null : look} bare />
@@ -43,8 +48,8 @@
   .f-sleep .rig :global(.eyes),
   .f-calm .rig :global(.eyes) { transform: scaleY(0.15); }
   .f-startled .rig :global(.eyes) { transform: scale(1.25); }
-  .f-awake .rig, .f-typing .rig, .f-game .rig { animation: breathe 4s ease-in-out infinite; }
-  .f-sleep .rig, .f-calm .rig { animation: breathe 6s ease-in-out infinite; }
+  .f-awake .rig, .f-typing .rig, .f-game .rig { animation: bots-jelly-breathe-4000 4s steps(1, end) infinite; }
+  .f-sleep .rig, .f-calm .rig { animation: bots-jelly-breathe-6000 6s steps(1, end) infinite; }
   .f-groove .rig { animation: groove 0.5s ease-in-out infinite alternate; }
   .t-working .rig { animation: hum 1.4s ease-in-out infinite; }
   .f-happy .rig { animation: hop 1.2s ease-in-out infinite; }
@@ -56,7 +61,7 @@
   .dizzy .rig { animation: wobble 0.6s ease-in-out infinite; }
   .dizzy .rig :global(.eyes) { animation: spin 0.6s linear infinite; }
 
-  @keyframes breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.02, 1.04); } }
+  /* The breath: `bots-jelly-breathe-*`, written in steps by `stepped.ts`. */
   @keyframes groove { from { transform: rotate(-4deg); } to { transform: rotate(4deg) translateY(-1.5px); } }
   @keyframes hum { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
   @keyframes hop { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }

@@ -15,6 +15,7 @@
 </script>
 
 <script lang="ts">
+  import { beat, onscreen } from '../../lib/companion/beats';
   import { boxPaint } from '../../lib/companion/skin';
   import { robotColor, type Robot } from '../../lib/robots';
   import BoxTop from '../companion/BoxTop.svelte';
@@ -104,6 +105,8 @@
   class="robot"
   data-family={robot.family}
   data-state={state}
+  use:onscreen
+  use:beat={{ name: 'blink', every: 4600, length: 368, active: state === 'idle' }}
   style:--rb={robotColor(robot)}
   style:--eyes-at="{pc(eyesAt[0])} {pc(eyesAt[1])}"
   style:--box-body={paint.body}
@@ -374,14 +377,16 @@
 
   /* A blink at rest, a glance while working, a hop while it waits on the user; moves in hundredths of the square. */
   .eyes { transform-origin: var(--eyes-at); }
-  [data-state='idle'] .eyes { animation: robot-blink 4.6s infinite; }
+  /* At rest a blink about every 4.6 s, started by the page's one timer (`beats.ts`). */
+  .robot:global([data-beat-blink])[data-state='idle'] .eyes { animation: robot-blink 0.368s; }
   [data-state='working'] .eyes { animation: robot-glance 2.4s ease-in-out infinite; }
   [data-state='working'] .led { animation: robot-pulse 1.2s ease-in-out infinite; }
   [data-state='waiting'] .whole { animation: robot-hop 1.8s ease-in-out infinite; }
   /* A jelly at work squishes on the spot. */
   [data-family='jelly'][data-state='working'] .whole { transform-origin: 50% 96.875%; animation: robot-squish 0.9s ease-in-out infinite; }
   @keyframes robot-squish { 0%, 100% { transform: scale(1, 1); } 40% { transform: scale(1.07, 0.93); } 70% { transform: scale(0.96, 1.04); } }
-  @keyframes robot-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.12); } }
+  /* The last 8 % of the 4.6 s loop it was: shut at 3/8 of the way. */
+  @keyframes robot-blink { 0%, 100% { transform: scaleY(1); } 37.5% { transform: scaleY(0.12); } }
   @keyframes robot-glance { 0%, 20% { transform: translateX(0); } 30%, 50% { transform: translateX(-3.4375%); } 60%, 80% { transform: translateX(3.4375%); } 90%, 100% { transform: translateX(0); } }
   @keyframes robot-hop { 0%, 70%, 100% { transform: translateY(0); } 80% { transform: translateY(-4.6875%); } 90% { transform: translateY(0.78125%); } }
   @keyframes robot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
