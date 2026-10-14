@@ -79,12 +79,26 @@
   --color-accent-soft: rgb(139 124 246 / 0.16);
   --color-accent-ink: #fff;
   --color-surface-2: var(--island-card-hover);
+  /* The chips, popovers and effort track of Boite's model picker (`components/model-picker/`), at Boite's dark values. */
+  --color-surface-3: #1f1f26;
+  --color-active: rgb(255 255 255 / 0.09);
+  --control-glaze: linear-gradient(145deg, rgb(255 255 255 / 0.055), rgb(255 255 255 / 0.012) 48%, transparent);
+  --color-control-hover: var(--color-surface-3);
+  --color-reasoning: var(--color-accent);
+  --color-reasoning-on: #fff;
+  --shadow-e1: 0 1px 2px rgb(0 0 0 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.05);
+  --shadow-e2: 0 8px 24px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(255 255 255 / 0.05);
   --color-success: var(--island-done);
   --color-live: var(--island-attention);
   --color-danger: var(--island-danger);
   --font-sans: var(--island-font);
   color: var(--island-text);
   font-family: var(--island-font);
+}
+
+/* Logos drawn for both themes take their dark colours on the island's black, whatever Boite's theme. */
+:root[data-theme] .island-tokens [data-logo] .themed {
+  fill: var(--fill-dark);
 }
 
 /* A card of the island's views and of Settings, and the small heading over it. */

@@ -145,6 +145,20 @@ export function seedAssistantDemo(ctx: FakeContext, methods: FakeMethods): void 
     });
   }
 
+  // Boite's starred models, kept in the core's settings where its picker and Bots's read them.
+  ctx.settings = {
+    ...ctx.settings,
+    modelFavorites: {
+      at: now,
+      items: [
+        { providerId: 'claude', model: { id: 'claude-opus-5-5', name: 'Opus 5.5' }, account: 'Default login' },
+        { providerId: 'claude', model: { id: 'claude-sonnet-5-5', name: 'Sonnet 5.5' }, account: 'Default login' },
+        { providerId: 'opencode', model: { id: 'nvidia/gpt-oss-120b', name: 'GPT-OSS 120B' }, account: 'Default' },
+        { providerId: 'opencode', model: { id: 'anthropic/claude-sonnet-5', name: 'Claude Sonnet 5' }, account: 'Default' }
+      ]
+    }
+  } as typeof ctx.settings;
+
   // Two subscriptions, the first one under a quarter left on its week.
   const quotas = (): AccountQuota[] => [
     {

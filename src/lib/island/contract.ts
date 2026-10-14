@@ -15,6 +15,9 @@
  *   Permissions and questions are the frame's own: they need no call.
  * - `hold(key, on)`: the view wants the island to stay open while the pointer
  *   is away (a field with the keyboard, a menu, a drag over it); `false` lets it go.
+ * - `resized()`: something of the view that takes clicks (`data-hit`) came,
+ *   went or moved outside the island, a popover over its edge: the window
+ *   reads its hit areas again.
  * - `reveal(threadId)`: shows a thread in Boite's window.
  * - `show(tab)`: turns the deck to another of its tabs (`deck-tabs.ts`).
  * - `sessions`: the live sessions the threads tab lists and the peek speaks of, read-only.
@@ -53,6 +56,7 @@ export interface ViewContext {
   readonly island: IslandState;
   attention(key: string, options?: { quiet?: boolean }): () => void;
   hold(key: string, on: boolean): void;
+  resized?(): void;
   reveal(threadId: string): Promise<void>;
   show(tab: IslandTab): void;
   /** The live sessions (`lib/island/sessions.svelte.ts`): one row per thread at work or waiting, its last steps, the lead one. */

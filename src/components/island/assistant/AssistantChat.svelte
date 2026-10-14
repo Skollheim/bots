@@ -29,6 +29,7 @@
   const copy = strings.island.assistant;
 
   let list = $state<HTMLElement | null>(null);
+  let head = $state<HTMLElement | null>(null);
   let field = $state<HTMLTextAreaElement | null>(null);
   /** The reader is at the end: what streams in keeps it there. */
   let pinned = true;
@@ -115,10 +116,10 @@
       <button class="primary small" onclick={() => void openSettings().catch(() => {})}>{copy.makeAgent}</button>
     </div>
   {:else}
-    <header class="head">
+    <header class="head" bind:this={head}>
       <AgentMenu {assistant} bind:open={agentsOpen} />
       {#if agent}
-        <ModelMenu {assistant} bind:open={menuOpen} />
+        <ModelMenu {assistant} bind:open={menuOpen} anchor={() => head} />
         <button
           class="ghost icon reveal"
           aria-label={fill(copy.openAgent, { name })}
