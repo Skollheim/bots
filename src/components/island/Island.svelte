@@ -204,6 +204,7 @@
       return frame.call(key);
     },
     hold: (key, on) => frame.hold(key, on),
+    resized: () => onresize(),
     reveal: (threadId) => showMain(threadId),
     show: (tab) => frame.show(tab),
     sessions,

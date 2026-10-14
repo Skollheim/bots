@@ -4,7 +4,11 @@
  *
  * - `running`: an answer streaming in, a tool at work and Stop showing;
  * - `chips`: two files waiting for the next message;
- * - `menu` / `agents`: the model and effort menu, or the agents menu, open;
+ * - `menu` / `agents`: the model picker open (on the favorites, as Boite
+ *   opens it while some are starred), or the agents menu;
+ * - `models`: the picker on the agent's provider, its models listed;
+ * - `search`: the picker on OpenCode's long list, searched for `nvidia`;
+ * - `effort`: the effort chip's popover open;
  * - `quotas`: the quotas pill's panel open;
  * - `recap`: Home scrolled down to the Today card.
  */
@@ -42,8 +46,12 @@ function streaming(): Message {
 const file = (name: string, mimeType: string): Attachment => ({ kind: 'file', mimeType, data: btoa('demo'), name }) as Attachment;
 
 function click(testId: string): Promise<void> {
-  return until(() => document.querySelector(`[data-testid="${testId}"]`) !== null).then(() => {
-    document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)?.click();
+  return clickSelector(`[data-testid="${testId}"]`);
+}
+
+function clickSelector(selector: string): Promise<void> {
+  return until(() => document.querySelector(selector) !== null).then(() => {
+    document.querySelector<HTMLElement>(selector)?.click();
   });
 }
 
@@ -57,7 +65,18 @@ export async function strikeAssistantPose(companion: Companion, params: URLSearc
     assistant.sending = true;
     assistant.stream = [streaming()];
   }
-  if (scenes.has('menu')) await click('assistant-model');
+  if (scenes.has('menu') || scenes.has('models') || scenes.has('search')) await click('composer-picker');
+  if (scenes.has('models')) await clickSelector('[data-testid="composer-picker-menu"] [data-provider="claude"]');
+  if (scenes.has('search')) {
+    await clickSelector('[data-testid="composer-picker-menu"] [data-provider="opencode"]');
+    await until(() => document.querySelector('[data-testid="picker-search"]') !== null);
+    const search = document.querySelector<HTMLInputElement>('[data-testid="picker-search"]');
+    if (search) {
+      search.value = 'nvidia';
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+  if (scenes.has('effort')) await click('composer-effort');
   if (scenes.has('agents')) await click('assistant-agent');
   if (scenes.has('quotas')) await click('island-quotas');
   if (scenes.has('recap')) {

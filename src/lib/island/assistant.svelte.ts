@@ -16,10 +16,11 @@
  * - The answer as it comes, and the tool at work: the thread the agent's
  *   session works in (`AgentSession.threadId`), through `message.*` and
  *   `thread.updated`. Stop cancels the agent's open work (`agents.work.control`).
- * - Model and effort: the agent's own `selection`, changed for the agent
- *   everywhere with `agents.profile.save`, the call Boite's agent editor makes.
+ * - Model and effort: the agent's own `selection` (its provider, account,
+ *   model and level), changed for the agent everywhere with
+ *   `agents.profile.save`, the call Boite's agent editor makes.
  */
-import type { AgentConversationMessage, AgentProfile, AgentSave, AgentsSnapshot, AgentWork, Attachment, Message, MessagePart, ModelInfo, RpcEvents, ThreadSummary } from '@boite/contracts';
+import type { AgentConversationMessage, AgentProfile, AgentSave, AgentSelection, AgentsSnapshot, AgentWork, Attachment, EffortLevel, Message, MessagePart, ModelInfo, RpcEvents, ThreadSummary } from '@boite/contracts';
 import type { Client } from '@boite/ui/lib/client';
 import { directScope, replyTo, sessionThreadOf, workFor } from '../companion/crew';
 import { visibleReply } from '../companion/directives';
@@ -27,8 +28,6 @@ import { describeTool } from '@boite/ui/lib/tool-summary';
 import { fill, strings } from '../strings';
 import { toolLabel } from './session-text';
 
-export const EFFORTS = ['low', 'medium', 'high'] as const;
-export type Effort = (typeof EFFORTS)[number];
 /** Messages per page of history, each scroll up. */
 export const ASSISTANT_PAGE = 40;
 /** Fewer messages than this in hand: the conversation reads a page back, once per agent. */
@@ -209,17 +208,13 @@ export function applyCompleted(messages: Message[], { messageId, state }: RpcEve
 // Models and efforts
 // ---------------------------------------------------------------------------
 
-/** One of the three efforts, null for the provider's default or another level. */
-export function effortOf(value: string | null | undefined): Effort | null {
-  return EFFORTS.includes(value as Effort) ? (value as Effort) : null;
+/** The reasoning levels the model offers, as Boite's effort chip shows them; none when it names none. */
+export function levelsOf(model: ModelInfo | null | undefined): EffortLevel[] {
+  return model?.effort?.levels ?? [];
 }
 
-/** The efforts the model takes among low, medium and high; all three when it names none. */
-export function effortsOf(model: ModelInfo | undefined): Effort[] {
-  const levels = model?.effort?.levels.map((level) => level.id) ?? [];
-  const offered = EFFORTS.filter((effort) => levels.includes(effort));
-  return offered.length > 0 ? offered : [...EFFORTS];
-}
+/** What a change of model or level touches in the agent's selection. */
+export type SelectionChange = Partial<Pick<AgentSelection, 'providerId' | 'accountId' | 'model' | 'effort'>>;
 
 /** The models worth offering: the current ones, and a legacy one only when it is in use. */
 export function offeredModels(models: ModelInfo[], current: string | null): ModelInfo[] {
@@ -227,7 +222,7 @@ export function offeredModels(models: ModelInfo[], current: string | null): Mode
 }
 
 /** The agent saved with another model or effort, everything else as it stands. */
-export function selectionSave(profile: AgentProfile, change: { model?: string; effort?: Effort }): AgentSave<AgentProfile> {
+export function selectionSave(profile: AgentProfile, change: SelectionChange): AgentSave<AgentProfile> {
   const { name, domain, instructions, avatar, selection, status, tools, accountIntegration } = profile;
   return { id: profile.id, expectedRevision: profile.revision, value: { name, domain, instructions, avatar, status, tools, accountIntegration, selection: { ...selection, ...change } } };
 }
@@ -299,9 +294,12 @@ export class Assistant {
   readonly failure = $derived(this.agentId && !this.running ? failureOf(this.snapshot, this.messages, this.agentId) : null);
   readonly hasOlder = $derived(this.more ?? this.snapshot?.more.message ?? false);
   readonly model = $derived(this.agent?.selection.model ?? null);
-  readonly effort = $derived(effortOf(this.agent?.selection.effort));
+  /** The level the agent runs, null for its model's own default. */
+  readonly effort = $derived(this.agent?.selection.effort ?? null);
   readonly offered = $derived(offeredModels(this.models, this.model));
-  readonly efforts = $derived(effortsOf(this.models.find((model) => model.id === this.model)));
+  readonly current = $derived(this.models.find((model) => model.id === this.model) ?? null);
+  /** The levels of the agent's model, none when it names none: the effort chip is left out then. */
+  readonly efforts = $derived(levelsOf(this.current));
 
   /** What `follow` last saw, so a change of agent, thread or engine is acted on once. */
   private followed: string | null = null;
@@ -477,19 +475,30 @@ export class Assistant {
     }
   }
 
-  async setModel(model: string): Promise<void> {
+  /**
+   * Another model, on the agent's own provider and account or on the ones the
+   * picker names. On another provider or account the level goes back to that
+   * model's default, as in Boite's agent editor; on the same one it stays when
+   * the new model takes it.
+   */
+  async setModel(model: string | null, engine?: { providerId: string; accountId: string }): Promise<void> {
+    const selection = this.agent?.selection;
+    if (!selection) return;
+    if (engine && (engine.providerId !== selection.providerId || engine.accountId !== selection.accountId)) {
+      return this.update({ providerId: engine.providerId, accountId: engine.accountId, model, effort: null });
+    }
     if (model === this.model) return;
-    const efforts = effortsOf(this.models.find((entry) => entry.id === model));
-    const effort = this.effort === null || efforts.includes(this.effort) ? this.effort : efforts.at(-1)!;
-    await this.update(effort === null ? { model } : { model, effort });
+    const levels = levelsOf(this.models.find((entry) => entry.id === model)).map((level) => level.id);
+    const effort = this.effort === null || levels.length === 0 || levels.includes(this.effort) ? this.effort : null;
+    await this.update({ model, effort });
   }
 
-  async setEffort(effort: Effort): Promise<void> {
+  async setEffort(effort: string): Promise<void> {
     if (effort !== this.effort) await this.update({ effort });
   }
 
   /** The agent's own model or effort, changed for it everywhere. */
-  private async update(change: { model?: string; effort?: Effort }): Promise<void> {
+  private async update(change: SelectionChange): Promise<void> {
     const client = this.host.client();
     const agent = this.agent;
     if (!client || !agent) return;

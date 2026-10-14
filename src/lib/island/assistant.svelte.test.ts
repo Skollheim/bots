@@ -10,9 +10,8 @@ import {
   Assistant,
   bubbleOf,
   conversation,
-  effortOf,
-  effortsOf,
   failureOf,
+  levelsOf,
   liveText,
   offeredModels,
   openWork,
@@ -134,12 +133,11 @@ test('the stream builds the answer: started, deltas, a part replaced, completed'
   expect(messages).toHaveLength(1);
 });
 
-test('efforts are low, medium and high, none for the default, narrowed to what the model takes', () => {
-  expect(effortOf(null)).toBeNull();
-  expect(effortOf('xhigh')).toBeNull();
-  expect(effortOf('low')).toBe('low');
-  expect(effortsOf(undefined)).toEqual(['low', 'medium', 'high']);
-  expect(effortsOf({ id: 'm', name: 'M', effort: { levels: [{ id: 'medium', label: 'M' }, { id: 'high', label: 'H' }, { id: 'xhigh', label: 'X' }], default: 'high' } })).toEqual(['medium', 'high']);
+test('the levels are the model’s own, none when it names none', () => {
+  expect(levelsOf(undefined)).toEqual([]);
+  expect(levelsOf({ id: 'm', name: 'M' })).toEqual([]);
+  const levels = [{ id: 'medium', label: 'M' }, { id: 'high', label: 'H' }, { id: 'xhigh', label: 'X' }];
+  expect(levelsOf({ id: 'm', name: 'M', effort: { levels, default: 'high' } })).toEqual(levels);
   const models = [{ id: 'default', name: 'Default' }, { id: 'new', name: 'New' }, { id: 'old', name: 'Old', legacy: true }];
   expect(offeredModels(models, 'new').map((model) => model.id)).toEqual(['new']);
   expect(offeredModels(models, 'old').map((model) => model.id)).toEqual(['new', 'old']);
@@ -243,6 +241,20 @@ test('the model and the effort change on the agent itself', async () => {
   await vi.waitFor(() => expect(assistant.effort).toBe('low'));
   const agents = await client.call('agents.snapshot', {});
   expect(agents.profiles.find((agent) => agent.id === ASSISTANT_DEMO_AGENT)?.selection).toMatchObject({ model: other.id, effort: 'low' });
+  close();
+  client.close();
+});
+
+test('a model of another provider moves the agent there, on that model’s own level', async () => {
+  const client = new FakeClient({ delayMs: 0, assistantDemo: true });
+  await client.connect();
+  const { assistant, load, close } = harness(client);
+  assistant.open(ASSISTANT_DEMO_AGENT);
+  await load();
+  expect(assistant.effort).toBe('high');
+  await assistant.setModel('nvidia/gpt-oss-120b', { providerId: 'opencode', accountId: 'a-opencode' });
+  await vi.waitFor(() => expect(assistant.agent?.selection).toMatchObject({ providerId: 'opencode', accountId: 'a-opencode', model: 'nvidia/gpt-oss-120b', effort: null }));
+  expect(assistant.problem).toBe('');
   close();
   client.close();
 });
