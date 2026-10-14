@@ -57,6 +57,37 @@
   --deck-accent-soft: rgb(139 124 246 / 0.18);
   --deck-accent-ink: #d9d3ff;
   --deck-numeral-font: 'Segoe UI Variable Display', var(--island-font);
+  /* The type scale, five steps: small, body, a title (a date written out),
+     display (the numbers a tab is about: light, tight, tabular) and hero
+     (the today tab's clock). A unit beside its number is set at
+     `--deck-unit` of it, never under the small step. */
+  --deck-small: 12px;
+  --deck-body: 13.5px;
+  --deck-title: 20px;
+  --deck-display: 40px;
+  --deck-hero: 68px;
+  --deck-display-weight: 320;
+  --deck-display-tracking: -0.025em;
+  --deck-unit: max(var(--deck-small), 0.45em);
+}
+
+/*
+ * A list that scrolls inside a deck tile: no bar; with `island-fade`, its
+ * edges fade into the tile rather than the island's black.
+ */
+.deck-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.deck-scroll::-webkit-scrollbar {
+  display: none;
+}
+.deck-scroll.island-fade::before {
+  background: linear-gradient(var(--deck-tile), transparent);
+}
+.deck-scroll.island-fade::after {
+  background: linear-gradient(transparent, var(--deck-tile));
 }
 
 /*
