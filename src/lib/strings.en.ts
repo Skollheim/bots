@@ -59,6 +59,8 @@ export const strings = {
     waitingOne: 'An agent needs you',
     waitingMany: '{count} requests wait for you',
     finished: 'Done',
+    /** The collapsed pill's one line (`pill-view.ts`): its `{name}` or `{count}` is set in bold. */
+    pill: { waitsOne: '{name} is waiting for you', waitsMany: '{count} are waiting for you', someone: 'An agent', workingOne: '{name} is working', workingMany: '{count} working' },
     /** A thread that just ended, told in the pill: "Port the scheduler · done · 3 files". */
     finish: {
       done: 'done',
@@ -458,6 +460,7 @@ export const strings = {
         slow: 'Why is it slow?',
         slowIntro: 'My computer feels slow. Here is what it shows right now. What is slowing it down, and what can I do about it?',
         unavailable: 'The readings are not available.',
+        lastMinute: 'Last minute: {low} to {high} %',
         failed: 'That did not work.',
         point: '.'
       }

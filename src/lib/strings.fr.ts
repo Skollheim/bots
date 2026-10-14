@@ -49,6 +49,7 @@ export const fr: Messages = {
     waitingOne: 'Un agent a besoin de vous',
     waitingMany: '{count} demandes vous attendent',
     finished: 'Terminé',
+    pill: { waitsOne: '{name} attend votre réponse', waitsMany: '{count} vous attendent', someone: 'Un agent', workingOne: '{name} au travail', workingMany: '{count} au travail' },
     finish: {
       done: 'terminé',
       failed: 'en échec',
@@ -433,6 +434,7 @@ export const fr: Messages = {
         slow: 'Pourquoi c’est lent ?',
         slowIntro: 'Mon ordinateur rame. Voici ce qu’il affiche en ce moment. Qu’est-ce qui le ralentit, et que puis-je faire ?',
         unavailable: 'Les mesures ne sont pas disponibles.',
+        lastMinute: 'Dernière minute : de {low} à {high} %',
         failed: 'Ça n’a pas marché.',
         point: ','
       }

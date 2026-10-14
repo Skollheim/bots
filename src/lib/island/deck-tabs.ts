@@ -8,10 +8,28 @@
  * is a tablist whose focus moves with the arrows, Home and End (`tabKey`).
  * The user may leave tabs out of the bar and reorder them (`bar.ts`): both
  * then follow the bar's order, `order`, which is the deck's by default.
+ *
+ * The bar shows each tab as its icon (`DECK_TAB_ICONS`); only the tab shown
+ * adds its name, and the others say theirs on hover and focus.
  */
+import { Calendar1, ChartColumn, Clipboard, Cpu, LayoutGrid, MessageCircle, Music, Spool, Wallpaper } from '@lucide/svelte';
+
 export const DECK_TABS = ['threads', 'today', 'chat', 'stats', 'music', 'apps', 'clipboard', 'wallpaper', 'system'] as const;
 
 export type DeckTab = (typeof DECK_TABS)[number];
+
+/** Each tab's icon in the bar: a spool for the threads, the calendar's first day for today, a chip for the computer's own numbers. */
+export const DECK_TAB_ICONS: Record<DeckTab, typeof Spool> = {
+  threads: Spool,
+  today: Calendar1,
+  chat: MessageCircle,
+  stats: ChartColumn,
+  music: Music,
+  apps: LayoutGrid,
+  clipboard: Clipboard,
+  wallpaper: Wallpaper,
+  system: Cpu
+};
 
 export const isDeckTab = (value: unknown): value is DeckTab => (DECK_TABS as readonly unknown[]).includes(value);
 

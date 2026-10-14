@@ -19,6 +19,12 @@ export function formatBytes(bytes: number, decimal = '.'): string {
   return `${shown.replace('.', decimal)} ${UNITS[unit]}`;
 }
 
+/** `formatBytes` in two parts, the number and its unit, for a number set larger than its unit. */
+export function bytesParts(bytes: number, decimal = '.'): { value: string; unit: string } {
+  const [value = '', unit = ''] = formatBytes(bytes, decimal).split(' ');
+  return { value, unit };
+}
+
 export interface Uptime { days: number; hours: number; minutes: number }
 
 export function uptimeOf(seconds: number): Uptime {
@@ -37,6 +43,12 @@ export function topProcesses(processes: readonly Proc[], sort: ProcessSort, coun
 
 /** A process's name without `.exe`. */
 export const processLabel = (name: string): string => name.replace(/\.exe$/i, '');
+
+/** A process's share of the computer by `sort`, from 0 to 1: its load, or its memory of all the memory. */
+export function processShare(proc: Pick<Proc, 'cpu' | 'memory'>, sort: ProcessSort, memoryTotal: number): number {
+  const share = sort === 'cpu' ? proc.cpu / 100 : memoryTotal > 0 ? proc.memory / memoryTotal : 0;
+  return Math.min(1, Math.max(0, share));
+}
 
 /**
  * The question "Why is it slow?" sends: the readings as plain lines, so the

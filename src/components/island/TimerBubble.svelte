@@ -165,9 +165,10 @@
     stroke: var(--tone);
     stroke-linecap: round;
   }
+  /* The pill's type: the drop reads as its sibling. */
   .time {
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 650;
     font-variant-numeric: tabular-nums;
   }
   .paused .time,

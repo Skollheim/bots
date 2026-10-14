@@ -6,6 +6,12 @@
   on the right: the quotas, the pin, Settings (the panel under the bar,
   `settings/SettingsPanel.svelte`) and the sound.
 
+  Each tab is its icon (`DECK_TAB_ICONS`); the tab shown also unrolls its
+  name from it, on a soft pill, as an app the user named shows its name and
+  a link its host (`nameShown`). The others name themselves in a tooltip
+  under the bar, on hover or focus (`barTip`), which glides from one thing
+  to the next while the pointer moves along the bar.
+
   In edit mode (`frame.editing`, asked from Settings or by a right-click on
   the bar), each thing wiggles a little: a drag moves it along its row
   (`RowSorter`), a click renames it in place, × takes it out (the last tab
@@ -19,10 +25,10 @@
   import { Check, Gauge, Globe, Pin, PinOff, Settings, Volume2, VolumeX, X } from '@lucide/svelte';
   import type { Companion, Member } from '../../../lib/companion/companion.svelte';
   import { writeCompanionPrefs } from '../../../lib/companion/prefs';
-  import { barTabs, canRemove, LABEL_MAX, linkHost, moveItem, moveTool, removeItem, removeTool, renameItem, shownTab, writeBarEdit, type BarItem, type BarTool } from '../../../lib/island/bar';
+  import { barTabs, barTip, canRemove, LABEL_MAX, linkHost, moveItem, moveTool, nameShown, removeItem, removeTool, renameItem, shownTab, tipLeft, writeBarEdit, type BarItem, type BarTool } from '../../../lib/island/bar';
   import { appIcons as icons, type Bar } from '../../../lib/island/bar.svelte';
   import { RowSorter } from '../../../lib/island/bar-sort.svelte';
-  import { tabKey, type DeckTab } from '../../../lib/island/deck-tabs';
+  import { DECK_TAB_ICONS, tabKey, type DeckTab } from '../../../lib/island/deck-tabs';
   import { gazeOf, moodOf } from '../../../lib/island/face';
   import type { IslandFrame } from '../../../lib/island/frame.svelte';
   import { settingsPanel } from '../../../lib/island/settings-panel.svelte';
@@ -197,6 +203,77 @@
   }
 
   const waitingSaid = $derived(fill(copy.sessions.waitingCount, { count: String(companion.blocking) }));
+
+  /** How long the pointer rests on a thing before its tooltip shows, and how long it lingers once left. */
+  const TIP_DELAY_MS = 320;
+  const TIP_LINGER_MS = 90;
+  /** A tooltip just closed: the next one shows at once, as the pointer runs along the bar. */
+  const TIP_WARM_MS = 500;
+
+  let barRow = $state<HTMLElement | null>(null);
+  let tipBox = $state<HTMLElement | null>(null);
+  /** The thing whose tooltip shows, by key, and where the tooltip sits. */
+  let tip = $state<{ key: string; left: number } | null>(null);
+  /** The tooltip moves from a thing to its neighbour: it glides rather than appearing there. */
+  let gliding = $state(false);
+  let tipTimer: ReturnType<typeof setTimeout> | undefined;
+  let warmUntil = 0;
+  $effect(() => () => clearTimeout(tipTimer));
+
+  const tipItem = $derived(tip ? layout.items.find((item) => item.key === tip!.key) : undefined);
+  const tipSays = $derived(tipItem && renaming !== tipItem.key && items.carried === null ? barTip(tipItem, tab, editing) : null);
+
+  /** The tooltip goes under `node`, kept inside the bar; the deck's zoom while it blooms in left out. */
+  async function placeTip(node: HTMLElement, key: string) {
+    if (!barRow || !node.isConnected) return;
+    const outer = barRow.getBoundingClientRect();
+    const box = node.getBoundingClientRect();
+    const zoom = barRow.offsetWidth > 0 ? outer.width / barRow.offsetWidth : 1;
+    const centre = (box.left + box.width / 2 - outer.left) / zoom;
+    gliding = tip !== null && tip.key !== key;
+    tip = { key, left: tip?.left ?? 0 };
+    // Its new words drawn, its width is known.
+    await tick();
+    if (tip?.key === key && barRow) tip.left = tipLeft(centre, tipBox?.offsetWidth ?? 0, barRow.offsetWidth);
+  }
+
+  function openTip(node: HTMLElement, key: string, now: boolean) {
+    clearTimeout(tipTimer);
+    if (now || tip !== null || performance.now() < warmUntil) void placeTip(node, key);
+    else tipTimer = setTimeout(() => void placeTip(node, key), TIP_DELAY_MS);
+  }
+
+  function closeTip(key: string, now = false) {
+    clearTimeout(tipTimer);
+    if (tip?.key !== key) return;
+    const close = () => {
+      tip = null;
+      warmUntil = performance.now() + TIP_WARM_MS;
+    };
+    if (now) close();
+    else tipTimer = setTimeout(close, TIP_LINGER_MS);
+  }
+
+  /** A thing of the bar names itself in the tooltip: on hover after a moment, on keyboard focus at once; a press puts it away. */
+  const tipped = (key: string) => (node: HTMLElement) => {
+    const hover = () => openTip(node, key, false);
+    const focus = () => node.matches(':focus-visible') && openTip(node, key, true);
+    const leave = () => closeTip(key);
+    const press = () => closeTip(key, true);
+    node.addEventListener('pointerenter', hover);
+    node.addEventListener('focus', focus);
+    node.addEventListener('pointerleave', leave);
+    node.addEventListener('blur', leave);
+    node.addEventListener('pointerdown', press);
+    return () => {
+      node.removeEventListener('pointerenter', hover);
+      node.removeEventListener('focus', focus);
+      node.removeEventListener('pointerleave', leave);
+      node.removeEventListener('blur', leave);
+      node.removeEventListener('pointerdown', press);
+      closeTip(key, true);
+    };
+  };
 </script>
 
 {#snippet face(item: BarItem)}
@@ -210,7 +287,13 @@
     <Globe size={13} strokeWidth={2} />
     <span class="label">{nameOf(item)}</span>
   {:else}
-    <span class="label">{nameOf(item)}</span>
+    {@const Icon = DECK_TAB_ICONS[item.tab]}
+    <span class="icon">
+      <Icon size={16} strokeWidth={1.9} aria-hidden="true" />
+      {#if item.tab === 'music' && companion.media?.playing && !editing}<span class="playing" aria-hidden="true"></span>{/if}
+    </span>
+    <!-- The name unrolls from the icon: its track opens to the name's width, the name slides in on a spring. -->
+    <span class="name" class:shown={nameShown(item, tab)} aria-hidden="true"><span class="clip"><span class="label">{nameOf(item)}</span></span></span>
   {/if}
 {/snippet}
 
@@ -219,7 +302,7 @@
 {/snippet}
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="tabbar" class:editing oncontextmenu={startEditing} data-testid="deck-bar">
+<div bind:this={barRow} class="tabbar" class:editing oncontextmenu={startEditing} data-testid="deck-bar">
   <button
     bind:this={robotButton}
     class="character"
@@ -259,6 +342,7 @@
     role={editing ? 'list' : 'tablist'}
     aria-label={editing ? copy.deck.bar.editing : copy.deck.tablist}
     onwheel={wheel}
+    onscroll={() => tip && closeTip(tip.key, true)}
     data-testid="deck-bar-items"
   >
     {#each layout.items as item, index (item.key)}
@@ -294,8 +378,8 @@
           <button
             class="thing"
             data-kind={item.kind}
-            title={copy.deck.bar.moveTitle}
             aria-label={fill(copy.deck.bar.rename, { name: nameOf(item) })}
+            {@attach tipped(item.key)}
             onpointerdown={(event) => items.press(event, index, itemsRow)}
             onpointermove={(event) => items.move(event)}
             onpointerup={(event) => (dragged = items.release(event))}
@@ -315,16 +399,25 @@
             role="tab"
             aria-selected={tab === each}
             aria-controls="deck-panel"
+            aria-label={each === 'music' && companion.media?.playing ? `${nameOf(item)}, ${copy.deck.playing}` : nameOf(item)}
             tabindex={tab === each ? 0 : -1}
             data-testid="deck-tab-button-{each}"
             onclick={() => onpick(each)}
             onkeydown={(event) => tabKeys(event, each)}
+            {@attach tipped(item.key)}
           >
             {@render face(item)}
-            {#if each === 'music' && companion.media?.playing}<span class="playing" title={copy.deck.playing}><span class="sr">{copy.deck.playing}</span></span>{/if}
           </button>
         {:else}
-          <button class="thing shortcut" data-kind={item.kind} title={item.kind === 'link' ? item.url : fill(copy.deck.bar.open, { name: nameOf(item) })} aria-label={fill(copy.deck.bar.open, { name: nameOf(item) })} onclick={() => void launch(item)} data-testid="bar-shortcut">
+          <button
+            class="thing shortcut"
+            data-kind={item.kind}
+            title={item.kind === 'link' ? item.url : undefined}
+            aria-label={fill(copy.deck.bar.open, { name: nameOf(item) })}
+            onclick={() => void launch(item)}
+            data-testid="bar-shortcut"
+            {@attach tipped(item.key)}
+          >
             {@render face(item)}
           </button>
         {/if}
@@ -395,6 +488,14 @@
       </button>
     {/if}
   </div>
+
+  <!-- The things' names as the eye reads them; their buttons carry the same names for assistive tech. -->
+  <div bind:this={tipBox} class="tip" class:on={tipSays !== null} class:gliding style:translate="{tip?.left ?? 0}px 0" aria-hidden="true" data-testid="bar-tip">
+    {#if tipItem && tipSays}
+      <span class="tip-name">{nameOf(tipItem)}</span>
+      {#if tipSays === 'edit'}<span class="tip-more">{copy.deck.bar.moveTitle}</span>{/if}
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -403,6 +504,7 @@
     box-shadow: none;
   }
   .tabbar {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -452,7 +554,7 @@
     display: flex;
     flex: 1;
     justify-content: safe center;
-    gap: 2px;
+    gap: 4px;
     min-width: 0;
     padding: 8px 6px;
     overflow-x: auto;
@@ -544,15 +646,114 @@
     font-size: 11px;
     font-weight: 700;
   }
-  /* Music playing: a still dot by the tab's name. */
+  /* Music playing: a still dot on the note's corner. */
   .playing {
     position: absolute;
-    top: 6px;
-    right: 3px;
-    width: 4px;
-    height: 4px;
+    top: -3px;
+    right: -4px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     background: var(--deck-accent);
+  }
+
+  /*
+   * A tab: its icon, then its name, folded away unless the deck shows it.
+   * The name's track opens from nothing to the name's width (a one-off
+   * width change, the pill growing with it) while the name slides in on a
+   * spring that overshoots a little; the room around the icon stays the same.
+   */
+  .thing.tab {
+    --bar-spring: linear(0, 0.099, 0.313, 0.552, 0.762, 0.918, 1.017, 1.068, 1.083, 1.077, 1.059, 1.039, 1.022, 1.008, 0.999, 0.995, 0.993, 0.993, 0.995, 0.997, 1);
+    gap: 0;
+    padding: 0 8px;
+  }
+  .icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+  }
+  .name {
+    display: grid;
+    grid-template-columns: 0fr;
+    transition: grid-template-columns 260ms cubic-bezier(0.2, 0.85, 0.25, 1);
+  }
+  .name.shown {
+    grid-template-columns: 1fr;
+  }
+  .clip {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .name .label {
+    display: block;
+    padding: 0 3px 0 6px;
+    opacity: 0;
+    translate: -8px 0;
+    transition:
+      opacity 120ms ease,
+      translate 120ms ease;
+  }
+  .name.shown .label {
+    opacity: 1;
+    translate: 0 0;
+    transition:
+      opacity 180ms ease 40ms,
+      translate 380ms var(--bar-spring);
+  }
+  .editing .thing.tab {
+    padding: 0 7px;
+  }
+
+  /*
+   * The tooltip under the bar: a small black pill like the island, its
+   * words on two lines in edit mode. It shows at once and leaves at once;
+   * from one thing to the next it glides.
+   */
+  .tip {
+    position: absolute;
+    top: 46px;
+    left: 0;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    max-width: 260px;
+    padding: 5px 10px 6px;
+    border: 1px solid var(--island-line-strong);
+    border-radius: 10px;
+    background: var(--island-bg);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--island-bg) 70%, transparent);
+    color: var(--island-text);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.3;
+    text-align: center;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  .tip.on {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 120ms ease,
+      transform 160ms ease;
+  }
+  .tip.on.gliding {
+    transition:
+      opacity 120ms ease,
+      transform 160ms ease,
+      translate 240ms cubic-bezier(0.2, 0.85, 0.25, 1);
+  }
+  .tip-more {
+    color: var(--island-muted);
+    font-size: 11px;
+    font-weight: 400;
   }
 
   /* Edit mode: every thing outlined, a little restless, ready to be carried. */
@@ -697,8 +898,19 @@
     .tool,
     .slot,
     .remove,
-    .done {
+    .done,
+    .name,
+    .name .label,
+    .name.shown .label,
+    .tip.on,
+    .tip.on.gliding {
       transition: none;
+    }
+    .name .label {
+      translate: 0 0;
+    }
+    .tip {
+      transform: none;
     }
     .editing .thing {
       animation: none;

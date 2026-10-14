@@ -16,6 +16,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { cubicOut } from 'svelte/easing';
+  import { fade } from 'svelte/transition';
   import { FilePlus } from '@lucide/svelte';
   import type { Companion, Member } from '../../../lib/companion/companion.svelte';
   import { barTabs } from '../../../lib/island/bar';
@@ -100,7 +101,7 @@
       {/each}
     {/if}
     {#if companion.attached.over}
-      <div class="dropping" aria-hidden="true">
+      <div class="dropping" aria-hidden="true" transition:fade={{ duration: reduced ? 0 : 140 }} data-testid="deck-dropping">
         <FilePlus size={26} strokeWidth={1.6} />
         <p>{copy.drop.title}</p>
         <p class="hint">{copy.deck.drop}</p>

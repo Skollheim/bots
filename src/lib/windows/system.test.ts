@@ -1,11 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import type { Proc, Sample } from './native';
-import { formatBytes, percent, processLabel, slowQuestion, topProcesses, uptimeOf } from './system';
+import { bytesParts, formatBytes, percent, processLabel, processShare, slowQuestion, topProcesses, uptimeOf } from './system';
 
 const GB = 1024 ** 3;
 const proc = (name: string, cpu: number, memory: number, pid = name.length): Proc => ({ pid, name, cpu, memory, started: 1, protected: false });
 
 describe('system readings', () => {
+  it('splits a size into its number and its unit', () => {
+    expect(bytesParts(19.6 * GB, ',')).toEqual({ value: '20', unit: 'GB' });
+    expect(bytesParts(1.1 * 1024 * GB, ',')).toEqual({ value: '1,1', unit: 'TB' });
+    expect(bytesParts(0)).toEqual({ value: '0', unit: 'B' });
+  });
+
+  it("reads a process's share of the computer", () => {
+    expect(processShare(proc('Unity.exe', 24.2, 4 * GB), 'cpu', 32 * GB)).toBeCloseTo(0.242);
+    expect(processShare(proc('Unity.exe', 24.2, 4 * GB), 'memory', 32 * GB)).toBe(0.125);
+    expect(processShare(proc('busy.exe', 140, 0), 'cpu', 32 * GB)).toBe(1);
+    expect(processShare(proc('odd.exe', -3, 0), 'cpu', 32 * GB)).toBe(0);
+    expect(processShare(proc('none.exe', 0, GB), 'memory', 0)).toBe(0);
+  });
+
   it('formats sizes', () => {
     expect(formatBytes(0)).toBe('0 B');
     expect(formatBytes(512 * 1024 ** 2)).toBe('512 MB');
