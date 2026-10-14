@@ -27,7 +27,9 @@
   import type { Component } from 'svelte';
   import { characterOf, type Act, type CharacterProps, type Face, type Tone } from '../../lib/companion/character';
   import type { Mood } from '../../lib/companion/mood';
+  import { beat, onscreen } from '../../lib/companion/beats';
   import { boxPaint, isBox } from '../../lib/companion/skin';
+  import { useSteppedLoops } from '../../lib/companion/stepped';
   import type { Robot, RobotFamily } from '../../lib/robots';
   import { strings } from '../../lib/strings';
   import BoxTop from './BoxTop.svelte';
@@ -141,6 +143,9 @@
   const look = $derived(face === 'typing' ? { x: 0, y: 1 } : face === 'sleep' || face === 'yawn' || !gaze ? { x: 0, y: 0 } : { x: clamp(gaze.x), y: clamp(gaze.y) });
   const label = $derived(alarm ? strings.companion.moods.calling : strings.companion.moods[mood]);
   const family = $derived(characterOf(skin));
+  // Its breath is drawn in steps (`stepped.ts`), its blink played only while it shows (`beats.ts`).
+  useSteppedLoops();
+  const blinks = $derived(!['sleep', 'yawn', 'happy', 'rest', 'cheer', 'startled'].includes(face));
 </script>
 
 {#if skin && family !== 'box'}
@@ -168,12 +173,13 @@
   style:height="{size}px"
   role="img"
   aria-label={label}
+  use:onscreen
 >
   <div class="layer rig">
     <svg class="layer" viewBox="0 0 100 100" aria-hidden="true"><rect class="body" x="15" y="38" width="70" height="50" rx="9" /></svg>
 
     <!-- The gaze, a glance and a blink each move the eyes' own layer. -->
-    <div class="layer eyes"><div class="layer scan"><div class="layer blink">
+    <div class="layer eyes"><div class="layer scan"><div class="layer blink" use:beat={{ name: 'blink', every: 5000, length: 350, active: blinks }}>
       <svg class="layer" viewBox="0 0 100 100" aria-hidden="true">
         {#each [39, 61] as cx, index (cx)}
           <g class="eye" class:right={index === 1}>
@@ -375,7 +381,8 @@
   .with-cup .rig { transform-origin: 52.25% 88%; }
   .with-headset .rig { transform-origin: 50% 88.5%; }
   .lid { transform-origin: 10% 39%; }
-  .blink { transform-origin: 50% var(--blink-y); }
+  /* Kept on its own layer between blinks: made at each blink, it would be painted again each time. */
+  .blink { transform-origin: 50% var(--blink-y); will-change: transform; }
   /* The eyes morph from face to face: every part slides, nothing swaps. */
   .eyes { transform: translate(calc(var(--gx) * 4%), calc(var(--gy) * 2.5%)); transition: transform .35s var(--ease-out-quint); }
   .pupil, .upper { transform-box: fill-box; transform-origin: 50% 50%; }
@@ -390,8 +397,8 @@
   .lower { translate: 0 calc(var(--low) * -1); transition: translate var(--dur-2) var(--ease-out-quint); }
 
   /* Body */
-  .f-awake .rig, .f-typing .rig { animation: breathe 4s ease-in-out infinite; }
-  .f-sleep .rig, .f-calm .rig { animation: breathe 6s ease-in-out infinite; }
+  .f-awake .rig, .f-typing .rig { animation: bots-box-breathe-4000 4s steps(1, end) infinite; }
+  .f-sleep .rig, .f-calm .rig { animation: bots-box-breathe-6000 6s steps(1, end) infinite; }
   .f-rest .rig { animation: sip 5s ease-in-out infinite; }
   .f-groove .rig { animation: groove .5s ease-in-out infinite alternate; }
   .f-typing .rig { animation: nod 1.6s ease-in-out infinite; }
@@ -400,7 +407,7 @@
   .f-worried .rig { animation: shiver .3s linear infinite; }
   .f-alarm .rig { animation: ring .9s ease-in-out infinite; }
   .f-cheer .rig { animation: jump .6s ease-out infinite; }
-  .f-game .rig { animation: breathe 3s ease-in-out infinite; }
+  .f-game .rig { animation: bots-box-breathe-3000 3s steps(1, end) infinite; }
   .a-stretch .rig { animation: stretch 1.4s ease-in-out; }
   .boing .rig { animation: boing .65s ease-out; }
   .dizzy .rig { animation: wobble .6s ease-in-out infinite; }
@@ -416,7 +423,8 @@
   .boing .lid { animation: pop .65s ease-out; }
 
   /* Eyes and light */
-  .blink { animation: blink 5s ease-in-out infinite; }
+  /* A blink about every 5 s, started by the page's one timer (`beats.ts`). */
+  .blink:global([data-beat-blink]) { animation: blink .35s ease-in-out; }
   .a-blink .blink { animation: twice .7s ease-in-out; }
   .f-sleep .blink, .f-yawn .blink, .f-happy .blink, .f-rest .blink, .f-cheer .blink, .f-startled .blink { animation: none; }
   .a-look .scan { animation: glance 2.4s ease-in-out; }
@@ -448,7 +456,7 @@
   /* Leans towards its tea now and then, and back. */
   @keyframes sip { 0%, 30%, 70%, 100% { transform: rotate(0) scale(1, 1); } 15% { transform: rotate(0) scale(1.01, 1.025); } 42%, 58% { transform: rotate(4deg) translateX(1%); } }
   @keyframes steam { 0% { transform: translateY(2%); opacity: 0; } 35% { opacity: .7; } 100% { transform: translateY(-5%); opacity: 0; } }
-  @keyframes breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, 1.03); } }
+  /* The breath: `bots-box-breathe-*`, written in steps by `stepped.ts`. */
   @keyframes groove { from { transform: rotate(-4deg) translateY(0); } to { transform: rotate(4deg) translateY(-1.5%); } }
   @keyframes nod { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1.2%); } }
   @keyframes hum { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5%); } }
@@ -467,7 +475,8 @@
   @keyframes yawn-lid { 0%, 100% { transform: rotate(0); } 30%, 70% { transform: rotate(-14deg); } }
   @keyframes peek { 0%, 100% { transform: rotate(0); } 25%, 60% { transform: rotate(-9deg); } }
   @keyframes pop { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-26deg); } 60% { transform: rotate(-8deg); } }
-  @keyframes blink { 0%, 93%, 100% { transform: scale(1, 1); } 96% { transform: scale(1, .08); } }
+  /* The last 7 % of the 5 s loop it was: shut at 3/7 of the way, open again by the end. */
+  @keyframes blink { 0%, 100% { transform: scale(1, 1); } 42.857% { transform: scale(1, .08); } }
   @keyframes twice { 0%, 40%, 100% { transform: scale(1, 1); } 20%, 60% { transform: scale(1, .08); } 80% { transform: scale(1, 1); } }
   @keyframes glance { 0%, 100% { transform: translate(0, 0); } 20%, 40% { transform: translate(-4%, 0); } 60%, 80% { transform: translate(4%, -1%); } }
   @keyframes scan { from { transform: translateX(-3%); } to { transform: translateX(3%); } }

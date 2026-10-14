@@ -199,3 +199,12 @@
 :root[data-dormant] *::after {
   animation-play-state: paused !important;
 }
+
+/*
+ * A robot out of view (`data-offscreen`, `onscreen` in `lib/companion/beats.ts`):
+ * scrolled away in a list or clipped, its endless animations wait.
+ */
+[data-offscreen],
+[data-offscreen] * {
+  animation-play-state: paused !important;
+}
