@@ -46,6 +46,7 @@ pub fn run() {
             companion_window::companion_focus,
             companion_window::companion_keep,
             island::island_place,
+            island::island_span,
             tray::bots_settings,
             tray::bots_tray_labels,
             computer::computer_system,

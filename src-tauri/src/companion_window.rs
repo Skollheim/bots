@@ -63,6 +63,8 @@ struct Shared {
     hidden: Arc<AtomicBool>,
     /// The screen the window covers while the user picks a part of it.
     covering: Arc<Mutex<Option<String>>>,
+    /// The island is being dragged to another place: the window spans its screen.
+    spanning: Arc<AtomicBool>,
 }
 
 #[derive(Default)]
@@ -81,14 +83,14 @@ pub struct CompanionState {
 pub enum Anchor { Left, #[default] Center, Right }
 
 /// The edge of the window the character sits on; the panel opens away from it.
-#[derive(Serialize, Clone, Copy, Debug, PartialEq, Default)]
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Edge { #[default] Top, Bottom }
 
 /// How the page lays itself out in the window, so the character lands where
-/// it was placed.
-#[derive(Serialize, Clone, Copy, Debug, PartialEq, Default)]
-pub struct Layout { align: Anchor, edge: Edge }
+/// it was placed. The island's place is one too: its side and its edge.
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Default)]
+pub struct Layout { pub(crate) align: Anchor, pub(crate) edge: Edge }
 
 /// Where the user dropped the character: its centre, in fractions of the
 /// screen's work area.
@@ -96,7 +98,7 @@ pub struct Layout { align: Anchor, edge: Edge }
 pub struct Spot { x: f64, y: f64 }
 
 /// The screen and the spot a drag ended on, for the page to keep, and
-/// whether it ended against the top edge, back into the island (`island::docks`).
+/// whether it ended near the island's edge, back into it (`island::docks`).
 #[derive(Serialize, Debug, PartialEq)]
 pub struct Dropped { monitor: String, spot: Spot, docked: bool }
 
@@ -122,7 +124,7 @@ fn inside(rects: &[HitRect], x: f64, y: f64) -> bool {
 
 /// The window's top left on a work area, physical pixels: against the top
 /// edge, centered or `margin` from a side.
-fn origin(area: Area, width: u32, anchor: Anchor, margin: i32) -> (i32, i32) {
+pub(crate) fn origin(area: Area, width: u32, anchor: Anchor, margin: i32) -> (i32, i32) {
     let (left, top, area_width, _) = area;
     let free = area_width as i32 - width as i32;
     let x = match anchor {
@@ -362,8 +364,8 @@ impl Senses {
     /// user is typing: input came while the pointer stayed still and no button
     /// is down. Which key never reaches the shell.
     fn pointer<R: Runtime>(&mut self, window: &WebviewWindow<R>, shared: &Shared, point: (f64, f64), tick: u32) {
-        // A covering window takes every click: the user is picking a part of the screen.
-        let whole = shared.covering.lock().unwrap_or_else(PoisonError::into_inner).is_some();
+        // A covering window takes every click: the user is picking a part of the screen, or carrying the island.
+        let whole = shared.spanning.load(Ordering::Acquire) || shared.covering.lock().unwrap_or_else(PoisonError::into_inner).is_some();
         let over = whole || inside(&shared.rects.lock().unwrap_or_else(PoisonError::into_inner), point.0, point.1);
         let down = crate::platform::mouse_down();
         let (press_away, outside) = outside_click(self.press_away, down, over);
@@ -449,6 +451,7 @@ pub fn open<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let state = app.state::<CompanionState>();
     state.shared.rects.lock().unwrap_or_else(PoisonError::into_inner).clear();
     *state.shared.covering.lock().unwrap_or_else(PoisonError::into_inner) = None;
+    state.shared.spanning.store(false, Ordering::Release);
     state.shared.hidden.store(false, Ordering::Release);
     let mine = state.shared.generation.fetch_add(1, Ordering::AcqRel) + 1;
     let window = build(app)?;
@@ -462,6 +465,12 @@ pub fn open<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     window.set_ignore_cursor_events(true)?;
     watch(app.clone(), state.shared.clone(), mine);
     Ok(())
+}
+
+/// While the island is carried to another place, the window takes every
+/// click, wherever the page's areas are.
+pub(crate) fn take_every_click<R: Runtime>(app: &AppHandle<R>, every: bool) {
+    app.state::<CompanionState>().shared.spanning.store(every, Ordering::Release);
 }
 
 fn window_of(app: &AppHandle) -> Result<WebviewWindow, String> {
@@ -495,9 +504,10 @@ pub async fn companion_place(app: AppHandle, webview: Webview, monitor: Option<S
 /// then answers where the character was dropped, or nothing when it did not move.
 /// With `detach`, the robot is being pulled out of the island: the window takes
 /// the desktop size first, the character under the pointer, and the drop is
-/// answered even where it began.
+/// answered even where it began. `place` is the island's, where a robot
+/// dropped near it goes back in.
 #[tauri::command]
-pub async fn companion_drag(app: AppHandle, webview: Webview, detach: Option<bool>) -> Result<Option<Dropped>, String> {
+pub async fn companion_drag(app: AppHandle, webview: Webview, detach: Option<bool>, place: Option<Layout>) -> Result<Option<Dropped>, String> {
     only_companion(&webview)?;
     let window = window_of(&app)?;
     let detach = detach.unwrap_or(false);
@@ -522,7 +532,7 @@ pub async fn companion_drag(app: AppHandle, webview: Webview, detach: Option<boo
         None => window.current_monitor().map_err(|error| error.to_string())?.ok_or("the companion is on no screen")?,
     };
     let area = work_area(&monitor);
-    let docked = crate::island::docks(area, monitor.scale_factor(), centre);
+    let docked = crate::island::docks(area, monitor.scale_factor(), centre, place.unwrap_or_default());
     Ok(Some(Dropped { monitor: monitor_name(&monitor), spot: spot_at(area, centre), docked }))
 }
 

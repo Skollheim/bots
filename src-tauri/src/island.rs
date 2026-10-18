@@ -1,32 +1,42 @@
-//! The island: the companion's window hanging from the top edge of a screen,
-//! centred, at the size the page asks for its state (collapsed, peek, open).
+//! The island: the companion's window against the top or the bottom edge of a
+//! screen, on its left, its centre or its right (`Layout`, the place the user
+//! picked), at the size the page asks for its state (collapsed, peek, open).
 //! It is the same window as the desktop robots (`companion_window.rs`), so the
 //! click-through, the pointer watch, the capture and the shortcut serve both;
 //! the page says which of the two it draws by calling `island_place` or
 //! `companion_place`.
 //!
+//! The window sits flush with the work area's edge and side: the page keeps
+//! the island's margin from the side itself, so its shadow and halo have room.
+//!
 //! The island's place follows the screen: the watch asks `follow` twice a
 //! second, and a work area that changed (a taskbar or top panel moved, a scale
-//! changed, the screen unplugged) puts the window back at the top centre.
+//! changed, the screen unplugged) puts the window back at its place.
+//!
+//! While the user drags the island to another place, the window spans the
+//! whole work area and takes every click (`island_span`), so the page can draw
+//! the places it may go to and carry the island over them.
 
-use crate::companion_window::{only_companion, pick_monitor, work_area, Area};
+use crate::companion_window::{only_companion, origin, pick_monitor, work_area, Area, Edge, Layout};
 use serde::Serialize;
 use std::sync::{Mutex, PoisonError};
 use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, Runtime, Webview, WebviewWindow};
 
-/// How close to the top of a work area a robot dropped on the desktop must be,
-/// in logical pixels from its centre, to go back into the island.
+/// How close to the island's edge of a work area a robot dropped on the
+/// desktop must be, in logical pixels from its centre, to go back into it.
 pub const DOCK_REACH: f64 = 72.0;
 
-/// The island the page asked for: the screen, and the window's logical size.
+/// The island the page asked for: the screen, its place, and the window's logical size.
 #[derive(Clone, Debug, PartialEq)]
-struct Wanted { monitor: Option<String>, width: f64, height: f64 }
+struct Wanted { monitor: Option<String>, place: Layout, width: f64, height: f64 }
 
-/// What the island asked for last, and where that put it.
+/// What the island asked for last, where that put it, and whether the window
+/// spans the work area for a drag.
 #[derive(Default)]
 pub struct IslandState {
     wanted: Mutex<Option<Wanted>>,
     placed: Mutex<Option<Frame>>,
+    spanning: Mutex<bool>,
 }
 
 /// A window's place, `(x, y, width, height)` in physical pixels.
@@ -37,25 +47,41 @@ type Frame = (i32, i32, u32, u32);
 pub struct Placed { monitor: String, scale: f64 }
 
 /// The island's window on a work area: `size` logical pixels at `scale`,
-/// never wider or taller than the area, centred and against its top edge.
-pub fn island_frame(area: Area, scale: f64, size: (f64, f64)) -> Frame {
+/// never wider or taller than the area, against the edge and on the side of `place`.
+pub fn island_frame(area: Area, scale: f64, size: (f64, f64), place: Layout) -> Frame {
     let pixels = |value: f64, most: u32| ((value.max(1.0) * scale).round() as u32).min(most.max(1));
     let (width, height) = (pixels(size.0, area.2), pixels(size.1, area.3));
-    (area.0 + (area.2 - width) as i32 / 2, area.1, width, height)
+    let (x, top) = origin(area, width, place.align, 0);
+    let y = match place.edge { Edge::Top => top, Edge::Bottom => top + (area.3 - height) as i32 };
+    (x, y, width, height)
 }
 
 /// A robot dropped with its centre at `centre`, physical pixels, goes back
-/// into the island when it is within `DOCK_REACH` of the work area's top edge.
-pub fn docks(area: Area, scale: f64, centre: (i32, i32)) -> bool {
+/// into the island when it is within `DOCK_REACH` of the island's edge of the
+/// work area, on the island's side: anywhere along the edge for a centred
+/// island, the left or the right half for one on a side.
+pub fn docks(area: Area, scale: f64, centre: (i32, i32), place: Layout) -> bool {
     let reach = (DOCK_REACH * scale).round() as i32;
     let (left, top, width, height) = area;
-    centre.0 >= left && centre.0 < left + width as i32 && centre.1 >= top - reach && centre.1 < top.saturating_add(height as i32).min(top + reach)
+    let (right, bottom) = (left.saturating_add(width as i32), top.saturating_add(height as i32));
+    let middle = left + (width / 2) as i32;
+    let (from, to) = match place.align {
+        crate::companion_window::Anchor::Left => (left, middle),
+        crate::companion_window::Anchor::Center => (left, right),
+        crate::companion_window::Anchor::Right => (middle, right),
+    };
+    let along = centre.0 >= from && centre.0 < to;
+    let near = match place.edge {
+        Edge::Top => centre.1 >= top - reach && centre.1 < bottom.min(top + reach),
+        Edge::Bottom => centre.1 < bottom + reach && centre.1 >= top.max(bottom - reach),
+    };
+    along && near
 }
 
 fn frame_for<R: Runtime>(window: &WebviewWindow<R>, wanted: &Wanted) -> tauri::Result<Option<(Frame, String, f64)>> {
     let Some(monitor) = pick_monitor(window, wanted.monitor.as_deref())? else { return Ok(None) };
     let scale = monitor.scale_factor();
-    let frame = island_frame(work_area(&monitor), scale, (wanted.width, wanted.height));
+    let frame = island_frame(work_area(&monitor), scale, (wanted.width, wanted.height), wanted.place);
     Ok(Some((frame, crate::companion_window::monitor_name(&monitor), scale)))
 }
 
@@ -66,17 +92,26 @@ fn set_frame<R: Runtime>(window: &WebviewWindow<R>, frame: Frame) -> tauri::Resu
     window.set_position(PhysicalPosition::new(frame.0, frame.1))
 }
 
+/// The drag over: the window takes clicks only over the page's areas again.
+fn end_span<R: Runtime>(app: &AppHandle<R>) {
+    *app.state::<IslandState>().spanning.lock().unwrap_or_else(PoisonError::into_inner) = false;
+    crate::companion_window::take_every_click(app, false);
+}
+
 /// The page draws the robots on the desktop again: the island stops following the screen.
 pub fn forget<R: Runtime>(app: &AppHandle<R>) {
+    end_span(app);
     let state = app.state::<IslandState>();
     *state.wanted.lock().unwrap_or_else(PoisonError::into_inner) = None;
     *state.placed.lock().unwrap_or_else(PoisonError::into_inner) = None;
 }
 
-/// Called by the pointer watch: the island goes back to the top centre when
-/// the screen under it changed. Nothing while the robots are on the desktop.
+/// Called by the pointer watch: the island goes back to its place when the
+/// screen under it changed. Nothing while the robots are on the desktop, or
+/// while the island is being dragged.
 pub fn follow<R: Runtime>(app: &AppHandle<R>, window: &WebviewWindow<R>) {
     let state = app.state::<IslandState>();
+    if *state.spanning.lock().unwrap_or_else(PoisonError::into_inner) { return; }
     let Some(wanted) = state.wanted.lock().unwrap_or_else(PoisonError::into_inner).clone() else { return };
     let Ok(Some((frame, _, _))) = frame_for(window, &wanted) else { return };
     let mut placed = state.placed.lock().unwrap_or_else(PoisonError::into_inner);
@@ -88,14 +123,16 @@ pub fn follow<R: Runtime>(app: &AppHandle<R>, window: &WebviewWindow<R>) {
     *placed = Some(frame);
 }
 
-/// Hangs the island from the top edge of the screen named `monitor` (the
-/// primary one when null or gone), `width` × `height` logical pixels.
+/// Puts the island at `place` (`top` or `bottom`, `left`, `center` or
+/// `right`) of the screen named `monitor` (the primary one when null or
+/// gone), `width` × `height` logical pixels. Ends a drag's span.
 #[tauri::command]
-pub async fn island_place(app: AppHandle, webview: Webview, monitor: Option<String>, width: f64, height: f64) -> Result<Option<Placed>, String> {
+pub async fn island_place(app: AppHandle, webview: Webview, monitor: Option<String>, place: Option<Layout>, width: f64, height: f64) -> Result<Option<Placed>, String> {
     only_companion(&webview)?;
     if !(width.is_finite() && height.is_finite()) { return Err("the island's size must be finite".into()); }
     let window = app.get_webview_window(crate::companion_window::LABEL).ok_or("the companion window is closed")?;
-    let wanted = Wanted { monitor, width, height };
+    let wanted = Wanted { monitor, place: place.unwrap_or_default(), width, height };
+    end_span(&app);
     let state = app.state::<IslandState>();
     *state.wanted.lock().unwrap_or_else(PoisonError::into_inner) = Some(wanted.clone());
     let Some((frame, name, scale)) = frame_for(&window, &wanted).map_err(|error| error.to_string())? else { return Ok(None) };
@@ -104,36 +141,120 @@ pub async fn island_place(app: AppHandle, webview: Webview, monitor: Option<Stri
     Ok(Some(Placed { monitor: name, scale }))
 }
 
+/// While the user drags the island to another place: with `span`, the window
+/// covers the work area of the island's screen and takes every click; without,
+/// it goes back to the island's place (a drag dropped where it began). A drag
+/// that picked a new place ends with `island_place` instead.
+#[tauri::command]
+pub async fn island_span(app: AppHandle, webview: Webview, span: bool) -> Result<(), String> {
+    only_companion(&webview)?;
+    let window = app.get_webview_window(crate::companion_window::LABEL).ok_or("the companion window is closed")?;
+    let state = app.state::<IslandState>();
+    let Some(wanted) = state.wanted.lock().unwrap_or_else(PoisonError::into_inner).clone() else { return Ok(()) };
+    if !span {
+        end_span(&app);
+        let Some((frame, _, _)) = frame_for(&window, &wanted).map_err(|error| error.to_string())? else { return Ok(()) };
+        set_frame(&window, frame).map_err(|error| error.to_string())?;
+        *state.placed.lock().unwrap_or_else(PoisonError::into_inner) = Some(frame);
+        return Ok(());
+    }
+    let Some(monitor) = pick_monitor(&window, wanted.monitor.as_deref()).map_err(|error| error.to_string())? else { return Ok(()) };
+    // Every click first, so the press carrying the island is not let through as the window grows.
+    crate::companion_window::take_every_click(&app, true);
+    *state.spanning.lock().unwrap_or_else(PoisonError::into_inner) = true;
+    let area = work_area(&monitor);
+    set_frame(&window, area).map_err(|error| error.to_string())?;
+    *state.placed.lock().unwrap_or_else(PoisonError::into_inner) = Some(area);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::companion_window::Anchor;
+
+    const fn at(edge: Edge, align: Anchor) -> Layout { Layout { align, edge } }
+    const TOP: Layout = at(Edge::Top, Anchor::Center);
 
     #[test]
     fn the_island_hangs_centred_from_the_top_of_the_work_area() {
         // A 1080p screen, its taskbar at the bottom.
-        assert_eq!(island_frame((0, 0, 1920, 1040), 1.0, (680.0, 480.0)), (620, 0, 680, 480));
+        assert_eq!(island_frame((0, 0, 1920, 1040), 1.0, (680.0, 480.0), TOP), (620, 0, 680, 480));
         // Scaled 150 %: the logical size grows in pixels, still centred.
-        assert_eq!(island_frame((0, 0, 2560, 1400), 1.5, (680.0, 480.0)), (770, 0, 1020, 720));
+        assert_eq!(island_frame((0, 0, 2560, 1400), 1.5, (680.0, 480.0), TOP), (770, 0, 1020, 720));
         // A screen left of the primary one, under a taskbar at its top.
-        assert_eq!(island_frame((-2560, 48, 2560, 1392), 1.0, (360.0, 96.0)), (-1460, 48, 360, 96));
+        assert_eq!(island_frame((-2560, 48, 2560, 1392), 1.0, (360.0, 96.0), TOP), (-1460, 48, 360, 96));
         // A top panel on a screen above the primary one.
-        assert_eq!(island_frame((0, -1032, 1920, 1032), 1.25, (360.0, 96.0)), (735, -1032, 450, 120));
+        assert_eq!(island_frame((0, -1032, 1920, 1032), 1.25, (360.0, 96.0), TOP), (735, -1032, 450, 120));
     }
 
     #[test]
     fn the_island_never_outgrows_its_screen() {
-        assert_eq!(island_frame((0, 0, 800, 300), 2.0, (680.0, 480.0)), (0, 0, 800, 300));
-        assert_eq!(island_frame((100, 0, 1000, 700), 1.0, (0.0, -5.0)), (599, 0, 1, 1));
+        assert_eq!(island_frame((0, 0, 800, 300), 2.0, (680.0, 480.0), TOP), (0, 0, 800, 300));
+        assert_eq!(island_frame((100, 0, 1000, 700), 1.0, (0.0, -5.0), TOP), (599, 0, 1, 1));
+        assert_eq!(island_frame((0, 0, 800, 300), 2.0, (680.0, 480.0), at(Edge::Bottom, Anchor::Right)), (0, 0, 800, 300));
+    }
+
+    #[test]
+    fn the_island_sits_flush_with_the_edge_and_the_side_of_its_place() {
+        // A 1080p screen, its taskbar at the bottom: the bottom places sit just above it.
+        let area = (0, 0, 1920, 1040);
+        let size = (940.0, 150.0);
+        assert_eq!(island_frame(area, 1.0, size, at(Edge::Top, Anchor::Left)), (0, 0, 940, 150));
+        assert_eq!(island_frame(area, 1.0, size, at(Edge::Top, Anchor::Right)), (980, 0, 940, 150));
+        assert_eq!(island_frame(area, 1.0, size, at(Edge::Bottom, Anchor::Left)), (0, 890, 940, 150));
+        assert_eq!(island_frame(area, 1.0, size, at(Edge::Bottom, Anchor::Center)), (490, 890, 940, 150));
+        assert_eq!(island_frame(area, 1.0, size, at(Edge::Bottom, Anchor::Right)), (980, 890, 940, 150));
+    }
+
+    #[test]
+    fn the_places_follow_a_taskbar_on_any_side_and_any_scale() {
+        // Taskbar on the left, 62 px wide: the left places start past it.
+        let left_bar = (62, 0, 1858, 1080);
+        assert_eq!(island_frame(left_bar, 1.0, (940.0, 150.0), at(Edge::Top, Anchor::Left)), (62, 0, 940, 150));
+        assert_eq!(island_frame(left_bar, 1.0, (940.0, 150.0), at(Edge::Bottom, Anchor::Right)), (980, 930, 940, 150));
+        // Taskbar on the right: the right places stop before it.
+        let right_bar = (0, 0, 1858, 1080);
+        assert_eq!(island_frame(right_bar, 1.0, (940.0, 150.0), at(Edge::Top, Anchor::Right)), (918, 0, 940, 150));
+        // Taskbar at the top of a 150 % screen left of the primary one: the top places hang under it, the bottom ones sit on the screen's foot.
+        let top_bar = (-2880, 72, 2880, 1548);
+        assert_eq!(island_frame(top_bar, 1.5, (940.0, 150.0), at(Edge::Top, Anchor::Center)), (-2145, 72, 1410, 225));
+        assert_eq!(island_frame(top_bar, 1.5, (940.0, 150.0), at(Edge::Bottom, Anchor::Left)), (-2880, 1395, 1410, 225));
+        assert_eq!(island_frame(top_bar, 1.5, (940.0, 150.0), at(Edge::Bottom, Anchor::Right)), (-1410, 1395, 1410, 225));
+        // A 1366 px laptop at 125 %: the window is narrower than the deck's room, kept on the screen.
+        let laptop = (0, 0, 1366, 728);
+        assert_eq!(island_frame(laptop, 1.25, (940.0, 530.0), at(Edge::Top, Anchor::Right)), (191, 0, 1175, 663));
+        assert_eq!(island_frame(laptop, 1.25, (940.0, 530.0), at(Edge::Bottom, Anchor::Left)), (0, 65, 1175, 663));
     }
 
     #[test]
     fn a_robot_dropped_near_the_top_edge_goes_back_into_the_island() {
         let area = (0, 40, 1920, 1000);
-        assert!(docks(area, 1.0, (960, 60)), "just under a top taskbar");
-        assert!(docks(area, 1.0, (10, 40 + 71)), "anywhere along the edge");
-        assert!(!docks(area, 1.0, (960, 40 + 72)), "a little lower stays on the desktop");
-        assert!(docks(area, 2.0, (960, 40 + 140)), "the reach scales with the screen");
-        assert!(!docks(area, 1.0, (2000, 60)), "on another screen");
-        assert!(!docks((-1920, 0, 1920, 1080), 1.0, (100, 30)), "the neighbour's top is not this one's");
+        assert!(docks(area, 1.0, (960, 60), TOP), "just under a top taskbar");
+        assert!(docks(area, 1.0, (10, 40 + 71), TOP), "anywhere along the edge");
+        assert!(!docks(area, 1.0, (960, 40 + 72), TOP), "a little lower stays on the desktop");
+        assert!(docks(area, 2.0, (960, 40 + 140), TOP), "the reach scales with the screen");
+        assert!(!docks(area, 1.0, (2000, 60), TOP), "on another screen");
+        assert!(!docks((-1920, 0, 1920, 1080), 1.0, (100, 30), TOP), "the neighbour's top is not this one's");
+    }
+
+    #[test]
+    fn a_robot_docks_near_the_edge_and_on_the_side_of_the_island() {
+        // The taskbar at the bottom, the island at the bottom right.
+        let area = (0, 0, 1920, 1040);
+        let place = at(Edge::Bottom, Anchor::Right);
+        assert!(docks(area, 1.0, (1700, 1000), place), "just above the taskbar, on the right");
+        assert!(docks(area, 1.0, (1700, 1060), place), "dropped over the taskbar");
+        assert!(!docks(area, 1.0, (1700, 1040 - 73), place), "a little higher stays on the desktop");
+        assert!(!docks(area, 1.0, (400, 1000), place), "the left half is not the island's");
+        assert!(!docks(area, 1.0, (1700, 30), place), "the top edge is not the island's");
+        // The island at the top left of a 200 % screen left of the primary one, under a top taskbar.
+        let area = (-3840, 96, 3840, 2064);
+        let place = at(Edge::Top, Anchor::Left);
+        assert!(docks(area, 2.0, (-3700, 96 + 143), place));
+        assert!(!docks(area, 2.0, (-3700, 96 + 145), place));
+        assert!(!docks(area, 2.0, (-1000, 120), place), "the right half");
+        // A taskbar on the right: the right half ends before it.
+        assert!(!docks((0, 0, 1858, 1080), 1.0, (1880, 20), at(Edge::Top, Anchor::Right)), "over the taskbar, off the work area");
     }
 }

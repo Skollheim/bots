@@ -6,6 +6,7 @@ commands.allow = [
   "companion_monitors",
   "companion_place",
   "island_place",
+  "island_span",
   "companion_hit_rects",
   "companion_media",
   "companion_media_control",
