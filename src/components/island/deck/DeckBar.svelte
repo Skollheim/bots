@@ -1,6 +1,7 @@
 <!--
-  The deck's bar: the robot on the left (a poke, a drag to set it loose, the
-  count of requests waiting on it), the things the user keeps in the bar
+  The deck's bar: the Chat's agent on the left (`DeckAgent.svelte`: a click
+  turns to the next agent, a drag sets it loose, the count of requests
+  waiting on it), the things the user keeps in the bar
   (`lib/island/bar.ts`: the deck's tabs, an app or a web link) as a tablist
   whose focus moves with the arrows, Home and End, and the island's controls
   on the right: the quotas, the pin, Settings (the panel under the bar,
@@ -29,13 +30,12 @@
   import { appIcons as icons, type Bar } from '../../../lib/island/bar.svelte';
   import { RowSorter } from '../../../lib/island/bar-sort.svelte';
   import { DECK_TAB_ICONS, tabKey, type DeckTab } from '../../../lib/island/deck-tabs';
-  import { gazeOf, moodOf } from '../../../lib/island/face';
   import type { IslandFrame } from '../../../lib/island/frame.svelte';
   import { settingsPanel } from '../../../lib/island/settings-panel.svelte';
   import { openApp, openLink } from '../../../lib/windows/native';
   import { fill, strings } from '../../../lib/strings';
-  import CompanionCharacter from '../../companion/CompanionCharacter.svelte';
   import QuotasPill from '../assistant/QuotasPill.svelte';
+  import DeckAgent from './DeckAgent.svelte';
 
   interface Props {
     companion: Companion;
@@ -56,7 +56,6 @@
   const layout = $derived(bar.layout);
   const tabs = $derived(barTabs(layout));
 
-  let robotButton = $state<HTMLButtonElement | null>(null);
   let itemsRow = $state<HTMLElement | null>(null);
   let toolsRow = $state<HTMLElement | null>(null);
   const tabButtons = $state<Partial<Record<DeckTab, HTMLButtonElement>>>({});
@@ -79,11 +78,6 @@
   const defaultName = (item: BarItem): string => (item.kind === 'tab' ? copy.deck.tabs[item.tab] : item.kind === 'app' ? item.name : linkHost(item.url));
   const nameOf = (item: BarItem): string => item.label ?? defaultName(item);
   const toolName = (tool: BarTool): string => copy.deck.bar.tools[tool];
-
-  function robotClick() {
-    if (companion.dropped) return;
-    companion.poke(companion.active.id);
-  }
 
   function toggleSounds() {
     companion.prefs = writeCompanionPrefs({ sounds: !companion.prefs.sounds });
@@ -202,7 +196,6 @@
     if (companion.prefs.robots === 'island') writeBarEdit(true);
   }
 
-  const waitingSaid = $derived(fill(copy.sessions.waitingCount, { count: String(companion.blocking) }));
 
   /** How long the pointer rests on a thing before its tooltip shows, and how long it lingers once left. */
   const TIP_DELAY_MS = 320;
@@ -303,37 +296,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div bind:this={barRow} class="tabbar" class:editing oncontextmenu={startEditing} data-testid="deck-bar">
-  <button
-    bind:this={robotButton}
-    class="character"
-    aria-label={fill(copy.robot, { name: companion.active.name ?? copy.label })}
-    title={companion.active.name ?? undefined}
-    data-testid="island-robot"
-    onclick={robotClick}
-    onpointerdown={(event) => companion.onpress(event, true)}
-    onpointermove={companion.onmove}
-    onpointerup={companion.onrelease}
-  >
-    <!-- Its eyes follow the pointer while it is on the island, and it cheers when any thread finishes. -->
-    <CompanionCharacter
-      mood={moodOf(companion, companion.active.talk.thinking, companion.active.id === lead.id)}
-      busy={companion.active.id === lead.id && companion.mood.busy}
-      alarm={companion.notes.alarms.length > 0}
-      cheer={cheering}
-      boing={companion.boings[companion.active.id] ?? 0}
-      dizzy={companion.dizzy[companion.active.id] ?? false}
-      gaze={companion.pointerOn ? gazeOf(companion, robotButton) : null}
-      skin={companion.active.skin}
-      size={34}
-      {...companion.look}
-    />
-    {#if companion.blocking > 0}
-      <span class="badge" role="status" title={waitingSaid} data-testid="island-waiting">
-        <span aria-hidden="true">{companion.blocking}</span>
-        <span class="sr">{waitingSaid}</span>
-      </span>
-    {/if}
-  </button>
+  <DeckAgent {companion} {lead} {cheering} {reduced} />
 
   <div
     bind:this={itemsRow}
@@ -511,44 +474,12 @@
     height: 52px;
     padding: 0 12px 0 14px;
   }
-  .character {
-    position: relative;
-    flex: none;
-    display: grid;
-    place-items: center;
-    padding: 0;
-    border: none;
-    background: none;
-    cursor: pointer;
-    touch-action: none;
-  }
-  .character:focus-visible,
   .thing:focus-visible,
   .tool:focus-visible,
   .done:focus-visible {
     outline: 2px solid var(--deck-accent);
     outline-offset: 1px;
   }
-  .character:focus-visible {
-    border-radius: 12px;
-  }
-  .badge {
-    position: absolute;
-    top: -3px;
-    right: -7px;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    border-radius: 999px;
-    background: var(--island-attention);
-    color: var(--island-attention-ink);
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 16px;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-  }
-
   /* The things kept in the bar, centred, scrolling sideways past the deck's width. Room above them for the × of edit mode. */
   .items {
     display: flex;
@@ -884,14 +815,6 @@
   }
   .done:hover:not(:disabled) {
     background: color-mix(in srgb, var(--deck-accent) 32%, transparent);
-  }
-  .sr {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
   @media (prefers-reduced-motion: reduce) {
     .thing,

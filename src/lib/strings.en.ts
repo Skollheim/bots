@@ -103,6 +103,7 @@ export const strings = {
     },
     talking: '{name} is answering…',
     robot: '{name}. Click to poke it, drag it out to set it loose on the desktop.',
+    agentSwap: { label: '{name}, the agent the Chat talks to. Click to switch to {next}, drag it out to set it loose on the desktop.', tip: 'Switch to {next}' },
     chat: {
       empty: 'Ask your bots anything: they answer here.',
       to: 'Talk to',
