@@ -15,35 +15,45 @@
 //!
 //! While the user drags the island to another place, the window spans the
 //! whole work area and takes every click (`island_span`), so the page can draw
-//! the places it may go to and carry the island over them.
+//! the places it may go to and carry the island over them. The pointer taken
+//! to another screen takes the span there (`follow_span`), so the island can
+//! land on that screen's places. A span the page never ends, its button let
+//! go long ago, is given up: the window goes back to the island's place.
 
-use crate::companion_window::{only_companion, origin, pick_monitor, work_area, Area, Edge, Layout};
+use crate::companion_window::{monitor_name, only_companion, origin, pick_monitor, work_area, Area, Edge, Layout};
 use serde::Serialize;
 use std::sync::{Mutex, PoisonError};
-use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, Runtime, Webview, WebviewWindow};
+use std::time::{Duration, Instant};
+use tauri::{AppHandle, Emitter, Manager, Monitor, PhysicalPosition, PhysicalSize, Runtime, Webview, WebviewWindow};
 
 /// How close to the island's edge of a work area a robot dropped on the
 /// desktop must be, in logical pixels from its centre, to go back into it.
 pub const DOCK_REACH: f64 = 72.0;
 
+/// How long a span may outlast the button: the island's landing takes well under it.
+const SPAN_GIVE_UP: Duration = Duration::from_secs(3);
+
 /// The island the page asked for: the screen, its place, and the window's logical size.
 #[derive(Clone, Debug, PartialEq)]
 struct Wanted { monitor: Option<String>, place: Layout, width: f64, height: f64 }
 
-/// What the island asked for last, where that put it, and whether the window
-/// spans the work area for a drag.
+/// The window spans a screen's work area for a drag: which screen, and since
+/// when no button is down.
+struct Span { monitor: String, released: Option<Instant> }
+
+/// What the island asked for last, where that put it, and the span of a drag.
 #[derive(Default)]
 pub struct IslandState {
     wanted: Mutex<Option<Wanted>>,
     placed: Mutex<Option<Frame>>,
-    spanning: Mutex<bool>,
+    span: Mutex<Option<Span>>,
 }
 
 /// A window's place, `(x, y, width, height)` in physical pixels.
 type Frame = (i32, i32, u32, u32);
 
 /// Where the island went, for the page: the screen's name and its scale.
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Placed { monitor: String, scale: f64 }
 
 /// The island's window on a work area: `size` logical pixels at `scale`,
@@ -78,6 +88,21 @@ pub fn docks(area: Area, scale: f64, centre: (i32, i32), place: Layout) -> bool 
     along && near
 }
 
+/// Which of `screens` (whole screens, physical pixels, as the system lays
+/// them out: left of or above the primary one at negative coordinates, each
+/// at its own scale) holds `point`, in physical pixels; the nearest one for a
+/// point in a gap between them. None without screens.
+pub fn screen_at(screens: &[Area], point: (i32, i32)) -> Option<usize> {
+    let away = |&(left, top, width, height): &Area| {
+        let gap = |at: i64, start: i64, length: i64| if at < start { start - at } else if at >= start + length { at - (start + length) + 1 } else { 0 };
+        let (x, y) = (gap(point.0.into(), left.into(), width.into()), gap(point.1.into(), top.into(), height.into()));
+        x * x + y * y
+    };
+    screens.iter().enumerate().min_by_key(|(_, screen)| away(screen)).map(|(index, _)| index)
+}
+
+fn whole(monitor: &Monitor) -> Area { (monitor.position().x, monitor.position().y, monitor.size().width, monitor.size().height) }
+
 fn frame_for<R: Runtime>(window: &WebviewWindow<R>, wanted: &Wanted) -> tauri::Result<Option<(Frame, String, f64)>> {
     let Some(monitor) = pick_monitor(window, wanted.monitor.as_deref())? else { return Ok(None) };
     let scale = monitor.scale_factor();
@@ -94,7 +119,7 @@ fn set_frame<R: Runtime>(window: &WebviewWindow<R>, frame: Frame) -> tauri::Resu
 
 /// The drag over: the window takes clicks only over the page's areas again.
 fn end_span<R: Runtime>(app: &AppHandle<R>) {
-    *app.state::<IslandState>().spanning.lock().unwrap_or_else(PoisonError::into_inner) = false;
+    *app.state::<IslandState>().span.lock().unwrap_or_else(PoisonError::into_inner) = None;
     crate::companion_window::take_every_click(app, false);
 }
 
@@ -111,7 +136,7 @@ pub fn forget<R: Runtime>(app: &AppHandle<R>) {
 /// while the island is being dragged.
 pub fn follow<R: Runtime>(app: &AppHandle<R>, window: &WebviewWindow<R>) {
     let state = app.state::<IslandState>();
-    if *state.spanning.lock().unwrap_or_else(PoisonError::into_inner) { return; }
+    if state.span.lock().unwrap_or_else(PoisonError::into_inner).is_some() { return; }
     let Some(wanted) = state.wanted.lock().unwrap_or_else(PoisonError::into_inner).clone() else { return };
     let Ok(Some((frame, _, _))) = frame_for(window, &wanted) else { return };
     let mut placed = state.placed.lock().unwrap_or_else(PoisonError::into_inner);
@@ -142,30 +167,91 @@ pub async fn island_place(app: AppHandle, webview: Webview, monitor: Option<Stri
 }
 
 /// While the user drags the island to another place: with `span`, the window
-/// covers the work area of the island's screen and takes every click; without,
-/// it goes back to the island's place (a drag dropped where it began). A drag
-/// that picked a new place ends with `island_place` instead.
+/// covers the work area of the screen under the pointer, the island's, and
+/// takes every click, and the answer is that screen; without, it goes back to
+/// the island's place (a drag dropped where it began). A drag that picked a
+/// new place ends with `island_place` instead.
 #[tauri::command]
-pub async fn island_span(app: AppHandle, webview: Webview, span: bool) -> Result<(), String> {
+pub async fn island_span(app: AppHandle, webview: Webview, span: bool) -> Result<Option<Placed>, String> {
     only_companion(&webview)?;
     let window = app.get_webview_window(crate::companion_window::LABEL).ok_or("the companion window is closed")?;
     let state = app.state::<IslandState>();
-    let Some(wanted) = state.wanted.lock().unwrap_or_else(PoisonError::into_inner).clone() else { return Ok(()) };
+    let Some(wanted) = state.wanted.lock().unwrap_or_else(PoisonError::into_inner).clone() else { return Ok(None) };
     if !span {
         end_span(&app);
-        let Some((frame, _, _)) = frame_for(&window, &wanted).map_err(|error| error.to_string())? else { return Ok(()) };
-        set_frame(&window, frame).map_err(|error| error.to_string())?;
-        *state.placed.lock().unwrap_or_else(PoisonError::into_inner) = Some(frame);
-        return Ok(());
+        put_back(&window, &state, &wanted).map_err(|error| error.to_string())?;
+        return Ok(None);
     }
-    let Some(monitor) = pick_monitor(&window, wanted.monitor.as_deref()).map_err(|error| error.to_string())? else { return Ok(()) };
+    let pointed = monitor_under_pointer(&window).map_err(|error| error.to_string())?;
+    let monitor = match pointed {
+        Some(monitor) => monitor,
+        None => match pick_monitor(&window, wanted.monitor.as_deref()).map_err(|error| error.to_string())? { Some(monitor) => monitor, None => return Ok(None) },
+    };
     // Every click first, so the press carrying the island is not let through as the window grows.
     crate::companion_window::take_every_click(&app, true);
-    *state.spanning.lock().unwrap_or_else(PoisonError::into_inner) = true;
-    let area = work_area(&monitor);
-    set_frame(&window, area).map_err(|error| error.to_string())?;
+    let mut current = state.span.lock().unwrap_or_else(PoisonError::into_inner);
+    span_over(&window, &state, &monitor).map_err(|error| error.to_string())?;
+    *current = Some(Span { monitor: monitor_name(&monitor), released: None });
+    Ok(Some(Placed { monitor: monitor_name(&monitor), scale: monitor.scale_factor() }))
+}
+
+/// The window back at the island's place.
+fn put_back<R: Runtime>(window: &WebviewWindow<R>, state: &IslandState, wanted: &Wanted) -> tauri::Result<()> {
+    let Some((frame, _, _)) = frame_for(window, wanted)? else { return Ok(()) };
+    set_frame(window, frame)?;
+    *state.placed.lock().unwrap_or_else(PoisonError::into_inner) = Some(frame);
+    Ok(())
+}
+
+/// The window over `monitor`'s work area.
+fn span_over<R: Runtime>(window: &WebviewWindow<R>, state: &IslandState, monitor: &Monitor) -> tauri::Result<()> {
+    let area = work_area(monitor);
+    set_frame(window, area)?;
     *state.placed.lock().unwrap_or_else(PoisonError::into_inner) = Some(area);
     Ok(())
+}
+
+/// The screen under the pointer, or the nearest one.
+fn monitor_under_pointer<R: Runtime>(window: &WebviewWindow<R>) -> tauri::Result<Option<Monitor>> {
+    let cursor = window.cursor_position()?;
+    let mut monitors = window.available_monitors()?;
+    let screens: Vec<Area> = monitors.iter().map(whole).collect();
+    Ok(screen_at(&screens, (cursor.x.round() as i32, cursor.y.round() as i32)).map(|index| monitors.swap_remove(index)))
+}
+
+/// Called by the pointer watch while the island is carried: the pointer on
+/// another screen takes the span there, and tells the page the screen
+/// (`companion://span`). A span whose button has been up for `SPAN_GIVE_UP`
+/// lost its drag (the page missed the release): the window goes back to the
+/// island's place and stops taking every click (`companion://span-lost`).
+pub fn follow_span<R: Runtime>(app: &AppHandle<R>, window: &WebviewWindow<R>) {
+    let state = app.state::<IslandState>();
+    // Held while the window moves: `island_place` waits, so the place after it is not undone.
+    let mut current = state.span.lock().unwrap_or_else(PoisonError::into_inner);
+    let Some(span) = current.as_mut() else { return };
+    if !crate::platform::mouse_down() {
+        let released = *span.released.get_or_insert_with(Instant::now);
+        if released.elapsed() < SPAN_GIVE_UP { return; }
+        *current = None;
+        drop(current);
+        end_span(app);
+        let wanted = state.wanted.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        if let Some(wanted) = wanted {
+            if let Err(error) = put_back(window, &state, &wanted) { eprintln!("[bots] island span: {error}"); }
+        }
+        let _ = window.emit("companion://span-lost", ());
+        return;
+    }
+    span.released = None;
+    let Ok(Some(monitor)) = monitor_under_pointer(window) else { return };
+    let name = monitor_name(&monitor);
+    if name == span.monitor { return; }
+    if let Err(error) = span_over(window, &state, &monitor) {
+        eprintln!("[bots] island span: {error}");
+        return;
+    }
+    span.monitor = name.clone();
+    let _ = window.emit("companion://span", Placed { monitor: name, scale: monitor.scale_factor() });
 }
 
 #[cfg(test)]
@@ -256,5 +342,49 @@ mod tests {
         assert!(!docks(area, 2.0, (-1000, 120), place), "the right half");
         // A taskbar on the right: the right half ends before it.
         assert!(!docks((0, 0, 1858, 1080), 1.0, (1880, 20), at(Edge::Top, Anchor::Right)), "over the taskbar, off the work area");
+    }
+
+    #[test]
+    fn the_screen_under_the_pointer_side_by_side() {
+        // A 1440p screen at 125 % left of a 1080p primary one: the left one at negative x.
+        let screens = [(0, 0, 1920, 1080), (-2560, 0, 2560, 1440)];
+        assert_eq!(screen_at(&screens, (960, 540)), Some(0));
+        assert_eq!(screen_at(&screens, (0, 0)), Some(0), "the primary's top left corner is its own");
+        assert_eq!(screen_at(&screens, (-1, 0)), Some(1), "one pixel left is the neighbour's");
+        assert_eq!(screen_at(&screens, (-2560, 1439)), Some(1));
+        assert_eq!(screen_at(&screens, (-1280, 1300)), Some(1), "below the primary's foot, still on the taller screen");
+        assert_eq!(screen_at(&screens, (1919, 1079)), Some(0));
+        assert_eq!(screen_at(&[], (0, 0)), None);
+    }
+
+    #[test]
+    fn the_screen_under_the_pointer_stacked_and_scaled() {
+        // A 4K screen at 150 % above a 1080p primary at 100 %, a 1366 px laptop at 125 % right of the primary.
+        let screens = [(0, 0, 1920, 1080), (-960, -2160, 3840, 2160), (1920, 200, 1366, 768)];
+        assert_eq!(screen_at(&screens, (100, -1)), Some(1), "just above the primary");
+        assert_eq!(screen_at(&screens, (-900, -2160)), Some(1));
+        assert_eq!(screen_at(&screens, (100, 1079)), Some(0));
+        assert_eq!(screen_at(&screens, (1920, 500)), Some(2), "the laptop's left edge");
+        assert_eq!(screen_at(&screens, (3285, 967)), Some(2), "the laptop's last pixel");
+    }
+
+    #[test]
+    fn a_pointer_in_a_gap_takes_the_nearest_screen() {
+        // The laptop lower than the primary: a gap above it, right of the primary.
+        let screens = [(0, 0, 1920, 1080), (1920, 200, 1366, 768)];
+        assert_eq!(screen_at(&screens, (1925, 50)), Some(0), "just right of the primary, far above the laptop");
+        assert_eq!(screen_at(&screens, (2600, 100)), Some(1), "just above the laptop, far right of the primary");
+        assert_eq!(screen_at(&screens, (1921, 190)), Some(0), "2 px right of the primary, 10 px above the laptop");
+        assert_eq!(screen_at(&screens, (1921, 199)), Some(1), "2 px right of the primary, 1 px above the laptop");
+        assert_eq!(screen_at(&screens, (-50, 500)), Some(0), "left of everything");
+    }
+
+    #[test]
+    fn the_pointer_over_a_taskbar_is_on_its_screen() {
+        // The screens are whole, the taskbar included: over a 62 px taskbar on the left of the second screen is that screen.
+        let screens = [(0, 0, 1920, 1080), (1920, 0, 2560, 1440)];
+        assert_eq!(screen_at(&screens, (1930, 700)), Some(1));
+        // A taskbar at the bottom of the primary, the pointer over it.
+        assert_eq!(screen_at(&screens, (900, 1060)), Some(0));
     }
 }
