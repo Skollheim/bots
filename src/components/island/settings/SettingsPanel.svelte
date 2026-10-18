@@ -11,7 +11,9 @@
   (`lib/companion/prefs.ts`), written as each one changes.
 
   It opens with a reveal from the bar down (clip-path), a short slide and a
-  fade, all composited: nothing animates its size.
+  fade, all composited: nothing animates its size. With the island at the
+  bottom of the screen, the island grows up to hold it under the bar, and it
+  rises from the screen's edge instead. At a side, it keeps to that side.
 -->
 <script module lang="ts">
   import { CoreLink } from '../../../lib/core.svelte';
@@ -56,9 +58,12 @@
     reduced: boolean;
     /** The island is still opening: the panel waits for it to reach the deck's width. */
     late: boolean;
+    /** The island stands on the bottom edge of the screen. */
+    bottom: boolean;
+    side: 'left' | 'center' | 'right';
   }
 
-  let { height, reduced, late }: Props = $props();
+  let { height, reduced, late, bottom, side }: Props = $props();
 
   const ICONS = { place: LayoutPanelTop, mascot: Bot, crew: Users, brain: Brain, island: SlidersHorizontal, clipboard: ClipboardList, focus: Timer, reminders: Bell, missions: CalendarClock, permissions: ShieldCheck } as const;
   /** How long the island takes to reach the deck's width once it opens. */
@@ -132,20 +137,25 @@
     tabs[to]?.focus({ preventScroll: true });
   }
 
-  /** The panel unfolds from the bar down: a clip-path reveal, a short slide, a fade. */
+  /** The panel unfolds from the bar down, or up from the screen's bottom edge: a clip-path reveal, a short slide, a fade. */
   function unfold(_node: Element, { leaving = false } = {}): TransitionConfig {
     if (reduced) return { duration: 120, css: (t) => `opacity: ${t}` };
     return {
       delay: leaving || !late ? 0 : LATE_MS,
       duration: leaving ? 170 : 280,
       easing: leaving ? cubicIn : cubicOut,
-      css: (t, u) => `opacity: ${Math.min(1, t * 1.8)}; transform: translateY(${(-12 * u).toFixed(2)}px); clip-path: inset(0 0 ${(u * 100).toFixed(2)}% 0 round 0 0 var(--deck-radius) var(--deck-radius));`
+      css: (t, u) =>
+        bottom
+          ? `opacity: ${Math.min(1, t * 1.8)}; transform: translateY(${(12 * u).toFixed(2)}px); clip-path: inset(${(u * 100).toFixed(2)}% 0 0 0);`
+          : `opacity: ${Math.min(1, t * 1.8)}; transform: translateY(${(-12 * u).toFixed(2)}px); clip-path: inset(0 0 ${(u * 100).toFixed(2)}% 0 round 0 0 var(--deck-radius) var(--deck-radius));`
     };
   }
 </script>
 
 <div
   class="settings-panel"
+  class:bottom
+  data-side={side}
   bind:this={panel}
   data-hit
   data-testid="island-settings-panel"
@@ -239,6 +249,22 @@
     --color-control-surface: var(--deck-field);
     --color-control-hover: color-mix(in srgb, var(--deck-field) 88%, var(--island-text));
     --color-edge: var(--island-line);
+  }
+  /* Inside the island, which stands on the screen's bottom edge: under the bar, down to the edge. */
+  .settings-panel.bottom {
+    top: auto;
+    bottom: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .settings-panel[data-side='left'] {
+    left: 0;
+    margin-left: 0;
+  }
+  .settings-panel[data-side='right'] {
+    left: auto;
+    right: 0;
+    margin-left: 0;
   }
   .settings-panel :global(button) {
     box-shadow: none;

@@ -321,6 +321,13 @@
       radial-gradient(150px 110px at 44px 44px, color-mix(in srgb, var(--music-accent) 24%, transparent), transparent 72%),
       var(--island-bg);
   }
+  /* Against the bottom edge (`Island.svelte`), rounded at the top. */
+  :global([data-island-edge='bottom']) .bubble {
+    border-radius: 16px 16px 0 0;
+  }
+  :global([data-island-edge='bottom']) .bubble.open {
+    border-radius: 24px 24px 0 0;
+  }
   button {
     padding: 0;
     border: none;

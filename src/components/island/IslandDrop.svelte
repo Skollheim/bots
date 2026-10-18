@@ -1,8 +1,9 @@
 <!--
-  A drop beside the island: the timer on its left, the music on its right.
-  It is born from the island's edge and taken back into it
+  A drop beside the island: the timer on its left, the music on its right,
+  both on its inner side when the island sits at a side of the screen
+  (`Island.svelte` lays them out). It is born from the island's edge and taken back into it
   (`lib/island/motion.ts`): the drop slides out from under the island while
-  its black twin and a neck hanging from the top of the screen melt into the
+  its black twin and a neck from the island's edge of the screen melt into the
   island through the goo filter (`Island.svelte` defines it). The goo layer
   shows only while the drop moves. The music drop wears the cover's colour
   while it plays.
@@ -39,14 +40,7 @@
 
 <style>
   .side {
-    position: absolute;
-    top: 0;
-  }
-  .side.left {
-    right: calc(100% + 8px);
-  }
-  .side.right {
-    left: calc(100% + 8px);
+    position: relative;
   }
   .body {
     position: relative;
@@ -57,6 +51,12 @@
   .right .body {
     transform-origin: left top;
   }
+  :global([data-island-edge='bottom']) .left .body {
+    transform-origin: right bottom;
+  }
+  :global([data-island-edge='bottom']) .right .body {
+    transform-origin: left bottom;
+  }
   /* The drops wear the island's shadow, and are born here rather than by their own. */
   .body > :global([data-hit]) {
     box-shadow: var(--island-shadow);
@@ -65,7 +65,7 @@
 
   /*
    * The goo layer: the island's edge (under the island, 48 px past the drop:
-   * `GOO_REACH`), the neck hanging from the top of the screen, and the drop's
+   * `GOO_REACH`), the neck from the island's edge of the screen, and the drop's
    * black twin. `dripGoo` shows and filters it, and writes its numbers.
    */
   .goo {
@@ -83,6 +83,15 @@
     left: 0;
     right: -48px;
     transform: scaleX(-1);
+  }
+  /* Against the bottom edge, the goo layer turned upside down: the neck rises from the bottom of the screen. */
+  :global([data-island-edge='bottom']) .goo {
+    top: 0;
+    bottom: -16px;
+    transform: scaleY(-1);
+  }
+  :global([data-island-edge='bottom']) .left .goo {
+    transform: scale(-1, -1);
   }
   .goo i {
     position: absolute;
@@ -120,6 +129,9 @@
   }
   .playing .tint {
     opacity: 1;
+  }
+  :global([data-island-edge='bottom']) .tint {
+    border-radius: 16px 16px 0 0;
   }
   @media (prefers-reduced-motion: reduce) {
     .tint {

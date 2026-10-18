@@ -4,11 +4,13 @@
   window lets them through to what is under it.
 
   It draws one companion (`lib/companion/companion.svelte.ts`) in one of two
-  ways, as the user chose: the island at the top of the screen
+  ways, as the user chose: the island at the top or the bottom of the screen
   (`components/island/`), or the robots loose on the desktop
   (`components/desktop/`). Dragging a robot out of the island sets it loose;
-  dragging it back against the top edge, or "Back to the island", returns it.
+  dragging it back near the island, or "Back to the island", returns it.
   The shell places the window for either (`island_place`, `companion_place`).
+  Dragging the pill moves the island to another of its six places
+  (`lib/island/move.svelte.ts`): the window spans the screen meanwhile.
 
   The settings are a panel of the island (`island/settings/SettingsPanel.svelte`):
   asked for from the tray, a gear or "Make an agent", the island opens for
@@ -17,14 +19,18 @@
 -->
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
+  import { prefersReducedMotion } from 'svelte/motion';
   import { startTheme } from '@boite/ui/lib/theme';
   import { strings } from './lib/strings';
   import BotsNotice from './components/BotsNotice.svelte';
   import { writeStatus } from './lib/companion/memory';
   import { captureZone, type ScreenShot } from './lib/companion/screen';
-  import { companionHitRects, configureCompanion, coverScreen, inShell, layoutOf, listenShell, placeCompanion, placeIsland, type CompanionLayout, type HitRect } from './lib/companion/shell';
+  import { companionHitRects, configureCompanion, coverScreen, inShell, layoutOf, listenShell, placeCompanion, placeIsland, spanIsland, type CompanionLayout, type HitRect } from './lib/companion/shell';
+  import { writeCompanionPrefs } from './lib/companion/prefs';
   import { Companion } from './lib/companion/companion.svelte';
   import { IslandFrame } from './lib/island/frame.svelte';
+  import { IslandMove } from './lib/island/move.svelte';
+  import { PLACE_MARGIN, placeLayout } from './lib/island/place';
   import { readBar, readBarEdit, shownTab, subscribeBarEdit, writeBarEdit } from './lib/island/bar';
   import { readDeckTab, writeDeckTab } from './lib/island/deck-tabs';
   import { answerSettings, panelWindowHeight, requestSettings, settingsPanel } from './lib/island/settings-panel.svelte';
@@ -61,6 +67,13 @@
     // The last tab used, unless the bar left it out since.
     lastTab: () => shownTab(readBar(), readDeckTab(localStorage)),
     keepTab: (tab) => writeDeckTab(localStorage, tab)
+  });
+  const move = new IslandMove({
+    place: () => companion.prefs.islandPlace,
+    island: () => document.querySelector('[data-testid=island]')?.getBoundingClientRect() ?? null,
+    span: () => void spanIsland(true).catch(() => {}),
+    land: (place) => (companion.prefs = writeCompanionPrefs({ islandPlace: place })),
+    reduced: () => prefersReducedMotion.current
   });
 
   const island = $derived(companion.prefs.robots === 'island');
@@ -166,7 +179,7 @@
   }
 
   $effect(() => {
-    void [shown, companion.open, picking, frame.size, frame.tab, frame.editing, settingsPanel.open, settingsPanel.section, companion.notice, companion.waiting, companion.blocking];
+    void [shown, companion.open, picking, move.moving, frame.size, frame.tab, frame.editing, settingsPanel.open, settingsPanel.section, companion.notice, companion.waiting, companion.blocking];
     // Measured once the frame is drawn, when its layout is done: measuring before would lay it out twice.
     void tick().then(() => requestAnimationFrame(requestRects));
   });
@@ -184,12 +197,11 @@
   });
 
   // Covering a screen or carried, the window stays put; otherwise it goes to
-  // its place: the top of its screen for the island, where it was left for
-  // the loose robots.
+  // its place: the island's on its screen, where it was left for the loose robots.
   $effect(() => {
-    const [onIsland, monitor, anchor, spot, height] = [shown, companion.prefs.monitor, companion.prefs.anchor, companion.prefs.spot, islandHeight];
-    if (picking || companion.dragging) return;
-    if (onIsland) void placeIsland(monitor, ISLAND_WINDOW.width, height).catch(() => {});
+    const [onIsland, monitor, place, anchor, spot, height] = [shown, companion.prefs.monitor, companion.prefs.islandPlace, companion.prefs.anchor, companion.prefs.spot, islandHeight];
+    if (picking || companion.dragging || move.moving) return;
+    if (onIsland) void placeIsland(monitor, placeLayout(place), ISLAND_WINDOW.width, height).catch(() => {});
     else
       void placeCompanion(monitor, anchor, spot)
         .then((next) => (layout = next))
@@ -211,7 +223,7 @@
     // An edit mode a closed Bots left behind is over: Settings shows its button again.
     if (readBarEdit()) writeBarEdit(false);
     // The clipboard history records while the setting is on, deck open or not.
-    const off: (() => void)[] = [startTheme(), companion.start(), () => frame.dispose(), clipboardHistory.start()];
+    const off: (() => void)[] = [startTheme(), companion.start(), () => frame.dispose(), () => move.dispose(), clipboardHistory.start()];
     // The tray's Settings, and the companion's own request, come back from the shell (`bots_settings`).
     let gone = false;
     void listenShell<string | null>('settings', (section) => requestSettings(section)).then((stop) => (gone ? stop() : off.push(stop)));
@@ -252,10 +264,18 @@
 
 <svelte:window {onkeydown} />
 
-<main class="stage" class:picking class:island={shown} data-align={layout.align} data-edge={layout.edge} data-testid="companion" ondragenter={dragover} ondragover={dragover} ondrop={drop}>
+<main
+  class="stage"
+  class:picking
+  class:island={shown}
+  data-align={layout.align}
+  data-edge={layout.edge}
+  data-place={companion.prefs.islandPlace}
+  style:--place-margin="{PLACE_MARGIN}px"
+  data-testid="companion" ondragenter={dragover} ondragover={dragover} ondrop={drop}>
   <div class="companion">
     {#if shown}
-      <Island {companion} {frame} onresize={requestRects} />
+      <Island {companion} {frame} {move} onresize={requestRects} />
     {:else}
       <DesktopCompanion {companion} {layout} onresize={requestRects} />
     {/if}
@@ -308,10 +328,21 @@
     justify-content: flex-end;
     padding: 6px 16px 12px;
   }
-  /* The island hangs from the top edge, in the middle of the window. */
+  /* The island hangs from its edge of the window, in the middle or a margin from its side; at the bottom, the notice shows above it. */
   .stage.island {
     align-items: center;
     padding: 0;
+  }
+  .stage.island[data-place$='left'] {
+    align-items: flex-start;
+    padding-left: var(--place-margin);
+  }
+  .stage.island[data-place$='right'] {
+    align-items: flex-end;
+    padding-right: var(--place-margin);
+  }
+  .stage.island[data-place^='bottom'] .companion {
+    flex-direction: column-reverse;
   }
   /* The companion steps aside while the user picks what to show it. */
   .stage.picking .companion {
@@ -334,5 +365,8 @@
   }
   .stage.island .notice {
     margin-top: -18px;
+  }
+  .stage.island[data-place^='bottom'] .notice {
+    margin: 0 0 -18px;
   }
 </style>
