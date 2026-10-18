@@ -1,6 +1,6 @@
 <!--
-  Settings, Place: the robots in the island or loose on the desktop, how the
-  island opens and rests, its bar's edit mode, the screen, the place on the
+  Settings, Place: the robots in the island or loose on the desktop, where the
+  island sits, how it opens and rests, its bar's edit mode, the screen, the place on the
   desktop and the shortcut. The preferences are this computer's
   (`lib/companion/prefs.ts`); the window follows each change as it is made.
 -->
@@ -13,6 +13,7 @@
   import { readStatus, subscribeCompanionData } from '../../../lib/companion/memory';
   import { companionMonitors, type CompanionMonitor } from '../../../lib/companion/shell';
   import { writeBarEdit } from '../../../lib/island/bar';
+  import IslandPlacePick from './IslandPlacePick.svelte';
   import SettingPick from './SettingPick.svelte';
   import SettingSwitch from './SettingSwitch.svelte';
 
@@ -72,6 +73,7 @@
 
 {#if prefs.robots === 'island'}
   <div class="card">
+    <IslandPlacePick label={copy.islandPlace} hint={copy.islandPlaceHint} names={copy.islandPlaces} current={prefs.islandPlace} onpick={(islandPlace) => save({ islandPlace })} />
     <SettingSwitch label={copy.openOnHover} hint={copy.openOnHoverHint} checked={prefs.openOnHover} onchange={(openOnHover) => save({ openOnHover })} testid="companion-open-on-hover" />
     <SettingPick label={copy.pillRest} hint={copy.pillRestHint} items={pillRestItems} current={copy.pillRests[prefs.pillRest]} onpick={(id) => save({ pillRest: id as PillRest })} testid="companion-pill-rest" />
     <div class="switch-row">

@@ -29,6 +29,7 @@ import { Music } from './music.svelte';
 import { addReminder } from './memory';
 import { captureScreens, type ScreenShot } from './screen';
 import { playCue, unlockSounds, type Cue } from './sounds';
+import { placeLayout } from '../island/place';
 import { bytesOf, companionMonitors, dragCompanion, focusCompanion, inShell, keepFile, showMain } from './shell';
 import { Talk } from './talk.svelte';
 import { Crew } from './crew.svelte';
@@ -656,8 +657,8 @@ export class Companion {
         this.close();
         this.prefs = writeCompanionPrefs({ robots: 'desktop' });
       }
-      const place = await dragCompanion(fromIsland);
-      // Dropped against the top edge, the robot goes back into the island of that screen.
+      const place = await dragCompanion(fromIsland, placeLayout(this.prefs.islandPlace));
+      // Dropped near the island's edge and side, the robot goes back into the island of that screen.
       if (place?.docked) this.prefs = writeCompanionPrefs({ robots: 'island', monitor: place.monitor });
       else if (place) this.prefs = writeCompanionPrefs({ robots: 'desktop', monitor: place.monitor, anchor: 'free', spot: place.spot });
     } catch {

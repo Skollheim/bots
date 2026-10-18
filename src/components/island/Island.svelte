@@ -1,6 +1,10 @@
 <!--
   The island: a black shape hanging from the top of a screen, rounded at the
-  bottom only, in three sizes that one spring moves between
+  bottom only, or standing on its bottom edge above the taskbar, rounded at the
+  top only, at the left, the centre or the right (`lib/island/place.ts`). At the
+  bottom it is the same island upside down: everything grows upward from the
+  edge, the deck's content in its own order. At a side, it grows toward the
+  middle of the screen. It comes in three sizes that one spring moves between
   (`lib/island/frame.svelte.ts`):
 
   - collapsed, a pill with the lead robot and a dot per session, and, while
@@ -27,7 +31,9 @@
 
   The views read what they need from the
   view contract (`lib/island/contract.ts`). A press on a robot that moves
-  sets it loose on the desktop (`Companion.onpress`).
+  sets it loose on the desktop (`Companion.onpress`); on the rest of the pill,
+  it carries the island to another place (`lib/island/move.svelte.ts`), over
+  targets (`IslandTargets.svelte`).
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
@@ -50,6 +56,8 @@
   import { MemoryWatch } from '../../lib/island/pressure.svelte';
   import { QuotaWatch } from '../../lib/island/quotas.svelte';
   import { RecapReader } from '../../lib/island/recap.svelte';
+  import type { IslandMove } from '../../lib/island/move.svelte';
+  import { PLACE_MARGIN, placeParts } from '../../lib/island/place';
   import { panelHeight, settingsPanel } from '../../lib/island/settings-panel.svelte';
   import { Sessions } from '../../lib/island/sessions.svelte';
   import { UpdateWatch } from '../../lib/island/update.svelte';
@@ -57,6 +65,7 @@
   import Deck from './deck/Deck.svelte';
   import IslandBar from './IslandBar.svelte';
   import IslandDrop from './IslandDrop.svelte';
+  import IslandTargets from './IslandTargets.svelte';
   import SettingsPanel from './settings/SettingsPanel.svelte';
   import MusicBubble from './music/MusicBubble.svelte';
   import TimerBubble from './TimerBubble.svelte';
@@ -65,11 +74,13 @@
   interface Props {
     companion: Companion;
     frame: IslandFrame;
+    /** The island carried to another place. */
+    move: IslandMove;
     /** The shape moved: the page sends its hit areas again. */
     onresize: () => void;
   }
 
-  let { companion, frame, onresize }: Props = $props();
+  let { companion, frame, move, onresize }: Props = $props();
 
   const copy = strings.island;
   /** The deck's width (`--deck-width`), and the most it takes before its tab scrolls. */
@@ -156,9 +167,25 @@
   /** The corners grow with the island, from the pill's to the deck's. */
   const opened = $derived(Math.min(1, Math.max(0, (box.current.w - COLLAPSED.w) / (OPEN_WIDTH - COLLAPSED.w))));
   const radius = $derived(Math.min(RADIUS + (DECK_RADIUS - RADIUS) * opened, box.current.h / 2));
-  const target = $derived(frame.size === 'open' ? { w: OPEN_WIDTH, h: Math.min(Math.max(measured, 120), OPEN_MAX) } : pill);
+  const place = $derived(placeParts(companion.prefs.islandPlace));
+  const bottom = $derived(place.edge === 'bottom');
+  /** Rounded away from the screen's edge. */
+  const corners = $derived(bottom ? `${radius}px ${radius}px 0 0` : `0 0 ${radius}px ${radius}px`);
+  const panelShown = $derived(settingsPanel.open && frame.size === 'open');
+  /** At the bottom, the settings panel shows under the deck's bar inside the island, which grows up for it. */
+  const target = $derived(
+    frame.size === 'open' ? { w: OPEN_WIDTH, h: bottom && panelShown ? TABS_HEIGHT + panelHeight(screen.availHeight) : Math.min(Math.max(measured, 120), OPEN_MAX) } : pill
+  );
+  /** At the bottom, the deck keeps to the island's top while the island is taller than it: the settings panel is under its bar. */
+  const raised = $derived(bottom && (panelShown || box.current.h > target.h + 0.5));
+  /** The timer's drop at its widest, and the gap after it: what the music leaves it when both stand on the island's inner side. */
+  const TIMER_ROOM = 208;
   /** What the drops beside the island have, up to the window's edge. */
-  const sideRoom = $derived(Math.max(0, (windowWidth - box.current.w) / 2 - SIDE_GAP));
+  const sideRoom = $derived(
+    place.side === 'center'
+      ? Math.max(0, (windowWidth - box.current.w) / 2 - SIDE_GAP)
+      : Math.max(0, windowWidth - PLACE_MARGIN - box.current.w - SIDE_GAP - (companion.timer.current ? TIMER_ROOM : 0))
+  );
   const sides = $derived(frame.size !== 'open');
   /** The music's drop shows: a track, or Spotify to open (`MusicBubble`'s own rule), so it is born and taken back here. */
   const musicShown = $derived(companion.media !== null || companion.music.knowsSpotify);
@@ -237,6 +264,17 @@
   $effect(() => {
     const over = companion.hover && !onSide;
     untrack(() => frame.hover(over));
+  });
+
+  // Carried, the island does not open on hover; landed, not before the pointer has left it.
+  $effect(() => {
+    if (move.moving) untrack(() => frame.hush('move', true));
+    else if (!frame.hovering) untrack(() => frame.hush('move', false));
+  });
+  // Landed: the window shrinks around the island again.
+  $effect(() => {
+    const { x, y } = move.offset.current;
+    if (move.landing && x === 0 && y === 0) untrack(() => move.settle());
   });
 
   // A turn finished: the lead jumps for joy and the island peeks green.
@@ -363,7 +401,13 @@
 
 <svelte:window bind:innerWidth={windowWidth} />
 
-<div class="cluster island-tokens">
+{#if move.moving}<IslandTargets over={move.over} size={{ width: box.current.w, height: box.current.h }} radius={RADIUS} />{/if}
+<div
+  class="cluster island-tokens"
+  data-island-edge={place.edge}
+  data-island-side={place.side}
+  style:translate={move.moving ? `${move.offset.current.x}px ${move.offset.current.y}px` : undefined}
+>
 <!-- The goo filter melts the drops' black twins and their necks while they move; nothing uses it at rest. -->
 <svg class="defs" width="0" height="0" aria-hidden="true">
   <filter id={GOO_FILTER} x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
@@ -371,12 +415,22 @@
     <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9" />
   </filter>
 </svg>
-<span class="halo" data-glow={frame.glow} data-tone={haloTone} style:border-radius="0 0 {radius}px {radius}px" aria-hidden="true"></span>
-{#if sides && companion.timer.current}
-  <IslandDrop side="left" {reduced} {onresize} onside={(on) => (onSide = on)}>
+<span class="halo" data-glow={frame.glow} data-tone={haloTone} style:border-radius={corners} aria-hidden="true"></span>
+{#snippet timerDrop(side: 'left' | 'right')}
+  <IslandDrop {side} {reduced} {onresize} onside={(on) => (onSide = on)}>
     <TimerBubble timer={companion.timer} hover={companion.hover} compact={timerInLine} {onresize} />
   </IslandDrop>
-{/if}
+{/snippet}
+{#snippet musicDrop(side: 'left' | 'right')}
+  <IslandDrop {side} {reduced} {onresize} onside={(on) => (onSide = on)} tint={{ accent: companion.music.accent, playing: companion.media?.playing === true }}>
+    <MusicBubble {companion} {onresize} room={sideRoom} />
+  </IslandDrop>
+{/snippet}
+<!-- The timer on the left, the music on the right; at a side of the screen, the one on the outer side goes after the other on the inner one. -->
+<div class="drops before">
+  {#if sides && companion.timer.current && place.side !== 'left'}{@render timerDrop('left')}{/if}
+  {#if sides && musicShown && place.side === 'right'}{@render musicDrop('left')}{/if}
+</div>
 <div
   class="island"
   data-hit
@@ -388,7 +442,7 @@
   aria-label={copy.label}
   style:width="{box.current.w}px"
   style:height="{box.current.h}px"
-  style:border-radius="0 0 {radius}px {radius}px"
+  style:border-radius={corners}
   onpointerenter={() => {
     companion.pointerOn = true;
     onSide = false;
@@ -399,9 +453,9 @@
   ondrop={drop}
 >
   {#if frame.size !== 'open'}
-    <IslandBar {companion} {frame} {sessions} told={prs.told ?? finishes.line} {cheering} {reduced} bind:want={pill} bind:timerInLine />
+    <IslandBar {companion} {frame} {move} {sessions} told={prs.told ?? finishes.line} {cheering} {reduced} bind:want={pill} bind:timerInLine />
   {:else}
-    <div class="open" in:bloom={{ reduced }} out:blurAway={{ reduced }} style:max-height="{OPEN_MAX}px" bind:offsetHeight={measured}>
+    <div class="open" class:raised in:bloom={{ reduced }} out:blurAway={{ reduced }} style:max-height="{OPEN_MAX}px" bind:offsetHeight={measured}>
       <Deck {companion} {frame} {bar} {lead} {cheering} {reduced} room={OPEN_MAX - TABS_HEIGHT}>
         {#snippet notice()}
           {#if awayShown && away.pending}
@@ -413,13 +467,12 @@
   {/if}
 </div>
 {#if settingsPanel.open && frame.size === 'open'}
-  <SettingsPanel height={panelHeight(screen.availHeight)} {reduced} late={box.current.w < OPEN_WIDTH - 4} />
+  <SettingsPanel height={panelHeight(screen.availHeight)} {reduced} late={box.current.w < OPEN_WIDTH - 4 || box.current.h < target.h - 4} {bottom} side={place.side} />
 {/if}
-{#if sides && musicShown}
-  <IslandDrop side="right" {reduced} {onresize} onside={(on) => (onSide = on)} tint={{ accent: companion.music.accent, playing: companion.media?.playing === true }}>
-    <MusicBubble {companion} {onresize} room={sideRoom} />
-  </IslandDrop>
-{/if}
+<div class="drops after">
+  {#if sides && musicShown && place.side !== 'right'}{@render musicDrop('right')}{/if}
+  {#if sides && companion.timer.current && place.side === 'left'}{@render timerDrop('right')}{/if}
+</div>
 </div>
 
 <style>
@@ -432,6 +485,39 @@
     /* The island over its drops, the halo over its edge, kept to the cluster. */
     isolation: isolate;
     --island-shadow: 0 6px 16px color-mix(in srgb, var(--island-bg) 30%, transparent), 0 1px 3px color-mix(in srgb, var(--island-bg) 35%, transparent);
+    /* Where the island swells from and gives to: its edge of the screen, its side. */
+    --hang-x: 50%;
+    --hang-y: 0;
+  }
+  .cluster[data-island-edge='bottom'] {
+    margin: 28px 0 0;
+    --hang-y: 100%;
+  }
+  .cluster[data-island-side='left'] {
+    --hang-x: 0;
+  }
+  .cluster[data-island-side='right'] {
+    --hang-x: 100%;
+  }
+  /* The drops beside the island, the nearest first. */
+  .drops {
+    position: absolute;
+    top: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .drops.before {
+    right: calc(100% + 8px);
+    flex-direction: row-reverse;
+  }
+  .drops.after {
+    left: calc(100% + 8px);
+  }
+  [data-island-edge='bottom'] > .drops {
+    top: auto;
+    bottom: 0;
+    align-items: flex-end;
   }
   .defs {
     position: absolute;
@@ -504,7 +590,7 @@
   }
   .island,
   .halo {
-    transform-origin: 50% 0;
+    transform-origin: var(--hang-x) var(--hang-y);
   }
   /* Hovered, about to open: a small swell. Pressed: it gives a little. */
   .island[data-swell],
@@ -536,7 +622,16 @@
     width: var(--deck-width);
     display: flex;
     flex-direction: column;
-    transform-origin: 50% 0;
+    transform-origin: var(--hang-x) var(--hang-y);
+  }
+  /* The deck stays on the island's side, and on its edge of the screen while the island grows. */
+  [data-island-side='right'] .open {
+    left: auto;
+    right: 0;
+  }
+  [data-island-edge='bottom'] .open:not(.raised) {
+    top: auto;
+    bottom: 0;
   }
   @keyframes breathe {
     0%,

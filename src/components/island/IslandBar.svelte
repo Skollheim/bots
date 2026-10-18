@@ -34,6 +34,13 @@
     request's CI told in the line (`pr-watch.svelte.ts`) opens its thread in
     Boite on a click.
 
+  - A press on the robot that moves pulls it out of the island, loose on the
+    desktop (`Companion.onpress`); on the rest of the pill, it carries the
+    island to another place (`lib/island/move.svelte.ts`). Without moving, it
+    is a click either way.
+  - With the island on the screen's bottom edge, the pill is upside down: the
+    line against the edge, the request above it, the lip on top.
+
   It tells the island the size it wants through `want`.
 -->
 <script lang="ts">
@@ -48,6 +55,7 @@
   import { gazeOf, moodOf } from '../../lib/island/face';
   import type { FinishLine } from '../../lib/island/finished';
   import type { IslandFrame } from '../../lib/island/frame.svelte';
+  import type { IslandMove } from '../../lib/island/move.svelte';
   import { bloom, blurAway, ROLL_MS, rollIn, rollOut } from '../../lib/island/motion';
   import { restLine, robotWidth, sessionLine, type TimerSource } from '../../lib/island/pill-rest';
   import { pillStops, stepStop, stopAt, WHEEL_STILL, wheelStep } from '../../lib/island/pill-stops';
@@ -65,6 +73,7 @@
   interface Props {
     companion: Companion;
     frame: IslandFrame;
+    move: IslandMove;
     sessions: Sessions;
     /** A thread that just ended, or a pull request's CI, told while the island peeks for it. */
     told: (FinishLine & { threadId?: string }) | null;
@@ -76,7 +85,7 @@
     timerInLine?: boolean;
   }
 
-  let { companion, frame, sessions, told, cheering, reduced, want = $bindable(), timerInLine = $bindable(false) }: Props = $props();
+  let { companion, frame, move, sessions, told, cheering, reduced, want = $bindable(), timerInLine = $bindable(false) }: Props = $props();
 
   const copy = strings.island;
   const card = strings.island.sessions.card;
@@ -305,7 +314,7 @@
   }
 
   /** The dot under the pointer, if any: its hover target is the column it stands in. */
-  function move(event: PointerEvent) {
+  function pointerMove(event: PointerEvent) {
     companion.onmove(event);
     const target = event.target instanceof Element ? event.target : null;
     onDots = target?.closest('.dots') != null;
@@ -317,8 +326,14 @@
     hoveredKey = null;
   }
 
+  /** On the robot, the press may pull it out; elsewhere on the pill, it may carry the island. */
+  function press(event: PointerEvent) {
+    if (event.target instanceof Node && barFace?.contains(event.target)) companion.onpress(event, true);
+    else move.press(event);
+  }
+
   function barClick() {
-    if (companion.dropped) return;
+    if (companion.dropped || move.moved) return;
     if (told?.threadId && frame.flashing) return void showMain(told.threadId);
     frame.click();
   }
@@ -334,8 +349,8 @@
     aria-expanded="false"
     aria-label={[detail ? line.text : viewText || line.text, meta].filter(Boolean).join(', ')}
     onclick={barClick}
-    onpointerdown={(event) => companion.onpress(event, true)}
-    onpointermove={move}
+    onpointerdown={press}
+    onpointermove={pointerMove}
     onpointerleave={leave}
     onpointerup={companion.onrelease}
     onwheel={wheel}
@@ -443,6 +458,17 @@
   .asking .bar {
     flex: none;
     height: 40px;
+  }
+  :global([data-island-edge='bottom']) .pill {
+    flex-direction: column-reverse;
+  }
+  :global([data-island-edge='bottom']) .lip {
+    top: 3px;
+    bottom: auto;
+  }
+  :global([data-island-edge='bottom']) .ask {
+    padding: 6px 10px 0 14px;
+    animation-name: ask-rise;
   }
   .bar:focus-visible {
     outline: 2px solid var(--island-talking);
@@ -710,6 +736,12 @@
       transform: translateY(-4px);
     }
   }
+  @keyframes ask-rise {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
   @keyframes ask-fade {
     from {
       opacity: 0;
@@ -725,6 +757,9 @@
     }
     .ask {
       animation: ask-fade 200ms ease-out;
+    }
+    :global([data-island-edge='bottom']) .ask {
+      animation-name: ask-fade;
     }
   }
 </style>

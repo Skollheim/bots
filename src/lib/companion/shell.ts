@@ -52,9 +52,18 @@ export async function placeCompanion(monitor: string | null, anchor: CompanionAn
   return placed ?? layoutOf(anchor, spot);
 }
 
-/** The island: the window hanging from the top centre of `monitor`, `width` × `height` CSS pixels (`island.rs`). */
-export async function placeIsland(monitor: string | null, width: number, height: number): Promise<IslandPlaced | null> {
-  return (await invoke<IslandPlaced | null>('island_place', { monitor, width: Math.ceil(width), height: Math.ceil(height) })) ?? null;
+/** The island: the window against the edge and on the side of `place` on `monitor`, `width` × `height` CSS pixels (`island.rs`). */
+export async function placeIsland(monitor: string | null, place: CompanionLayout, width: number, height: number): Promise<IslandPlaced | null> {
+  return (await invoke<IslandPlaced | null>('island_place', { monitor, place, width: Math.ceil(width), height: Math.ceil(height) })) ?? null;
+}
+
+/**
+ * While the pill is dragged to another place, the window spans the island's
+ * screen and takes every click (`island_span`); `false` puts it back at the
+ * island's place, for a drag let go where it began.
+ */
+export async function spanIsland(span: boolean): Promise<void> {
+  await invoke('island_span', { span });
 }
 
 /** Hiding for a full-screen app, and the shortcut; rejects when the shortcut is taken. */
@@ -65,10 +74,11 @@ export async function configureCompanion(hideFullscreen: boolean, hotkey: string
 /**
  * Carries the window while the button stays down; null when it did not move.
  * `detach` pulls the robot out of the island: the window first takes the
- * desktop size, the character under the pointer.
+ * desktop size, the character under the pointer. `island` is the island's
+ * place, where a robot dropped near it goes back in.
  */
-export async function dragCompanion(detach = false): Promise<CompanionDrop | null> {
-  return (await invoke<CompanionDrop | null>('companion_drag', { detach })) ?? null;
+export async function dragCompanion(detach: boolean, island: CompanionLayout): Promise<CompanionDrop | null> {
+  return (await invoke<CompanionDrop | null>('companion_drag', { detach, place: island })) ?? null;
 }
 
 /**

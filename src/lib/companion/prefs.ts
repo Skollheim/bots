@@ -23,6 +23,11 @@ export type CompanionRobots = 'island' | 'desktop';
 /** What the island's pill shows when nothing else claims it: the live line, the quota left (`headroom`), the music, the running timer, or the robot alone. */
 export type PillRest = 'live' | 'quota' | 'music' | 'timer' | 'robot';
 export const PILL_RESTS = ['live', 'quota', 'music', 'timer', 'robot'] as const satisfies readonly PillRest[];
+/** Where the island sits: against the top or the bottom edge of the screen (the bottom one above the taskbar), on its left, its centre or its right. */
+export type IslandPlace = `${IslandEdge}-${IslandSide}`;
+export type IslandEdge = 'top' | 'bottom';
+export type IslandSide = 'left' | 'center' | 'right';
+export const ISLAND_PLACES = ['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-center', 'bottom-right'] as const satisfies readonly IslandPlace[];
 /** The character's centre, in fractions of the screen's work area. */
 export interface CompanionSpot { x: number; y: number }
 /** The families the island's mascot may come from: every robot Boite draws, and the box. */
@@ -41,6 +46,8 @@ export interface CompanionPrefs {
   openOnHover: boolean;
   /** What the pill shows at rest (`IslandBar.svelte`). */
   pillRest: PillRest;
+  /** Where the island sits on its screen; dragging the pill moves it too. */
+  islandPlace: IslandPlace;
   /** The island's character, the first agent's on the desktop; null is that agent's own robot (Boîte, the classic box, by default). */
   mascot: Mascot | null;
   anchor: CompanionAnchor;
@@ -93,6 +100,7 @@ export const DEFAULT_COMPANION_PREFS: CompanionPrefs = {
   robots: 'island',
   openOnHover: true,
   pillRest: 'live',
+  islandPlace: 'top-center',
   mascot: null,
   anchor: 'center',
   spot: null,
@@ -158,6 +166,7 @@ export function parseCompanionPrefs(raw: unknown): CompanionPrefs {
     robots: value.robots === 'desktop' ? 'desktop' : 'island',
     openOnHover: value.openOnHover !== false,
     pillRest: (PILL_RESTS as readonly unknown[]).includes(value.pillRest) ? (value.pillRest as PillRest) : 'live',
+    islandPlace: (ISLAND_PLACES as readonly unknown[]).includes(value.islandPlace) ? (value.islandPlace as IslandPlace) : 'top-center',
     mascot: mascotOf(value.mascot),
     // A free place needs the spot it was dropped on.
     anchor: value.anchor === 'left' || value.anchor === 'right' || (value.anchor === 'free' && spot) ? value.anchor : 'center',

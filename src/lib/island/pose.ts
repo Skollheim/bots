@@ -64,7 +64,10 @@
  * - `pose=decktab&tab=apps|clipboard|wallpaper|system`: one of the deck's
  *   computer tabs alone, in a deck-wide black frame, on a fake computer; its
  *   own states (`q`, `clip`, `source`, `engine`, `press`), in
- *   `lib/windows/pose.ts`, also apply to `pose=deck`.
+ *   `lib/windows/pose.ts`, also apply to `pose=deck`;
+ * - `place=top-left|top-center|top-right|bottom-left|bottom-center|bottom-right`:
+ *   the island at that place (`place.ts`), the page playing the screen; at
+ *   the bottom, a thin made-up taskbar under it.
  *
  * A wallpaper goes under the transparent window, so the black island shows.
  */
@@ -80,6 +83,7 @@ import { FAKE_APPS } from '../windows/fake';
 import { isDeckTab } from './deck-tabs';
 import type { IslandFrame } from './frame.svelte';
 import { posed } from './posed.svelte';
+import { parsePlace } from './place';
 import { settingsPanel } from './settings-panel.svelte';
 import { prLine } from './pr-checks';
 import type { PressureReason } from './pressure';
@@ -123,8 +127,9 @@ const LYRICS = `[ti:Midnight Circuit]
 const NEXT_TRACK = { title: 'Glass Harbor', artist: 'Neon Tides', app: 'Spotify.exe', position: 3_000, duration: 188_000, seekable: true };
 
 function poseMusic(companion: Companion, playing: boolean, art: string | null, lyrics: boolean): void {
-  // The shell's reads stop, kept so a later write of the prefs keeps them off: the posed track stays.
-  companion.prefs = writeCompanionPrefs({ music: false, ...(lyrics ? { lyrics: true } : {}) });
+  // The shell's reads stop, kept so a later write of the prefs keeps them off: the posed track stays. The posed place stays too.
+  const islandPlace = companion.prefs.islandPlace;
+  companion.prefs = { ...writeCompanionPrefs({ music: false, ...(lyrics ? { lyrics: true } : {}) }), islandPlace };
   setTimeout(() => {
     const media = { title: 'Midnight Circuit', artist: 'Neon Tides', app: 'Spotify.exe', playing, art, position: 74_000, duration: 213_000, seekable: true };
     companion.music.demo = true;
@@ -222,6 +227,23 @@ const SKIN_POSES: Record<RobotFamily, Robot> = {
   retro: { family: 'retro', shape: 0, color: 7, eyes: 1, top: 0 },
 };
 
+/** A made-up taskbar under a bottom island: the page, which plays the screen, ends above it as a work area does. */
+const TASKBAR = 40;
+function poseTaskbar(): void {
+  const style = document.createElement('style');
+  style.textContent = [
+    `main[data-testid='companion'] { height: calc(100dvh - ${TASKBAR}px) !important; }`,
+    `.pose-taskbar { position: fixed; inset: auto 0 0; height: ${TASKBAR}px; display: flex; gap: 8px; align-items: center; justify-content: center; background: rgb(28 30 40 / 0.88); border-top: 1px solid rgb(255 255 255 / 0.08); }`,
+    '.pose-taskbar i { width: 24px; height: 24px; border-radius: 6px; background: rgb(255 255 255 / 0.18); }'
+  ].join('\n');
+  document.head.append(style);
+  const bar = document.createElement('div');
+  bar.className = 'pose-taskbar';
+  bar.setAttribute('aria-hidden', 'true');
+  for (let icon = 0; icon < 6; icon++) bar.append(document.createElement('i'));
+  document.body.append(bar);
+}
+
 const WALLPAPER = 'html[data-companion] body { background: linear-gradient(160deg, #34466e, #7d6797 55%, #d49c78) !important; }';
 
 async function until(ready: () => boolean, tries = 60): Promise<void> {
@@ -232,7 +254,11 @@ export async function strikePose(companion: Companion, frame: IslandFrame, param
   const style = document.createElement('style');
   style.textContent = WALLPAPER;
   document.head.append(style);
+  const place = parsePlace(params.get('place'));
+  if (place?.startsWith('bottom')) poseTaskbar();
   await until(() => companion.threads.length > 0 && companion.crew.members.length > 0);
+  // Set once the companion has read its own prefs, which would put the island back.
+  if (place) companion.prefs = { ...companion.prefs, islandPlace: place };
   if (params.get('calm') === '1') {
     for (const request of companion.permissions) await companion.act({ kind: 'allow', request });
     for (const question of companion.questions) await companion.act({ kind: 'skip', question });

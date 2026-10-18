@@ -135,6 +135,13 @@
   .drop.open {
     border-radius: 0 0 18px 18px;
   }
+  /* Against the bottom edge (`Island.svelte`), rounded at the top. */
+  :global([data-island-edge='bottom']) .drop {
+    border-radius: 16px 16px 0 0;
+  }
+  :global([data-island-edge='bottom']) .drop.open {
+    border-radius: 18px 18px 0 0;
+  }
   /* The ring alone: the pill's line tells the time. */
   .drop.compact:not(.open) {
     min-width: 0;
