@@ -793,6 +793,7 @@ export const fr: Messages = {
       family: 'Style', shape: 'Forme', color: 'Couleur', eyes: 'Yeux', top: 'Accessoire', shuffle: 'Mélanger', customize: 'Personnaliser', done: 'Terminé',
       option: '{part} {n}', families: { jelly: 'Gelée', bubble: 'Bulle', capsule: 'Capsule', retro: 'Rétro', box: 'Boîte' },
       box: { shape: 'Couvercle', color: 'Corps', eyes: 'Yeux', top: 'Accessoire' },
+      bots: 'B.O.T.S', botsFace: 'Le visage de B.O.T.S, la boîte classique',
     }
   },
 

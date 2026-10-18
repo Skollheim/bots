@@ -82,9 +82,10 @@ export function rowsOf(ctx: FakeContext): Map<string, AgentRecord> {
 function seedAgents(ctx: FakeContext, now: number): void {
   const rows = rowsOf(ctx);
   const made = at(now, 600);
+  // Atlas chose no face (it wears B.O.T.S's), Ledger a retro robot.
   const agents = [
     profile(ASSISTANT_DEMO_AGENT, 'Atlas', 'Research and notes', 'claude-sonnet-5-5', made),
-    profile(OTHER_AGENT, 'Ledger', 'Invoices and accounts', null, made + MINUTE)
+    { ...profile(OTHER_AGENT, 'Ledger', 'Invoices and accounts', null, made + MINUTE), avatar: 'bot:c.1.6.2.1' }
   ];
   for (const agent of agents) rows.set(`profile:${agent.id}`, agent);
 

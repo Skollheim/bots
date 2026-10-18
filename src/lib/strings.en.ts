@@ -819,6 +819,7 @@ export const strings = {
       family: 'Style', shape: 'Shape', color: 'Color', eyes: 'Eyes', top: 'Accessory', shuffle: 'Shuffle', customize: 'Customize', done: 'Done',
       option: '{part} {n}', families: { jelly: 'Jelly', bubble: 'Bubble', capsule: 'Capsule', retro: 'Retro', box: 'Box' },
       box: { shape: 'Lid', color: 'Body', eyes: 'Eyes', top: 'Accessory' },
+      bots: 'B.O.T.S', botsFace: 'B.O.T.S’s own face, the classic box',
     }
   },
 

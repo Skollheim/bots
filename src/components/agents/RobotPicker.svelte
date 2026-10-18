@@ -1,6 +1,7 @@
 <script lang="ts">
   import { secureId } from '@boite/ui/lib/secure-id';
   import { Dices } from '@lucide/svelte';
+  import { CLASSIC_ROBOT, isClassic } from '../../lib/companion/crew';
   import { boxEye, boxLid, boxLine } from '../../lib/companion/skin';
   import { choices, robotColor, ROBOT_FAMILIES, seededRobot, withPart, type Robot, type RobotFamily, type RobotPart } from '../../lib/robots';
   import { fill, strings } from '../../lib/strings';
@@ -8,15 +9,17 @@
 
   /**
    * Picks a robot the way one dresses a character: the robot as it stands,
-   * Shuffle for a new one, and one row per part where every choice is drawn
-   * on the robot itself, so nothing has to be read. A box's lid, body and
-   * eyes are colours, so those rows are swatches. `families` narrows the styles
-   * offered.
+   * Shuffle for a new one, B.O.T.S for the companion's own face (the classic
+   * box, which no family row reaches from another family in one click), and
+   * one row per part where every choice is drawn on the robot itself, so
+   * nothing has to be read. A box's lid, body and eyes are colours, so those
+   * rows are swatches. `families` narrows the styles offered.
    */
   let { robot, onpick, compact = false, families = ROBOT_FAMILIES }: { robot: Robot; onpick: (robot: Robot) => void; compact?: boolean; families?: readonly RobotFamily[] } = $props();
   const labels = $derived(strings.agents.robot);
   const rows: Exclude<RobotPart, 'family'>[] = ['shape', 'color', 'eyes', 'top'];
   const box = $derived(robot.family === 'box');
+  const classic = $derived(isClassic(robot));
 
   /** A row's name: the box calls its parts lid, body, eyes and accessory. */
   function rowLabel(part: Exclude<RobotPart, 'family'>): string {
@@ -40,6 +43,11 @@
   <div class="stage">
     <span class="portrait"><RobotFace {robot} /></span>
     <button type="button" class="small" onclick={shuffle} data-testid="robot-shuffle"><Dices size={14} strokeWidth={1.75} />{labels.shuffle}</button>
+    {#if families.includes('box')}
+      <button type="button" class="option bots" class:on={classic} aria-pressed={classic} title={labels.botsFace} onclick={() => onpick({ ...CLASSIC_ROBOT })} data-testid="robot-bots">
+        <span class="thumb"><RobotFace robot={CLASSIC_ROBOT} state="still" /></span><span>{labels.bots}</span>
+      </button>
+    {/if}
   </div>
   <div class="parts">
     <div class="part" role="radiogroup" aria-label={labels.family}>
@@ -85,6 +93,7 @@
   .options { display: flex; flex-wrap: wrap; gap: 6px; }
   .option { width: auto; height: auto; padding: 3px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-2); }
   .option.family { gap: 6px; padding: 3px 10px 3px 3px; font-size: var(--text-sm); font-weight: 500; }
+  .option.bots { gap: 6px; padding: 3px 10px 3px 3px; font-size: var(--text-sm); font-weight: 600; }
   .option.on, .swatch.on { border-color: var(--color-accent); box-shadow: 0 0 0 2px var(--color-accent-soft); }
   .thumb { width: 32px; height: 32px; display: block; border-radius: 50%; overflow: hidden; flex: none; }
   .swatch { width: 28px; height: 28px; padding: 0; border-radius: 50%; border: 2px solid var(--swatch-edge, var(--color-surface)); background: var(--swatch); }
