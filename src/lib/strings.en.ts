@@ -103,6 +103,7 @@ export const strings = {
     },
     talking: '{name} is answering…',
     robot: '{name}. Click to poke it, drag it out to set it loose on the desktop.',
+    agentSwap: { label: '{name}, the agent the Chat talks to. Click to switch to {next}, drag it out to set it loose on the desktop.', tip: 'Switch to {next}' },
     chat: {
       empty: 'Ask your bots anything: they answer here.',
       to: 'Talk to',
@@ -819,6 +820,7 @@ export const strings = {
       family: 'Style', shape: 'Shape', color: 'Color', eyes: 'Eyes', top: 'Accessory', shuffle: 'Shuffle', customize: 'Customize', done: 'Done',
       option: '{part} {n}', families: { jelly: 'Jelly', bubble: 'Bubble', capsule: 'Capsule', retro: 'Retro', box: 'Box' },
       box: { shape: 'Lid', color: 'Body', eyes: 'Eyes', top: 'Accessory' },
+      bots: 'B.O.T.S', botsFace: 'B.O.T.S’s own face, the classic box',
     }
   },
 

@@ -10,7 +10,8 @@
   dragging it back near the island, or "Back to the island", returns it.
   The shell places the window for either (`island_place`, `companion_place`).
   Dragging the pill moves the island to another of its six places
-  (`lib/island/move.svelte.ts`): the window spans the screen meanwhile.
+  (`lib/island/move.svelte.ts`), on its screen or another: the window spans
+  the screen under the pointer meanwhile.
 
   The settings are a panel of the island (`island/settings/SettingsPanel.svelte`):
   asked for from the tray, a gear or "Make an agent", the island opens for
@@ -25,7 +26,7 @@
   import BotsNotice from './components/BotsNotice.svelte';
   import { writeStatus } from './lib/companion/memory';
   import { captureZone, type ScreenShot } from './lib/companion/screen';
-  import { companionHitRects, configureCompanion, coverScreen, inShell, layoutOf, listenShell, placeCompanion, placeIsland, spanIsland, type CompanionLayout, type HitRect } from './lib/companion/shell';
+  import { companionHitRects, configureCompanion, coverScreen, inShell, layoutOf, listenShell, placeCompanion, placeIsland, spanIsland, type CompanionLayout, type HitRect, type IslandPlaced } from './lib/companion/shell';
   import { writeCompanionPrefs } from './lib/companion/prefs';
   import { Companion } from './lib/companion/companion.svelte';
   import { IslandFrame } from './lib/island/frame.svelte';
@@ -71,8 +72,8 @@
   const move = new IslandMove({
     place: () => companion.prefs.islandPlace,
     island: () => document.querySelector('[data-testid=island]')?.getBoundingClientRect() ?? null,
-    span: () => void spanIsland(true).catch(() => {}),
-    land: (place) => (companion.prefs = writeCompanionPrefs({ islandPlace: place })),
+    span: async () => (await spanIsland(true).catch(() => null))?.monitor ?? null,
+    land: (patch) => (companion.prefs = writeCompanionPrefs(patch)),
     reduced: () => prefersReducedMotion.current
   });
 
@@ -227,6 +228,9 @@
     // The tray's Settings, and the companion's own request, come back from the shell (`bots_settings`).
     let gone = false;
     void listenShell<string | null>('settings', (section) => requestSettings(section)).then((stop) => (gone ? stop() : off.push(stop)));
+    // The carried island's span follows the pointer to another screen, or is given up after a release the page missed (`island.rs`).
+    void listenShell<IslandPlaced>('span', (placed) => move.spanned(placed.monitor)).then((stop) => (gone ? stop() : off.push(stop)));
+    void listenShell('span-lost', () => move.abort()).then((stop) => (gone ? stop() : off.push(stop)));
     off.push(() => (gone = true));
     // Hidden, nothing can be clicked: the areas wait until the window shows again.
     const rects = setInterval(() => !dormant && requestRects(), 500);

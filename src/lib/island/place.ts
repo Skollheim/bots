@@ -6,9 +6,9 @@
  *
  * While the pill is dragged, the window spans the screen and the page draws
  * the six places as targets (`placeRect`); the island goes to the one nearest
- * where it was let go (`nearestPlace`).
+ * where it was let go (`nearestPlace`), on the screen it was let go on (`landPatch`).
  */
-import { ISLAND_PLACES, type IslandEdge, type IslandPlace, type IslandSide } from '../companion/prefs';
+import { ISLAND_PLACES, type CompanionPrefs, type IslandEdge, type IslandPlace, type IslandSide } from '../companion/prefs';
 import type { CompanionLayout } from '../companion/shell';
 
 /** The island's distance from the screen's side at the left and right places, CSS pixels. */
@@ -57,4 +57,16 @@ export function nearestPlace(centre: { x: number; y: number }, screen: Size, siz
     if (away < distance) [best, distance] = [place, away];
   }
   return best;
+}
+
+/** What a dragged island saves where it lands: its place, and the screen when it is not the one it began on. */
+export type LandPatch = Pick<CompanionPrefs, 'islandPlace'> & Partial<Pick<CompanionPrefs, 'monitor'>>;
+
+/**
+ * The patch for an island let go at `place` on the screen named `to`, its drag
+ * begun on `from` (null when the shell did not say). On the same screen the
+ * screen setting stays as it was, the primary one included.
+ */
+export function landPatch(place: IslandPlace, from: string | null, to: string | null): LandPatch {
+  return to !== null && to !== from ? { islandPlace: place, monitor: to } : { islandPlace: place };
 }

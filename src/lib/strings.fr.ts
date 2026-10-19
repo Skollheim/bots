@@ -88,6 +88,7 @@ export const fr: Messages = {
     },
     talking: '{name} répond…',
     robot: '{name}. Cliquez pour le taquiner, faites-le glisser hors de l’île pour le poser sur le bureau.',
+    agentSwap: { label: '{name}, l’agent à qui parle le Chat. Cliquez pour passer à {next}, faites-le glisser hors de l’île pour le poser sur le bureau.', tip: 'Passer à {next}' },
     chat: {
       empty: 'Demandez ce que vous voulez à vos bots : ils répondent ici.',
       to: 'Parler à',
@@ -793,6 +794,7 @@ export const fr: Messages = {
       family: 'Style', shape: 'Forme', color: 'Couleur', eyes: 'Yeux', top: 'Accessoire', shuffle: 'Mélanger', customize: 'Personnaliser', done: 'Terminé',
       option: '{part} {n}', families: { jelly: 'Gelée', bubble: 'Bulle', capsule: 'Capsule', retro: 'Rétro', box: 'Boîte' },
       box: { shape: 'Couvercle', color: 'Corps', eyes: 'Yeux', top: 'Accessoire' },
+      bots: 'B.O.T.S', botsFace: 'Le visage de B.O.T.S, la boîte classique',
     }
   },
 

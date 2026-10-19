@@ -5,7 +5,7 @@
  * to it. Pure, so it is tested without a core.
  */
 import type { AgentConversationMessage, AgentMemory, AgentProfile, AgentSave, AgentScope, AgentsSnapshot, AgentWork } from '@boite/contracts';
-import { boxColorOf, encodeRobot, ROBOT_FAMILIES, ROBOT_PARTS, robotColors, robotOf, seededRobot, type Robot } from '../robots';
+import { boxColorOf, encodeRobot, parseRobot, ROBOT_FAMILIES, ROBOT_PARTS, robotColors, seededRobot, type Robot } from '../robots';
 import type { Brain } from './brain';
 import { namesFact, normalized } from './memory';
 
@@ -13,10 +13,20 @@ import { namesFact, normalized } from './memory';
 export const FIRST_AGENT_NAME = 'B.O.T.S';
 /** The classic companion, as an avatar: the first agent keeps the look the companion always had. */
 export const CLASSIC_SKIN = encodeRobot({ family: 'box', shape: 0, color: 0, eyes: 0, top: 0 });
+/** B.O.T.S's own face, the classic box drawn after Boite's icon: what an agent that chose no face wears. */
+export const CLASSIC_ROBOT: Readonly<Robot> = parseRobot(CLASSIC_SKIN)!;
 
-/** The robot an agent stands as: the one the Agents page draws for it, of any family, or the box its id draws when its picture is text. */
+/** Whether a robot is B.O.T.S's own face. */
+export const isClassic = (robot: Robot | null | undefined): boolean => !!robot && encodeRobot(robot) === CLASSIC_SKIN;
+
+/**
+ * The robot an agent stands as: the one it chose, of any family; B.O.T.S's
+ * face when it chose none (Boite's Agents page draws one from its id); the
+ * box its id draws when its picture is text.
+ */
 export function skinOf(profile: Pick<AgentProfile, 'id' | 'avatar'>): Robot {
-  return robotOf(profile.id, profile.avatar) ?? seededRobot(profile.id, 'box');
+  if (!profile.avatar.trim()) return { ...CLASSIC_ROBOT };
+  return parseRobot(profile.avatar) ?? seededRobot(profile.id, 'box');
 }
 
 /** A number from 0 to n - 1, the same for a seed on every client. */

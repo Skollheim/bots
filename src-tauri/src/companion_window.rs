@@ -411,6 +411,8 @@ fn watch<R: Runtime>(app: AppHandle<R>, shared: Shared, mine: u64) {
                 // Read while hidden too: the shortcut can call the companion over a game.
                 senses.front(&window, tick.is_multiple_of(SCREEN_EVERY_TICKS * FRONT_AGAIN_SCREENS));
             }
+            // Hidden too: a drag's span is given up even over a full-screen app.
+            crate::island::follow_span(&app, &window);
             if shared.hidden.load(Ordering::Acquire) { continue; }
             if tick.is_multiple_of(RAISE_EVERY_TICKS) {
                 crate::platform::keep_on_top(&window);
