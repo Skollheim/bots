@@ -10,7 +10,7 @@ import { BOX_COLORS, boxColorOf, encodeRobot, ROBOT_FAMILIES, ROBOT_PARTS, robot
 import { strings } from '../strings';
 import type { Brain } from './brain';
 import { ROLE_START } from './brain';
-import { AGENT_TOOLS, CLASSIC_SKIN, companionAgent, freshSkin, membersOf, memoriesToForget, memoryToKeep, needsFirstAgent, profileWith, repliesAfter, replyTo, skinOf } from './crew';
+import { AGENT_TOOLS, CLASSIC_ROBOT, CLASSIC_SKIN, companionAgent, freshSkin, isClassic, membersOf, memoriesToForget, memoryToKeep, needsFirstAgent, profileWith, repliesAfter, replyTo, skinOf } from './crew';
 import { Crew } from './crew.svelte';
 import { addReminder, readMemory, readReminders, remember } from './memory';
 import { Notes } from './notes.svelte';
@@ -64,7 +64,7 @@ const snapshotOf = (part: Partial<AgentsSnapshot>) => ({ profiles: [], messages:
 // Looks
 // ---------------------------------------------------------------------------
 
-test('an agent stands as its own robot, of any family, or the box its id draws when its picture is text', () => {
+test('an agent stands as its own robot, of any family, B.O.T.S\'s face when it chose none, or the box its id draws when its picture is text', () => {
   expect(skinOf(profile('bots', { avatar: CLASSIC_SKIN }))).toEqual({ family: 'box', shape: 0, color: 0, eyes: 0, top: 0 });
   const box = { family: 'box', shape: 4, color: 7, eyes: 2, top: 5 } as const;
   expect(skinOf(profile('a', { avatar: encodeRobot(box) }))).toEqual(box);
@@ -72,8 +72,14 @@ test('an agent stands as its own robot, of any family, or the box its id draws w
     const robot = { family, shape: 1, color: 2, eyes: 1, top: 3 };
     expect(skinOf(profile('a', { avatar: encodeRobot(robot) }))).toEqual(robot);
   }
-  // No avatar: the robot the Agents page draws for its id.
-  expect(skinOf(profile('seeded'))).toEqual(seededRobot('seeded'));
+  // No avatar: B.O.T.S's own face, whatever the id, and not the jelly the id draws.
+  expect(skinOf(profile('seeded'))).toEqual(CLASSIC_ROBOT);
+  expect(skinOf(profile('other', { avatar: '  ' }))).toEqual(CLASSIC_ROBOT);
+  expect(skinOf(profile('seeded'))).not.toEqual(seededRobot('seeded'));
+  expect(isClassic(skinOf(profile('bots')))).toBe(true);
+  // A face chosen, even the jelly the id would draw, is kept.
+  expect(skinOf(profile('seeded', { avatar: encodeRobot(seededRobot('seeded')) }))).toEqual(seededRobot('seeded'));
+  expect(isClassic(skinOf(profile('a', { avatar: encodeRobot(box) })))).toBe(false);
   expect(skinOf(profile('emoji', { avatar: '🦊' }))).toEqual(seededRobot('emoji', 'box'));
 });
 
