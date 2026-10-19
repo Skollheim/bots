@@ -58,12 +58,14 @@ export async function placeIsland(monitor: string | null, place: CompanionLayout
 }
 
 /**
- * While the pill is dragged to another place, the window spans the island's
- * screen and takes every click (`island_span`); `false` puts it back at the
- * island's place, for a drag let go where it began.
+ * While the pill is dragged to another place, the window spans the screen
+ * under the pointer, the island's, and takes every click (`island_span`):
+ * answers that screen, then follows the pointer to the others
+ * (`companion://span`). `false` puts it back at the island's place, for a
+ * drag let go where it began.
  */
-export async function spanIsland(span: boolean): Promise<void> {
-  await invoke('island_span', { span });
+export async function spanIsland(span: boolean): Promise<IslandPlaced | null> {
+  return (await invoke<IslandPlaced | null>('island_span', { span })) ?? null;
 }
 
 /** Hiding for a full-screen app, and the shortcut; rejects when the shortcut is taken. */
