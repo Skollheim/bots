@@ -140,7 +140,7 @@ Everything else is in **Settings**, a panel that grows out of the open island un
 
 ## Install
 
-In Boite, open **Settings > Plugins**, add `https://github.com/beboite/bots`, and confirm. Boite downloads the executable for your system from this repository's releases, checks its sha256 against [`boite-plugin.json`](boite-plugin.json), and starts it.
+In Boite, open **Settings > Plugins**, add `https://github.com/Skollheim/bots`, and confirm. Boite downloads the executable for your system from this repository's releases, checks its sha256 against [`boite-plugin.json`](boite-plugin.json), and starts it.
 
 The tray icon has **Settings** and **Quit**.
 
@@ -159,7 +159,7 @@ A second launch brings the running Bots forward instead of starting another one.
 Bots is Tauri 2, Svelte 5, Vite and TypeScript, built with [Bun](https://bun.sh) (the version in `package.json`'s `packageManager`) and stable Rust. On Linux, install the WebKit dependencies first: `libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev`.
 
 ```sh
-git clone --recurse-submodules https://github.com/beboite/bots
+git clone --recurse-submodules https://github.com/Skollheim/bots
 cd bots
 bun install --frozen-lockfile
 bun run check          # svelte-check, then the scripts' types

@@ -40,7 +40,7 @@ test('a release writes its version, URLs and hashes for the executables it built
   expect(next.version).toBe('1.2.3');
   expect(Object.keys(next.artifacts)).toEqual(['win32-x64', 'darwin-arm64']);
   expect(next.artifacts['win32-x64']).toEqual({
-    url: 'https://github.com/beboite/bots/releases/download/v1.2.3/bots-x86_64-pc-windows-msvc.exe',
+    url: 'https://github.com/Skollheim/bots/releases/download/v1.2.3/bots-x86_64-pc-windows-msvc.exe',
     sha256: 'a'.repeat(64),
   });
   expect(next.provides).toEqual({ desktopApp: {} });

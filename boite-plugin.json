@@ -4,7 +4,7 @@
   "name": "B.O.T.S",
   "version": "0.1.17",
   "description": "Little robots on your desktop that follow your Boite agents, answer your questions and keep you company while you work.",
-  "homepage": "https://github.com/beboite/bots",
+  "homepage": "https://github.com/Skollheim/bots",
   "executable": "bots",
   "artifacts": {
     "win32-x64": {

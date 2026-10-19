@@ -4,7 +4,7 @@
  * `release-manifest.ts` writes their URLs and hashes into `boite-plugin.json`.
  */
 
-export const REPOSITORY = 'beboite/bots';
+export const REPOSITORY = 'Skollheim/bots';
 
 export interface Target {
   /** Boite's platform key, `${process.platform}-${process.arch}`. */
