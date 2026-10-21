@@ -4,30 +4,45 @@
   most, and a button that stops it (`resources.killTree`, as Boite's task
   manager does). Ignore sets the warning aside until another conversation is
   the cause. Once the guard stopped a process itself, a line says which.
+
+  By default (Settings, Memory alert) the card is a slim strip, the pill's
+  words with the stop and the ignore, and a press on its words shows the full
+  card; with `panel` it is the full card at once, and with `off` nothing.
 -->
 <script lang="ts">
-  import { MemoryStick, X } from '@lucide/svelte';
+  import { ChevronDown, MemoryStick, X } from '@lucide/svelte';
   import { useView } from '../../../lib/island/contract';
-  import { sizeText, type Pressure } from '../../../lib/island/pressure';
+  import { pillText, pillView } from '../../../lib/island/pill-view';
+  import { alertPlan, pressureRed, pressureShare, sizeText, type Pressure } from '../../../lib/island/pressure';
   import { fill, strings } from '../../../lib/strings';
 
   const view = useView();
   const memory = $derived(view.memory);
   const copy = strings.island.memory;
-  /** Past this share of the limit, the bar turns red. */
-  const RED_SHARE = 0.95;
+  const plan = $derived(alertPlan(view.companion.prefs.memoryAlert));
 
   const size = (bytes: number) => sizeText(bytes, copy);
   const named = (title: string) => title || copy.agent;
-  const warning = $derived(memory.warning);
-  const stopped = $derived(memory.stopped);
+  const warning = $derived(plan.card ? memory.warning : null);
+  const stopped = $derived(plan.card ? memory.stopped : null);
+  /** The strip opened on the full card, until another cause comes. */
+  let expandedFor = $state<string | null>(null);
+  const cause = $derived(warning ? `${warning.reason}:${warning.threadId ?? ''}` : null);
+  /** A stop that failed says why on the full card. */
+  const full = $derived(plan.card === 'full' || memory.problem !== '' || (cause !== null && expandedFor === cause));
+  /** The strip's words: the pill's own line. */
+  const line = $derived(
+    warning
+      ? pillText(pillView({ waiting: { count: 0, from: null }, told: null, rule: null, memory: { pressure: warning, red: pressureRed(warning) }, rest: null, robot: false, focus: null, working: { count: 0, first: null }, goal: null }))
+      : ''
+  );
 
   function title(pressure: Pressure): string {
     return pressure.reason === 'thread' ? fill(copy.title.thread, { title: named(pressure.title) }) : copy.title[pressure.reason];
   }
 
   /** How full the measured limit is, for the bar; the free memory has none. */
-  const share = $derived(warning && warning.reason !== 'machine' && warning.limit > 0 ? Math.min(1, warning.used / warning.limit) : null);
+  const share = $derived(warning ? pressureShare(warning) : null);
 
   function stop(threadId: string) {
     const client = view.core.client;
@@ -35,8 +50,23 @@
   }
 </script>
 
-{#if warning}
-  <section class="memory" class:red={warning.reason === 'machine' || (share ?? 0) >= RED_SHARE} role="alert" data-testid="island-memory" data-reason={warning.reason}>
+{#if warning && !full}
+  <section class="memory strip" class:red={pressureRed(warning)} role="status" data-testid="island-memory-strip" data-reason={warning.reason}>
+    <button class="open" title={copy.details} aria-expanded="false" onclick={() => (expandedFor = cause)} data-testid="memory-details">
+      <span class="icon small" aria-hidden="true"><MemoryStick size={12} strokeWidth={2} /></span>
+      <span class="said-line">{line}</span>
+      <ChevronDown size={13} strokeWidth={2} aria-hidden="true" />
+    </button>
+    {#if warning.threadId}
+      {@const threadId = warning.threadId}
+      <button class="button primary slim" disabled={memory.stopping || !view.core.client} title={copy.stopTitle} onclick={() => stop(threadId)} data-testid="memory-stop">
+        {memory.stopping ? copy.stopping : copy.stop}
+      </button>
+    {/if}
+    <button class="close" aria-label={copy.ignore} title={copy.ignore} onclick={() => memory.ignore()} data-testid="memory-ignore"><X size={13} strokeWidth={2} /></button>
+  </section>
+{:else if warning}
+  <section class="memory" class:red={pressureRed(warning)} role="alert" data-testid="island-memory" data-reason={warning.reason}>
     <span class="icon" aria-hidden="true"><MemoryStick size={15} strokeWidth={2} /></span>
     <div class="body">
       <p class="title">{title(warning)}</p>
@@ -87,6 +117,55 @@
   }
   .memory.red {
     --tone: var(--island-danger);
+  }
+  /* The default: one slim line, the details a press away. */
+  .memory.strip {
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px 4px 4px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--tone) 8%, var(--island-card));
+  }
+  .open {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    height: 24px;
+    padding: 0 6px 0 0;
+    border: none;
+    border-radius: 999px;
+    background: none;
+    color: var(--island-text);
+    font: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .open :global(svg:last-child) {
+    flex: none;
+    color: var(--island-muted);
+  }
+  .open:hover :global(svg:last-child) {
+    color: var(--island-text);
+  }
+  .said-line {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-variant-numeric: tabular-nums;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .icon.small {
+    width: 22px;
+    height: 22px;
+  }
+  .button.slim {
+    flex: none;
+    height: 24px;
+    padding: 0 10px;
   }
   .memory.quiet {
     --tone: var(--island-muted);
@@ -206,6 +285,7 @@
     color: var(--island-text);
   }
   .button:focus-visible,
+  .open:focus-visible,
   .close:focus-visible {
     outline: 2px solid var(--island-talking);
     outline-offset: 1px;

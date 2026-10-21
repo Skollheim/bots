@@ -1,7 +1,8 @@
 <!--
   Settings, Island: what the companion shows and does around the island:
   music and lyrics, the quotas (one switch per subscription), closing and
-  hiding, sounds, the recap after an absence and the waiting threads' radar.
+  hiding, sounds, the recap after an absence, the memory alert and the
+  waiting threads' radar.
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
@@ -10,7 +11,7 @@
   import { fill, strings } from '../../../lib/strings';
   import type { CoreLink } from '../../../lib/core.svelte';
   import { hudGauges } from '../../../lib/companion/hud';
-  import type { CompanionPrefs } from '../../../lib/companion/prefs';
+  import { MEMORY_ALERTS, type CompanionPrefs, type MemoryAlert } from '../../../lib/companion/prefs';
   import SettingPick from './SettingPick.svelte';
   import SettingSwitch from './SettingSwitch.svelte';
 
@@ -24,6 +25,8 @@
       .sort((a, b) => a - b)
       .map((count) => ({ id: String(count), label: radarLabel(count), active: count === prefs.radarMinutes }))
   );
+
+  let alertItems = $derived(MEMORY_ALERTS.map((id) => ({ id, label: copy.memoryAlerts[id], active: id === prefs.memoryAlert })));
 
   /** The gateway's subscriptions, as the companion draws them, to pick the ones it shows. */
   let gateway = $derived(gatewayReader(store.endpointUrl ?? 'here'));
@@ -67,6 +70,7 @@
 
 <div class="card">
   <SettingSwitch label={copy.awayRecap} hint={copy.awayRecapHint} checked={prefs.awayRecap} onchange={(awayRecap) => save({ awayRecap })} testid="companion-away-recap" />
+  <SettingPick label={copy.memoryAlert} hint={copy.memoryAlertHint} items={alertItems} current={copy.memoryAlerts[prefs.memoryAlert]} onpick={(id) => save({ memoryAlert: id as MemoryAlert })} testid="companion-memory-alert" />
   <SettingPick label={copy.radar} hint={copy.radarHint} items={radarItems} current={radarLabel(prefs.radarMinutes)} onpick={(id) => save({ radarMinutes: Number(id) })} testid="companion-radar-minutes" />
 </div>
 

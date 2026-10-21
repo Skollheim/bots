@@ -1,10 +1,11 @@
 import { expect, test } from 'vitest';
 import { fill, strings } from '../strings';
 import type { RestLine } from './pill-rest';
+import type { Pressure } from './pressure';
 import { emphasis, fitWords, pillText, pillView, TITLE_MAX, type PillFacts } from './pill-view';
 
 const copy = strings.island.pill;
-const calm: PillFacts = { waiting: { count: 0, from: null }, told: null, rule: null, rest: null, robot: false, focus: null, working: { count: 0, first: null }, goal: null };
+const calm: PillFacts = { waiting: { count: 0, from: null }, told: null, rule: null, memory: null, rest: null, robot: false, focus: null, working: { count: 0, first: null }, goal: null };
 const busy: PillFacts = { ...calm, working: { count: 3, first: 'Bench against legacy' }, goal: { done: 2, total: 5 } };
 const quota: RestLine = { name: 'Max', doing: '18 % left', progress: null, kind: 'quota', tone: 'amber' };
 
@@ -71,4 +72,18 @@ test('long titles are cut on a word, never in one', () => {
 test('a template is split around its value', () => {
   expect(emphasis('{name} is waiting for you', 'name', 'Atlas')).toEqual({ before: '', strong: 'Atlas', after: ' is waiting for you' });
   expect(emphasis('Wait for {name}', 'name', 'Atlas')).toEqual({ before: 'Wait for ', strong: 'Atlas', after: '' });
+});
+
+test('the memory warning comes after a request and a thing told, before the rest and the agents, its chip tinted', () => {
+  const GB = 1024 * 1024 * 1024;
+  const pressure: Pressure = { reason: 'machine', threadId: 't', title: 'Unity build', bytes: 0.6 * GB, used: 2.8 * GB, limit: 3.2 * GB };
+  const memory = { pressure, red: true };
+  expect(pillView({ ...busy, waiting: { count: 1, from: 'Atlas' }, memory }).state).toBe('waiting');
+  expect(pillView({ ...busy, told: { text: 'Port the scheduler · done', tone: 'done' }, memory }).state).toBe('told');
+  const view = pillView({ ...busy, rest: quota, robot: true, memory });
+  expect(view).toMatchObject({ state: 'rest', tone: 'plain', glyph: 'memory', glyphTone: 'red', strong: '2.8 GB', meta: null });
+  expect(pillText(view)).toBe(fill(copy.memory.machine, { used: '2.8 GB' }));
+  const thread = pillView({ ...calm, memory: { pressure: { ...pressure, reason: 'thread', used: 3.5 * GB, limit: 4 * GB }, red: false } });
+  expect(pillText(thread)).toBe(fill(copy.memory.thread, { title: 'Unity build', used: '3.5 GB', limit: '4.0 GB' }));
+  expect(thread.glyphTone).toBe('amber');
 });

@@ -45,7 +45,7 @@
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { Gauge, Music, ShieldCheck, Timer, X } from '@lucide/svelte';
+  import { Gauge, MemoryStick, Music, ShieldCheck, Timer, X } from '@lucide/svelte';
   import type { Companion } from '../../lib/companion/companion.svelte';
   import { describePermission, threadLabel } from '../../lib/companion/describe';
   import { writeCompanionPrefs } from '../../lib/companion/prefs';
@@ -66,6 +66,7 @@
   import { isLive } from '../../lib/island/sessions';
   import type { Sessions } from '../../lib/island/sessions.svelte';
   import { rowDoing } from '../../lib/island/session-text';
+  import { pressureRed, type Pressure } from '../../lib/island/pressure';
   import { islandStatus } from '../../lib/island/status';
   import { fill, strings } from '../../lib/strings';
   import CompanionCharacter from '../companion/CompanionCharacter.svelte';
@@ -77,6 +78,8 @@
     sessions: Sessions;
     /** A thread that just ended, or a pull request's CI, told while the island peeks for it. */
     told: (FinishLine & { threadId?: string }) | null;
+    /** The memory guard's warning, when the pill tells it (`alertPlan`). */
+    memory: Pressure | null;
     cheering: boolean;
     reduced: boolean;
     /** The size the pill wants; the island's spring goes there. */
@@ -85,7 +88,7 @@
     timerInLine?: boolean;
   }
 
-  let { companion, frame, move, sessions, told, cheering, reduced, want = $bindable(), timerInLine = $bindable(false) }: Props = $props();
+  let { companion, frame, move, sessions, told, memory, cheering, reduced, want = $bindable(), timerInLine = $bindable(false) }: Props = $props();
 
   const copy = strings.island;
   const card = strings.island.sessions.card;
@@ -191,6 +194,7 @@
       waiting: asking ? { count: 1, from: origin?.title ?? null } : { count: companion.blocking, from: asker },
       told: told && frame.flashing ? { text: told.text, tone: told.tone } : null,
       rule: traceLine?.text ?? null,
+      memory: memory ? { pressure: memory, red: pressureRed(memory) } : null,
       rest: live && live.kind !== 'live' ? live : null,
       robot: rest === 'robot',
       focus: focusRow ? sessionLine(focusRow, (focusRow.projectId && companion.projects.get(focusRow.projectId)) || '') : null,
@@ -380,7 +384,7 @@
       <span class="say roll" in:bloom={{ reduced }} data-tone={view.tone} data-paused={view.paused || undefined} data-testid="island-live">
         {#key view.glyph === 'timer' ? `timer\n${view.strong}` : viewText}<span class="line" in:rollIn={{ reduced, back }} out:rollOut={{ reduced, back }}
             >{#if view.glyph}<span class="glyph" data-tone={view.glyphTone} data-testid={view.glyph === 'rule' ? 'island-rule-trace' : undefined}
-                >{#if view.glyph === 'quota'}<Gauge size={14} strokeWidth={2.2} aria-hidden="true" />{:else if view.glyph === 'music'}<Music size={14} strokeWidth={2.2} aria-hidden="true" />{:else if view.glyph === 'timer'}<Timer
+                >{#if view.glyph === 'quota'}<Gauge size={14} strokeWidth={2.2} aria-hidden="true" />{:else if view.glyph === 'music'}<Music size={14} strokeWidth={2.2} aria-hidden="true" />{:else if view.glyph === 'memory'}<MemoryStick size={14} strokeWidth={2.2} aria-hidden="true" />{:else if view.glyph === 'timer'}<Timer
                     size={14}
                     strokeWidth={2.2}
                     aria-hidden="true"

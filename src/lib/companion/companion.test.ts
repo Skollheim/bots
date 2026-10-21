@@ -30,6 +30,9 @@ test('stored preferences are read field by field, a wrong field taking its defau
   expect(parseCompanionPrefs({ pillRest: 'timer' }).pillRest).toBe('timer');
   expect(parseCompanionPrefs({}).awayRecap).toBe(true);
   expect(parseCompanionPrefs({ awayRecap: false }).awayRecap).toBe(false);
+  expect(parseCompanionPrefs({}).memoryAlert).toBe('pill');
+  expect(parseCompanionPrefs({ memoryAlert: 'off' }).memoryAlert).toBe('off');
+  expect(parseCompanionPrefs({ memoryAlert: 'loud' }).memoryAlert).toBe('pill');
   window.localStorage.setItem(COMPANION_STORAGE_KEY, '{not json');
   expect(readCompanionPrefs()).toEqual(DEFAULT_COMPANION_PREFS);
 });

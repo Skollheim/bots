@@ -5,11 +5,13 @@
  *    that asks ("Atlas attend votre réponse"), or how many wait.
  * 2. Something was just told: a thread ended, a pull request's CI settled
  *    (green, red when it failed), or a rule answered a request (its shield).
- * 3. What Settings shows at rest instead of the agents: the quota, the music,
+ * 3. The memory guard's warning, when Settings keeps it in the pill (its
+ *    default): its chip tinted amber or red, the number that matters bold.
+ * 4. What Settings shows at rest instead of the agents: the quota, the music,
  *    the timer (`pill-rest.ts`), or the robot alone.
- * 4. Agents at work: how many ("3 au travail"), or the one followed from Home
+ * 5. Agents at work: how many ("3 au travail"), or the one followed from Home
  *    or picked with the wheel, with a task list's progress when one has it.
- * 5. Nothing: the robot alone, small and quiet.
+ * 6. Nothing: the robot alone, small and quiet.
  *
  * The words never stop mid-word: long titles are cut on a word (`fitWords`).
  * The per-thread detail (each thread's state, its step) is the hover's
@@ -17,12 +19,13 @@
  */
 import { fill, strings } from '../strings';
 import type { RestLine } from './pill-rest';
+import { sizeText, type Pressure } from './pressure';
 
 export type PillState = 'waiting' | 'told' | 'rest' | 'working' | 'idle';
 /** The words' colour: amber only while someone waits on the user. */
 export type PillTone = 'attention' | 'done' | 'failed' | 'plain';
 /** The mark before the words, tinted on its own (`glyphTone`). */
-export type PillGlyph = 'rule' | 'quota' | 'music' | 'timer' | null;
+export type PillGlyph = 'rule' | 'quota' | 'music' | 'timer' | 'memory' | null;
 
 export interface PillView {
   state: PillState;
@@ -49,6 +52,8 @@ export interface PillFacts {
   told: { text: string; tone: 'done' | 'failed' } | null;
   /** What a rule just allowed, said in full. */
   rule: string | null;
+  /** The memory guard's warning, shown in the pill, red when it is close. */
+  memory: { pressure: Pressure; red: boolean } | null;
   /** The quota, the music or the timer, when Settings shows one at rest and it has something to show. */
   rest: RestLine | null;
   /** Settings shows the robot alone at rest. */
@@ -109,6 +114,12 @@ export function pillView(facts: PillFacts): PillView {
   }
   if (facts.told) return { ...QUIET, state: 'told', tone: facts.told.tone, after: fitWords(facts.told.text, TOLD_MAX) };
   if (facts.rule) return { ...QUIET, state: 'told', tone: 'done', glyph: 'rule', after: fitWords(facts.rule, TOLD_MAX) };
+  if (facts.memory) {
+    const { pressure, red } = facts.memory;
+    const units = strings.island.memory;
+    const template = fill(copy.memory[pressure.reason], { title: fitWords(pressure.title || units.agent, TITLE_MAX), limit: sizeText(pressure.limit, units) });
+    return { ...QUIET, state: 'rest', glyph: 'memory', glyphTone: red ? 'red' : 'amber', ...emphasis(template, 'used', sizeText(pressure.used, units)) };
+  }
   if (facts.robot) return QUIET;
   if (facts.rest) {
     const line = facts.rest;

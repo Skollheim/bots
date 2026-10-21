@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import type { MemoryEvent, MemoryStatus } from '@boite/contracts';
-import { CALM_SHARE, guardOff, heaviest, memoryGauge, NEAR_SHARE, nearness, pressureOf, samePressure, sizeText, stoppedOf, type AgentLoad } from './pressure';
+import { DEFAULT_COMPANION_PREFS } from '../companion/prefs';
+import { alertPlan, CALM_SHARE, guardOff, heaviest, memoryGauge, NEAR_SHARE, nearness, pressureOf, pressureRed, samePressure, sizeText, stoppedOf, type AgentLoad } from './pressure';
 
 const MB = 1024 * 1024;
 const GB = 1024 * MB;
@@ -89,4 +90,16 @@ test("the deck's gauge reads the agents against their budget, and turns as the w
   expect(memoryGauge(status({ agentBytes: 12 * GB })).share).toBe(1);
   const off = memoryGauge(status({ agentBytes: 3 * GB }, { budgetMb: 0, threadMemoryCapMb: 0, memoryReserveMb: 0 }));
   expect([off.budget, off.share, off.tone]).toEqual([null, null, 'ok']);
+});
+test('by default a warning stays in the pill and a slim strip: the island neither opens nor chimes', () => {
+  expect(alertPlan(DEFAULT_COMPANION_PREFS.memoryAlert)).toEqual({ pill: true, card: 'line', opens: false });
+  expect(alertPlan('panel')).toEqual({ pill: false, card: 'full', opens: true });
+  expect(alertPlan('off')).toEqual({ pill: false, card: null, opens: false });
+});
+
+test('a warning is red when the machine is short or a limit is all but reached', () => {
+  const near = { reason: 'thread' as const, threadId: 'a', title: '', bytes: 0, used: 3.5 * GB, limit: 4 * GB };
+  expect(pressureRed(near)).toBe(false);
+  expect(pressureRed({ ...near, used: 3.9 * GB })).toBe(true);
+  expect(pressureRed({ ...near, reason: 'machine' })).toBe(true);
 });
