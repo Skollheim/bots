@@ -9,6 +9,7 @@
  * under the reserve. The island warns a step before each.
  */
 import type { AgentResourceUsage, MemoryEvent, MemoryStatus } from '@boite/contracts';
+import type { MemoryAlert } from '../companion/prefs';
 
 /** The share of a cap or a budget past which the island warns. */
 export const WARN_SHARE = 0.85;
@@ -111,6 +112,38 @@ export function sizeText(bytes: number, units: { mb: string; gb: string; point: 
 /** The same warning, for one that was set aside: the reason and the conversation, not the bytes that move every read. */
 export function samePressure(a: Pressure | null, b: Pressure | null): boolean {
   return a === b || (a !== null && b !== null && a.reason === b.reason && a.threadId === b.threadId);
+}
+
+/** Past this share of the limit, a warning turns red. */
+export const RED_SHARE = 0.95;
+
+/** How full the measured limit is, for the card's bar; null for the free memory, which has none. */
+export function pressureShare(pressure: Pressure): number | null {
+  return pressure.reason !== 'machine' && pressure.limit > 0 ? Math.min(1, pressure.used / pressure.limit) : null;
+}
+
+/** Red: the machine itself is short, or a limit is all but reached. */
+export function pressureRed(pressure: Pressure): boolean {
+  return pressure.reason === 'machine' || (pressureShare(pressure) ?? 0) >= RED_SHARE;
+}
+
+/**
+ * Where a warning shows, by the user's choice (`prefs.memoryAlert`): by
+ * default a line in the pill and a slim one over the deck, the island left
+ * closed and quiet; `panel` opens the deck on the full card with a chime;
+ * `off` shows nothing, what the guard stopped included.
+ */
+export interface AlertPlan {
+  pill: boolean;
+  card: 'line' | 'full' | null;
+  /** The island opens on the card and chimes. */
+  opens: boolean;
+}
+
+export function alertPlan(alert: MemoryAlert): AlertPlan {
+  if (alert === 'panel') return { pill: false, card: 'full', opens: true };
+  if (alert === 'off') return { pill: false, card: null, opens: false };
+  return { pill: true, card: 'line', opens: false };
 }
 
 /** The deck's memory gauge: what the agents hold, the share of their budget (null without one), the machine's free memory. */

@@ -49,7 +49,14 @@ export const fr: Messages = {
     waitingOne: 'Un agent a besoin de vous',
     waitingMany: '{count} demandes vous attendent',
     finished: 'Terminé',
-    pill: { waitsOne: '{name} attend votre réponse', waitsMany: '{count} vous attendent', someone: 'Un agent', workingOne: '{name} au travail', workingMany: '{count} au travail' },
+    pill: {
+      waitsOne: '{name} attend votre réponse',
+      waitsMany: '{count} vous attendent',
+      someone: 'Un agent',
+      workingOne: '{name} au travail',
+      workingMany: '{count} au travail',
+      memory: { thread: '{title} : {used} sur {limit}', budget: 'Mémoire des agents : {used} sur {limit}', machine: 'Mémoire basse : {used} libres' }
+    },
     finish: {
       done: 'terminé',
       failed: 'en échec',
@@ -218,6 +225,7 @@ export const fr: Messages = {
       stop: 'Arrêter l’agent',
       stopping: 'Arrêt…',
       stopTitle: 'Arrêter les processus de ce fil, comme le gestionnaire des tâches de Boite',
+      details: 'Voir le détail',
       ignore: 'Ignorer',
       failed: 'L’agent n’a pas pu être arrêté : {reason}',
       stopped: 'Boite a arrêté {program} dans « {title} » pour libérer {size}',
@@ -729,6 +737,9 @@ export const fr: Messages = {
       clipboardHistoryHint: 'Le deck garde vos 30 dernières copies, textes et images, en mémoire seulement : elles disparaissent quand B.O.T.S se ferme, et les mots de passe que leur appli marque comme privés sont ignorés. Désactivé, rien n’est enregistré.',
       awayRecap: 'Récapitulatif à votre retour',
       awayRecapHint: 'De retour après 15 minutes d’absence ou plus, l’île vous dit ce qui s’est terminé, ce qui vous attend et ce qui a sonné entre-temps.',
+      memoryAlert: 'Alerte mémoire',
+      memoryAlertHint: 'Quand Boite approche de ses limites de mémoire. Discrète : une ligne dans l’île, qui reste fermée, et une bande fine en haut du panneau. Panneau : l’île s’ouvre sur la carte complète, avec un son.',
+      memoryAlerts: { pill: 'Discrète', panel: 'Panneau', off: 'Désactivée' },
       radar: 'Fils en attente',
       radarHint: 'Quand des fils vous attendent depuis ce temps (une autorisation, une question, une réponse non lue), B.O.T.S vous le dit et ouvre le premier d’un clic.',
       radarOff: 'Désactivé',

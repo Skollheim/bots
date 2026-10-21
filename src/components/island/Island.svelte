@@ -53,6 +53,7 @@
   import { FinishWatch } from '../../lib/island/finished.svelte';
   import { posed } from '../../lib/island/posed.svelte';
   import { PrWatch } from '../../lib/island/pr-watch.svelte';
+  import { alertPlan } from '../../lib/island/pressure';
   import { MemoryWatch } from '../../lib/island/pressure.svelte';
   import { QuotaWatch } from '../../lib/island/quotas.svelte';
   import { RecapReader } from '../../lib/island/recap.svelte';
@@ -155,8 +156,10 @@
     if (!client || demo) return;
     return untrack(() => update.follow(client));
   });
+  /** Where Settings lets the warning show: by default the pill, the island left closed (`alertPlan`). */
+  const memoryPlan = $derived(alertPlan(companion.prefs.memoryAlert));
   /** The warning's cause, not its numbers: a warning calls the island once, not on every read. */
-  const memoryCause = $derived(memory.warning ? `${memory.warning.reason}:${memory.warning.threadId ?? ''}` : null);
+  const memoryCause = $derived(memory.warning && memoryPlan.opens ? `${memory.warning.reason}:${memory.warning.threadId ?? ''}` : null);
   /** The day's finished threads, read for the tabs that show them, as they show. */
   const recap = new RecapReader({ client: () => companion.client, projects: () => companion.projects, leftOut: () => companion.ownThreads });
   /** The room between a drop and the island. */
@@ -305,7 +308,7 @@
     return untrack(() => frame.call('alarm'));
   });
 
-  // The memory guard comes near: the island opens on its card, amber, until it is stopped or set aside.
+  // The memory guard comes near and Settings asks for the panel: the island opens on its card, amber, until it is stopped or set aside.
   $effect(() => {
     if (!memoryCause) return;
     untrack(() => companion.cue('call'));
@@ -318,7 +321,7 @@
    * requests come first, and nothing shows over a full-screen app or during
    * focus: the card waits for them.
    */
-  const away = new AwayWatch({ rows: () => sessions.rows, pr: () => prs.told, warning: () => memory.warning, stopped: () => memory.stopped });
+  const away = new AwayWatch({ rows: () => sessions.rows, pr: () => prs.told, warning: () => (memoryPlan.card ? memory.warning : null), stopped: () => (memoryPlan.card ? memory.stopped : null) });
   $effect(() => away.start());
   const awayQuotas = new QuotaWatch(() => ({ shown: companion.prefs.quotas, hidden: companion.prefs.hiddenQuotas }));
   /** A return older than this was told before the island was drawn again. */
@@ -339,7 +342,8 @@
       waiting: pose?.waiting ?? waitingOnUser(input, new Map(), now, 0, false).map(({ threadId, title, kind, since }) => ({ threadId, title, kind, since })),
       alarms: pose?.alarms ?? companion.notes.alarms,
       quota: pose ? pose.quota : tight && { name: tight.account.name, left: tight.bar.left },
-      seen: away.seen
+      seen: away.seen,
+      memoryOff: !memoryPlan.card
     };
   }
 
@@ -453,7 +457,7 @@
   ondrop={drop}
 >
   {#if frame.size !== 'open'}
-    <IslandBar {companion} {frame} {move} {sessions} told={prs.told ?? finishes.line} {cheering} {reduced} bind:want={pill} bind:timerInLine />
+    <IslandBar {companion} {frame} {move} {sessions} told={prs.told ?? finishes.line} memory={memoryPlan.pill ? memory.warning : null} {cheering} {reduced} bind:want={pill} bind:timerInLine />
   {:else}
     <div class="open" class:raised in:bloom={{ reduced }} out:blurAway={{ reduced }} style:max-height="{OPEN_MAX}px" bind:offsetHeight={measured}>
       <Deck {companion} {frame} {bar} {lead} {cheering} {reduced} room={OPEN_MAX - TABS_HEIGHT}>

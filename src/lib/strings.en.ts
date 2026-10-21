@@ -60,7 +60,14 @@ export const strings = {
     waitingMany: '{count} requests wait for you',
     finished: 'Done',
     /** The collapsed pill's one line (`pill-view.ts`): its `{name}` or `{count}` is set in bold. */
-    pill: { waitsOne: '{name} is waiting for you', waitsMany: '{count} are waiting for you', someone: 'An agent', workingOne: '{name} is working', workingMany: '{count} working' },
+    pill: {
+      waitsOne: '{name} is waiting for you',
+      waitsMany: '{count} are waiting for you',
+      someone: 'An agent',
+      workingOne: '{name} is working',
+      workingMany: '{count} working',
+      memory: { thread: '{title}: {used} of {limit}', budget: 'Agents’ memory: {used} of {limit}', machine: 'Low memory: {used} free' }
+    },
     /** A thread that just ended, told in the pill: "Port the scheduler · done · 3 files". */
     finish: {
       done: 'done',
@@ -241,6 +248,7 @@ export const strings = {
       stop: 'Stop the agent',
       stopping: 'Stopping…',
       stopTitle: 'Stop this thread’s processes, as Boite’s task manager does',
+      details: 'Show details',
       ignore: 'Ignore',
       failed: 'The agent could not be stopped: {reason}',
       stopped: 'Boite stopped {program} in “{title}” to free {size}',
@@ -755,6 +763,9 @@ export const strings = {
       clipboardHistoryHint: 'The deck keeps your last 30 copies, text and images, in memory only: they are lost when B.O.T.S quits, and passwords marked private by their app are skipped. Off, nothing is recorded.',
       awayRecap: 'Recap when you come back',
       awayRecapHint: 'Back after 15 minutes or more away, the island tells what finished, what waits for you and what rang meanwhile.',
+      memoryAlert: 'Memory alert',
+      memoryAlertHint: 'When Boite nears its memory limits. Quiet: a line in the island, which stays closed, and a slim strip at the top of the deck. Panel: the island opens on the full card, with a chime.',
+      memoryAlerts: { pill: 'Quiet', panel: 'Panel', off: 'Off' },
       radar: 'Waiting threads',
       radarHint: 'When threads have waited for you this long (a permission, a question, an answer you have not read), B.O.T.S says so and opens the first on a click.',
       radarOff: 'Off',

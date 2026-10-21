@@ -27,6 +27,9 @@ export const PILL_RESTS = ['live', 'quota', 'music', 'timer', 'robot'] as const 
 export type IslandPlace = `${IslandEdge}-${IslandSide}`;
 export type IslandEdge = 'top' | 'bottom';
 export type IslandSide = 'left' | 'center' | 'right';
+/** How the memory guard's warning shows: a line in the pill and a slim one over the deck, the deck opened on its full card, or not at all. */
+export type MemoryAlert = 'pill' | 'panel' | 'off';
+export const MEMORY_ALERTS = ['pill', 'panel', 'off'] as const satisfies readonly MemoryAlert[];
 export const ISLAND_PLACES = ['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-center', 'bottom-right'] as const satisfies readonly IslandPlace[];
 /** The character's centre, in fractions of the screen's work area. */
 export interface CompanionSpot { x: number; y: number }
@@ -84,6 +87,7 @@ export interface CompanionPrefs {
   radarMinutes: number;
   /** Back at the keyboard after a long absence, the island tells what happened meanwhile (`island/away.ts`). */
   awayRecap: boolean;
+  memoryAlert: MemoryAlert;
   screenScope: CompanionScreenScope;
   /** The agents that stand as the companion, by id, the leader first; `CREW_MAX` at most. */
   agents: string[];
@@ -122,6 +126,7 @@ export const DEFAULT_COMPANION_PREFS: CompanionPrefs = {
   focusOnWork: true,
   radarMinutes: 10,
   awayRecap: true,
+  memoryAlert: 'pill',
   screenScope: 'all',
   agents: [],
   crewMade: false,
@@ -189,6 +194,7 @@ export function parseCompanionPrefs(raw: unknown): CompanionPrefs {
     focusOnWork: value.focusOnWork !== false,
     radarMinutes: value.radarMinutes === 0 ? 0 : minutes(value.radarMinutes, 240, DEFAULT_COMPANION_PREFS.radarMinutes),
     awayRecap: value.awayRecap !== false,
+    memoryAlert: (MEMORY_ALERTS as readonly unknown[]).includes(value.memoryAlert) ? (value.memoryAlert as MemoryAlert) : 'pill',
     screenScope: value.screenScope === 'here' || value.screenScope === 'zone' ? value.screenScope : 'all',
     agents: Array.isArray(value.agents) ? [...new Set(value.agents.filter((id): id is string => typeof id === 'string' && id !== ''))].slice(0, CREW_MAX) : [],
     crewMade: value.crewMade === true,
