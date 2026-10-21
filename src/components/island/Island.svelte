@@ -342,7 +342,8 @@
       waiting: pose?.waiting ?? waitingOnUser(input, new Map(), now, 0, false).map(({ threadId, title, kind, since }) => ({ threadId, title, kind, since })),
       alarms: pose?.alarms ?? companion.notes.alarms,
       quota: pose ? pose.quota : tight && { name: tight.account.name, left: tight.bar.left },
-      seen: away.seen
+      seen: away.seen,
+      memoryOff: !memoryPlan.card
     };
   }
 

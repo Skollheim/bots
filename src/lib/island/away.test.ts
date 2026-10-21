@@ -125,6 +125,8 @@ test('the memory guard: what it stopped, or the machine running low, the latest 
     { key: 'memory', icon: 'memory', text: fill(copy.memoryStopped, { program: 'node.exe', title: 'Build' }), tone: 'failed', target: { kind: 'thread', threadId: 't' } }
   ]);
   expect(awayLines(facts({ events: [machine] }))[0]).toMatchObject({ text: copy.memoryMachine, target: null });
+  // The alert turned off once the card shows: what was logged before goes too.
+  expect(awayLines(facts({ events: [machine, stopped], memoryOff: true }))).toEqual([]);
 });
 
 test('only the last day is kept', () => {

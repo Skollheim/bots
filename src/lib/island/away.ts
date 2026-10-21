@@ -69,6 +69,8 @@ export interface AwayFacts {
   quota: AwayQuota | null;
   /** The lines already opened from the card. */
   seen?: readonly string[];
+  /** Settings turned the memory alert off: the guard's events are not told, those logged before included. */
+  memoryOff?: boolean;
 }
 
 /** What a line opens: a thread in Boite, or the island's Home. */
@@ -191,7 +193,7 @@ export function awayLines(facts: AwayFacts): AwayLine[] {
     const out = left <= 0;
     lines.push({ key: 'quota', icon: 'quota', text: out ? fill(copy.quotaOut, { name }) : fill(copy.quotaLow, { name, left: String(Math.round(left)) }), tone: out ? 'failed' : 'attention', target: null });
   }
-  const memory = events.filter((event): event is MemoryEvent => event.kind === 'memory').at(-1);
+  const memory = facts.memoryOff ? undefined : events.filter((event): event is MemoryEvent => event.kind === 'memory').at(-1);
   if (memory) lines.push(memoryLine(memory));
   const seen = new Set(facts.seen ?? []);
   return lines.filter((line) => !seen.has(line.key));
