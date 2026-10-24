@@ -97,10 +97,10 @@ pub struct Layout { pub(crate) align: Anchor, pub(crate) edge: Edge }
 #[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq)]
 pub struct Spot { x: f64, y: f64 }
 
-/// The screen and the spot a drag ended on, for the page to keep, and
-/// whether it ended near the island's edge, back into it (`island::docks`).
+/// The screen and the spot a drag ended on, for the page to keep, and the
+/// island's place it ended near, back into the island there (`island::dock_place`).
 #[derive(Serialize, Debug, PartialEq)]
-pub struct Dropped { monitor: String, spot: Spot, docked: bool }
+pub struct Dropped { monitor: String, spot: Spot, docked: Option<Layout> }
 
 /// The pointer, in CSS pixels from the window's top left.
 #[derive(Serialize, Clone, Copy)]
@@ -506,8 +506,9 @@ pub async fn companion_place(app: AppHandle, webview: Webview, monitor: Option<S
 /// then answers where the character was dropped, or nothing when it did not move.
 /// With `detach`, the robot is being pulled out of the island: the window takes
 /// the desktop size first, the character under the pointer, and the drop is
-/// answered even where it began. `place` is the island's, where a robot
-/// dropped near it goes back in.
+/// answered even where it began. `place` is the island's: a robot dropped
+/// near it goes back in there, one dropped near another place goes back in
+/// at that place.
 #[tauri::command]
 pub async fn companion_drag(app: AppHandle, webview: Webview, detach: Option<bool>, place: Option<Layout>) -> Result<Option<Dropped>, String> {
     only_companion(&webview)?;
@@ -534,7 +535,7 @@ pub async fn companion_drag(app: AppHandle, webview: Webview, detach: Option<boo
         None => window.current_monitor().map_err(|error| error.to_string())?.ok_or("the companion is on no screen")?,
     };
     let area = work_area(&monitor);
-    let docked = crate::island::docks(area, monitor.scale_factor(), centre, place.unwrap_or_default());
+    let docked = crate::island::dock_place(area, monitor.scale_factor(), centre, place.unwrap_or_default());
     Ok(Some(Dropped { monitor: monitor_name(&monitor), spot: spot_at(area, centre), docked }))
 }
 

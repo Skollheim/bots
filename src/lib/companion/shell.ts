@@ -19,8 +19,8 @@ export interface HitRect { x: number; y: number; w: number; h: number }
 /** The side the character is aligned on and the edge it sits on; the rest opens away from it. */
 export interface CompanionLayout { align: 'left' | 'center' | 'right'; edge: 'top' | 'bottom' }
 
-/** Where a drag left the character, and whether that was against the top edge, back into the island. */
-export interface CompanionDrop { monitor: string; spot: CompanionSpot; docked: boolean }
+/** Where a drag left the character, and the island's place it was dropped near, back into the island there; null when loose. */
+export interface CompanionDrop { monitor: string; spot: CompanionSpot; docked: CompanionLayout | null }
 
 /** The screen the island went to, and its scale. */
 export interface IslandPlaced { monitor: string; scale: number }

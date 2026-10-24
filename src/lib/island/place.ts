@@ -38,6 +38,11 @@ export function placeLayout(place: IslandPlace): CompanionLayout {
   return { align: side, edge };
 }
 
+/** The place a shell's `Layout` names: where a robot dropped near a place docks (`island::dock_place`). */
+export function layoutPlace(layout: CompanionLayout): IslandPlace {
+  return placeOf(layout.edge, layout.align);
+}
+
 /** Where an island of `size` sits at `place` on a screen of `screen`, CSS pixels. */
 export function placeRect(place: IslandPlace, screen: Size, size: Size, margin = PLACE_MARGIN): Rect {
   const { edge, side } = placeParts(place);

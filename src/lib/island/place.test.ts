@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { DEFAULT_COMPANION_PREFS, ISLAND_PLACES, parseCompanionPrefs } from '../companion/prefs';
-import { landPatch, nearestPlace, parsePlace, PLACE_MARGIN, placeLayout, placeParts, placeRect } from './place';
+import { landPatch, layoutPlace, nearestPlace, parsePlace, PLACE_MARGIN, placeLayout, placeParts, placeRect } from './place';
 
 const screen = { width: 1600, height: 900 };
 const pill = { width: 200, height: 32 };
@@ -20,6 +20,7 @@ test('a place splits into its edge and side, as the shell takes them', () => {
   expect(parsePlace('bottom-left')).toBe('bottom-left');
   expect(parsePlace('left')).toBeNull();
   expect(parsePlace(null)).toBeNull();
+  for (const place of ISLAND_PLACES) expect(layoutPlace(placeLayout(place))).toBe(place);
 });
 
 test('the places sit against their edge, the sides a margin in', () => {

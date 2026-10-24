@@ -88,6 +88,20 @@ pub fn docks(area: Area, scale: f64, centre: (i32, i32), place: Layout) -> bool 
     along && near
 }
 
+/// The island's place a robot dropped with its centre at `centre` goes back
+/// into, if any: the island's own place, `current`, when it `docks` there;
+/// else whichever of the six places of this work area it was dropped near,
+/// `DOCK_REACH` from the top or the bottom edge, its side picked by the third
+/// of the edge it fell on. A drop away from both edges docks nowhere.
+pub fn dock_place(area: Area, scale: f64, centre: (i32, i32), current: Layout) -> Option<Layout> {
+    use crate::companion_window::Anchor;
+    if docks(area, scale, centre, current) { return Some(current); }
+    let (left, width) = (i64::from(area.0), i64::from(area.2));
+    let along = i64::from(centre.0) - left;
+    let align = if along < width / 3 { Anchor::Left } else if along < width * 2 / 3 { Anchor::Center } else { Anchor::Right };
+    [Edge::Top, Edge::Bottom].into_iter().map(|edge| Layout { align, edge }).find(|&place| docks(area, scale, centre, place))
+}
+
 /// Which of `screens` (whole screens, physical pixels, as the system lays
 /// them out: left of or above the primary one at negative coordinates, each
 /// at its own scale) holds `point`, in physical pixels; the nearest one for a
@@ -342,6 +356,59 @@ mod tests {
         assert!(!docks(area, 2.0, (-1000, 120), place), "the right half");
         // A taskbar on the right: the right half ends before it.
         assert!(!docks((0, 0, 1858, 1080), 1.0, (1880, 20), at(Edge::Top, Anchor::Right)), "over the taskbar, off the work area");
+    }
+
+    #[test]
+    fn a_robot_docks_at_whichever_of_the_six_places_it_is_dropped_near() {
+        // The island at the bottom left, the taskbar at the bottom.
+        let area = (0, 0, 1920, 1040);
+        let home = at(Edge::Bottom, Anchor::Left);
+        let hit = |centre| dock_place(area, 1.0, centre, home);
+        assert_eq!(hit((200, 30)), Some(at(Edge::Top, Anchor::Left)));
+        assert_eq!(hit((960, 30)), Some(at(Edge::Top, Anchor::Center)));
+        assert_eq!(hit((1700, 30)), Some(at(Edge::Top, Anchor::Right)));
+        assert_eq!(hit((200, 1000)), Some(home));
+        assert_eq!(hit((1000, 1000)), Some(at(Edge::Bottom, Anchor::Center)));
+        assert_eq!(hit((1700, 1020)), Some(at(Edge::Bottom, Anchor::Right)));
+        assert_eq!(hit((960, 520)), None, "the middle of the screen docks nowhere");
+        assert_eq!(hit((200, 72)), None, "a little lower than the top's reach");
+        assert_eq!(hit((1700, 1040 - 73)), None, "a little higher than the bottom's reach");
+    }
+
+    #[test]
+    fn the_island_s_own_place_comes_first() {
+        let area = (0, 0, 1920, 1040);
+        // Bottom left reaches the left half: the middle third's left part stays home.
+        assert_eq!(dock_place(area, 1.0, (900, 1000), at(Edge::Bottom, Anchor::Left)), Some(at(Edge::Bottom, Anchor::Left)));
+        // A centred island takes its whole edge, its corners included.
+        assert_eq!(dock_place(area, 1.0, (100, 30), TOP), Some(TOP));
+        // Past its half, a side island gives way to the centre.
+        assert_eq!(dock_place(area, 1.0, (1100, 30), at(Edge::Top, Anchor::Left)), Some(TOP));
+    }
+
+    #[test]
+    fn the_places_hit_follow_the_screen_its_scale_and_its_taskbar() {
+        let bottom_left = at(Edge::Bottom, Anchor::Left);
+        // A 1440p screen at 125 % left of the primary: the reach is 90 px.
+        let left_screen = (-2560, 0, 2560, 1400);
+        assert_eq!(dock_place(left_screen, 1.25, (-2400, 80), bottom_left), Some(at(Edge::Top, Anchor::Left)));
+        assert_eq!(dock_place(left_screen, 1.25, (-100, 1311), bottom_left), Some(at(Edge::Bottom, Anchor::Right)));
+        assert_eq!(dock_place(left_screen, 1.25, (-100, 1309), bottom_left), None);
+        assert_eq!(dock_place(left_screen, 1.25, (-1280, 700), bottom_left), None, "the middle of the screen");
+        // A 150 % screen under a top taskbar: the reach is 108 px, taken over the taskbar too.
+        let top_bar = (-2880, 72, 2880, 1548);
+        assert_eq!(dock_place(top_bar, 1.5, (-1440, 30), bottom_left), Some(TOP), "over the taskbar");
+        assert_eq!(dock_place(top_bar, 1.5, (-1440, 72 + 107), bottom_left), Some(TOP));
+        assert_eq!(dock_place(top_bar, 1.5, (-1440, 72 + 108), bottom_left), None);
+        assert_eq!(dock_place(top_bar, 1.5, (-200, 1620 - 108), TOP), Some(at(Edge::Bottom, Anchor::Right)));
+        // A taskbar on the left: the left third starts past it, the taskbar itself docks nowhere.
+        let left_bar = (62, 0, 1858, 1080);
+        assert_eq!(dock_place(left_bar, 1.0, (70, 20), bottom_left), Some(at(Edge::Top, Anchor::Left)));
+        assert_eq!(dock_place(left_bar, 1.0, (30, 20), TOP), None);
+        // A taskbar on the right: the right third ends before it.
+        let right_bar = (0, 0, 1858, 1080);
+        assert_eq!(dock_place(right_bar, 1.0, (1850, 1050), TOP), Some(at(Edge::Bottom, Anchor::Right)));
+        assert_eq!(dock_place(right_bar, 1.0, (1880, 1050), TOP), None);
     }
 
     #[test]
