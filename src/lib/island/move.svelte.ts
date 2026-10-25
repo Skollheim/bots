@@ -14,8 +14,8 @@
  * A drag that ends without its release (the window lost the focus or the
  * pointer, or the shell gave the span up) puts the island back where it was.
  *
- * A press on the robot's face is not this: it pulls the robot out of the
- * island (`Companion.onpress`).
+ * A press on the robot's face carries the island too: the robot never comes
+ * out of it by a drag (Settings > Placement sets it loose).
  */
 import { tick } from 'svelte';
 import type { IslandPlace } from '../companion/prefs';

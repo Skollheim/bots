@@ -184,7 +184,7 @@ export class Companion {
   private readonly talkCache = new Map<string, Talk>();
   /** The agent whose fresh reply set a task: what the tasks say goes to its bubble. */
   private answerer: string | null = null;
-  private press: { x: number; y: number; island: boolean } | null = null;
+  private press: { x: number; y: number } | null = null;
   /** A drag just ended: the click it makes is not a click. */
   dropped = false;
   private pokes: Record<string, number[]> = {};
@@ -630,34 +630,30 @@ export class Companion {
     void this.focusInput();
   }
 
-  // A press on a character that moves is a drag: the shell carries the
+  // A press on a loose character that moves is a drag: the shell carries the
   // window and says where it was dropped; the click after it is not a click.
-  // From the island, the drag sets the robot loose on the desktop.
-  onpress = (event: PointerEvent, island = false): void => {
+  // The island's robot never comes out by a drag (Settings sets it loose).
+  onpress = (event: PointerEvent): void => {
     unlockSounds();
-    this.press = event.button === 0 && inShell() ? { x: event.screenX, y: event.screenY, island } : null;
+    this.press = event.button === 0 && inShell() ? { x: event.screenX, y: event.screenY } : null;
   };
 
   onmove = (event: PointerEvent): void => {
     const press = this.press;
     if (!press || Math.hypot(event.screenX - press.x, event.screenY - press.y) < DRAG_FROM) return;
     this.press = null;
-    void this.drag(press.island);
+    void this.drag();
   };
 
   onrelease = (): void => {
     this.press = null;
   };
 
-  private async drag(fromIsland: boolean): Promise<void> {
+  private async drag(): Promise<void> {
     this.dragging = true;
     this.dropped = true;
     try {
-      if (fromIsland) {
-        this.close();
-        this.prefs = writeCompanionPrefs({ robots: 'desktop' });
-      }
-      const place = await dragCompanion(fromIsland, placeLayout(this.prefs.islandPlace));
+      const place = await dragCompanion(false, placeLayout(this.prefs.islandPlace));
       // Dropped near one of the island's six places, of any screen, the robot goes back into the island, moved there.
       if (place?.docked) this.prefs = writeCompanionPrefs({ robots: 'island', ...landPatch(layoutPlace(place.docked), this.prefs.monitor, place.monitor) });
       else if (place) this.prefs = writeCompanionPrefs({ robots: 'desktop', monitor: place.monitor, anchor: 'free', spot: place.spot });

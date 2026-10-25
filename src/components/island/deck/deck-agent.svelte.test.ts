@@ -59,7 +59,10 @@ class FakeCompanion {
   bounce(id: string) {
     this.bounces.push(id);
   }
-  onpress() {}
+  presses = 0;
+  onpress() {
+    this.presses += 1;
+  }
   onmove() {}
   onrelease() {}
 }
@@ -125,12 +128,14 @@ test('with one agent, a click pokes it as before and nothing swaps', () => {
   expect(robotOf(target).dataset.agent).toBe('bots');
 });
 
-test('a drag that just ended is no click', () => {
+test('a drag on the character does not set it loose', () => {
   const companion = new FakeCompanion(snapshotOf(profile('bots', 'Bots'), profile('nuno', 'Nuno')));
   const target = show(companion);
-  companion.dropped = true;
-  robotOf(target).click();
+  const robot = robotOf(target);
+  for (const [type, at] of [['pointerdown', 10], ['pointermove', 60], ['pointerup', 60]] as const) {
+    robot.dispatchEvent(new MouseEvent(type, { button: 0, screenX: at, screenY: at, bubbles: true }));
+  }
   flushSync();
+  expect(companion.presses).toBe(0);
   expect(companion.assistant.agentId).toBe('bots');
-  expect(companion.kept).toBeNull();
 });

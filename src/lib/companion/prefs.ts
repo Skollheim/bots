@@ -43,8 +43,10 @@ export const COMPANION_HOTKEYS = ['Alt+Shift+Space', 'Ctrl+Alt+Space', 'Ctrl+Shi
 export interface CompanionPrefs {
   /** The screen's name as the shell lists it; null is the primary screen. */
   monitor: string | null;
-  /** The island, or the robots loose on the desktop; dragging a robot out or back switches it. */
+  /** The island, or the robots loose on the desktop: only Settings sets them loose (`robotsPicked`); a loose robot dragged back docks. */
   robots: CompanionRobots;
+  /** The desktop was picked in Settings: a loose robot from before, pulled out of the island by a drag, goes back in. */
+  robotsPicked: boolean;
   /** Hovering the island long enough opens its panel; off, only a click does. */
   openOnHover: boolean;
   /** What the pill shows at rest (`IslandBar.svelte`). */
@@ -102,6 +104,7 @@ export const COMPANION_STORAGE_KEY = 'bots.prefs';
 export const DEFAULT_COMPANION_PREFS: CompanionPrefs = {
   monitor: null,
   robots: 'island',
+  robotsPicked: false,
   openOnHover: true,
   pillRest: 'live',
   islandPlace: 'top-center',
@@ -168,7 +171,8 @@ export function parseCompanionPrefs(raw: unknown): CompanionPrefs {
   const spot = spotOf(value.spot);
   return {
     monitor: text(value.monitor),
-    robots: value.robots === 'desktop' ? 'desktop' : 'island',
+    robots: value.robots === 'desktop' && value.robotsPicked === true ? 'desktop' : 'island',
+    robotsPicked: value.robotsPicked === true,
     openOnHover: value.openOnHover !== false,
     pillRest: (PILL_RESTS as readonly unknown[]).includes(value.pillRest) ? (value.pillRest as PillRest) : 'live',
     islandPlace: (ISLAND_PLACES as readonly unknown[]).includes(value.islandPlace) ? (value.islandPlace as IslandPlace) : 'top-center',

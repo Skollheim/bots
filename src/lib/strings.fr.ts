@@ -748,7 +748,7 @@ export const fr: Messages = {
       hotkeyOff: 'Aucun',
       hotkeyTaken: 'Une autre application utilise déjà {hotkey}. Choisissez un autre raccourci.',
       robots: 'Robots',
-      robotsHint: 'Dans l’île en haut de l’écran, ou en liberté sur le bureau. Vous pouvez aussi faire glisser un robot hors de l’île, puis le ramener contre le bord du haut pour l’y remettre.',
+      robotsHint: 'Dans l’île en haut de l’écran, ou en liberté sur le bureau.',
       robotsChoice: { island: 'Dans l’île', desktop: 'Sur le bureau' },
       openOnHover: 'Ouvrir au survol',
       openOnHoverHint: 'Laisser le pointeur un instant sur l’île l’ouvre. Désactivé, seul un clic l’ouvre.',
