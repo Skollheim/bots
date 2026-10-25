@@ -33,6 +33,22 @@ export function agentKey(coreId: string | null, agentId: string): string {
   return coreId === null ? agentId : `${coreId}/${agentId}`;
 }
 
+const LISTS = ['routines', 'accountGrants', 'profiles', 'groups', 'teams', 'missions', 'tasks', 'sessions', 'messages', 'deliveries', 'work', 'runs', 'memories', 'resources', 'artifacts', 'decisions'] as const;
+
+/**
+ * A snapshot as Bots reads it, whatever core answered. Newer cores make each
+ * agent a thread: they send no messages, work or deliveries, and their
+ * sessions have no scope, being the agent's own thread. A list left out reads
+ * as empty, a session without a scope as the agent's direct one.
+ */
+export function readableSnapshot(answer: AgentsSnapshot): AgentsSnapshot {
+  const snapshot: AgentsSnapshot = { ...answer, more: answer.more ?? ({} as AgentsSnapshot['more']) };
+  const lists = snapshot as unknown as Record<string, unknown>;
+  for (const key of LISTS) if (!Array.isArray(lists[key])) lists[key] = [];
+  snapshot.sessions = snapshot.sessions.map((session) => (session.scope ? session : { ...session, scope: { kind: 'agent', id: session.agentId } }));
+  return snapshot;
+}
+
 const active = (snapshot: AgentsSnapshot | null) => snapshot?.profiles.filter((profile) => profile.status === 'active') ?? [];
 
 /** The active agents of every machine: this one's first, then each member's. */

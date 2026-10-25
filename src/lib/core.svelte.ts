@@ -21,6 +21,7 @@ import {
 } from '@boite/contracts';
 import { WsClient, type Client, type ClientState, type ObservableClient } from '@boite/ui/lib/client';
 import { waitForCore, watchEndpoint } from './connection';
+import { readableSnapshot } from './group/agents';
 
 const probeKey = (providerId: ProviderId, accountId: string) => `${providerId}::${accountId}`;
 
@@ -209,7 +210,7 @@ export class AgentDirectory {
     const client = this.link.client;
     if (!client) return;
     try {
-      const snapshot = await client.call('agents.snapshot', {});
+      const snapshot = readableSnapshot(await client.call('agents.snapshot', {}));
       if (client === this.link.client) this.snapshot = snapshot;
     } catch {
       // An older core without agents, or a dropped connection: the list stays as it was.
