@@ -60,6 +60,19 @@ test('a request opens the island and its settings on a section; the deck\'s gear
   expect(gear.getAttribute('aria-pressed')).toBe('false');
 }, 40_000);
 
+test('with the robots loose on the desktop, a request still opens the settings over the island', async () => {
+  window.localStorage.setItem('bots.prefs', JSON.stringify({ robots: 'desktop', robotsPicked: true }));
+  const target = show(App, '?fake=1');
+  await vi.waitFor(() => expect(target.querySelector('[data-testid="bots-notice"]')?.textContent).toContain(strings.bots.demo), DEMO_WAIT);
+  expect(target.querySelector('[data-testid="island"]')).toBeNull();
+  requestSettings('place');
+  flushSync();
+  await vi.waitFor(() => expect(target.querySelector('[data-testid="companion-robots"]')).not.toBeNull(), DEMO_WAIT);
+  target.querySelector<HTMLButtonElement>('[data-testid="companion-robots-island"]')!.click();
+  flushSync();
+  expect(JSON.parse(window.localStorage.getItem('bots.prefs')!)).toMatchObject({ robots: 'island', robotsPicked: false });
+}, 40_000);
+
 test('Escape closes the settings panel first, before a request waiting under it or the island', async () => {
   const target = show(App, '?fake=1');
   await vi.waitFor(() => expect(target.querySelector('[data-testid="bots-notice"]')?.textContent).toContain(strings.bots.demo), DEMO_WAIT);

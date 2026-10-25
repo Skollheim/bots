@@ -7,7 +7,8 @@
 pub(crate) type Bounds = (i32, i32, i32, i32);
 
 /// Whether `window` covers all of `screen`: a game or a video in full screen
-/// does; a maximized window leaves the taskbar out, so it does not.
+/// does. A maximized window leaves the taskbar out, unless it draws its own
+/// title bar: Windows' maximized state tells those apart (`fullscreen_in_front`).
 #[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn covers(window: Bounds, screen: Bounds) -> bool {
     window.0 <= screen.0 && window.1 <= screen.1 && window.2 >= screen.2 && window.3 >= screen.3
@@ -53,12 +54,14 @@ mod system {
     use super::Bounds;
     use std::sync::mpsc;
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        GetClassNameW, GetForegroundWindow, GetMessageW, GetWindowRect, PeekMessageW, PostThreadMessageW, SetWindowDisplayAffinity, ShowWindow,
+        GetClassNameW, GetForegroundWindow, GetMessageW, GetWindowRect, IsZoomed, PeekMessageW, PostThreadMessageW, SetWindowDisplayAffinity, ShowWindow,
         MSG, PM_NOREMOVE, SW_HIDE, SW_SHOWNOACTIVATE, WDA_EXCLUDEFROMCAPTURE, WDA_NONE, WM_HOTKEY, WM_QUIT, WM_USER,
     };
 
     /// Whether the window in front, not `own`, covers `screen`. The desktop and
-    /// the taskbar cover a screen too without being an app.
+    /// the taskbar cover a screen too without being an app. A maximized window
+    /// is not in full screen even when it covers the taskbar, as an app that
+    /// draws its own title bar does (Boite).
     pub(crate) fn fullscreen_in_front<R: tauri::Runtime>(own: &tauri::WebviewWindow<R>, screen: Bounds) -> bool {
         // SAFETY: no pointer kept; a null window (the lock screen) is handled.
         let front = unsafe { GetForegroundWindow() };
@@ -68,6 +71,8 @@ mod system {
         let length = unsafe { GetClassNameW(front, class.as_mut_ptr(), class.len() as i32) };
         let class = String::from_utf16_lossy(&class[..length.max(0) as usize]);
         if matches!(class.as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd") { return false; }
+        // SAFETY: a plain query on a live handle.
+        if unsafe { IsZoomed(front) } != 0 { return false; }
         let mut rect = windows_sys::Win32::Foundation::RECT { left: 0, top: 0, right: 0, bottom: 0 };
         // SAFETY: the rect outlives the call.
         if unsafe { GetWindowRect(front, &mut rect) } == 0 { return false; }
