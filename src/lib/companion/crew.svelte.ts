@@ -18,7 +18,7 @@
 import type { AgentConversationMessage, AgentProfile, AgentsSnapshot } from '@boite/contracts';
 import type { Client } from '@boite/ui/lib/client';
 import { GroupClient } from '../group/group-client';
-import { mergeElsewhere, type MachineAgents } from '../group/agents';
+import { mergeElsewhere, readableSnapshot, type MachineAgents } from '../group/agents';
 import { fill, strings } from '../strings';
 import { COMPANION_DOMAIN, permissionModeOf, pickBrain, ROLE_START, roleBlock, settleModel, withoutRole, withRole } from './brain';
 import { CLASSIC_SKIN, companionAgent, FIRST_AGENT_NAME, lastMessageAt, liveMemories, membersOf, memoriesToForget, memoryToKeep, needsFirstAgent, profileWith, repliesAfter, sessionThreadOf } from './crew';
@@ -128,7 +128,7 @@ export class Crew {
     // Asked at the same time and never waited for: a slow member does not hold this machine's list.
     if (client instanceof GroupClient) void this.readElsewhere(client);
     try {
-      const snapshot = await client.call('agents.snapshot', {});
+      const snapshot = readableSnapshot(await client.call('agents.snapshot', {}));
       if (this.disposed) return;
       this.snapshot = snapshot;
       this.take(client, snapshot);
@@ -151,7 +151,7 @@ export class Crew {
   private async readElsewhere(client: GroupClient): Promise<void> {
     const answers = await client.elsewhere('agents.snapshot', {});
     if (this.disposed) return;
-    const read = answers.map(({ core, result }) => ({ coreId: core.coreId, machine: core.name, snapshot: result }));
+    const read = answers.map(({ core, result }) => ({ coreId: core.coreId, machine: core.name, snapshot: readableSnapshot(result) }));
     this.elsewhere = mergeElsewhere(this.elsewhere, read, client.machines().filter((machine) => machine.state === 'ready'));
     this.host.loaded();
   }
@@ -276,7 +276,7 @@ export class Crew {
     try {
       // A snapshot read just before the last agent was made does not show it
       // yet: one read now does, so a late load cannot make a second one.
-      const fresh = await client.call('agents.snapshot', {});
+      const fresh = readableSnapshot(await client.call('agents.snapshot', {}));
       const prefs = this.host.prefs();
       if (this.disposed || !needsFirstAgent(fresh, prefs)) return;
       let id = fresh.profiles.find((profile) => profile.status === 'active' && profile.instructions.includes(ROLE_START))?.id;
