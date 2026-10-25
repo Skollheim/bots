@@ -5,15 +5,13 @@
   face swipes out to the left as the next one comes in from the right, its
   name riding along for a moment, and the Chat talks to that one at once
   (`assistant.pick` keeps it for the next launch). With one agent, a click
-  pokes it as before. A press held still a moment, then dragged, sets it
-  loose on the desktop either way (`lib/island/hold.svelte.ts`): a plain drag
-  does not, so a click that slips does not lose it.
+  pokes it as before. It never comes out of the island by a drag.
 -->
 <script lang="ts">
   import { cubicOut } from 'svelte/easing';
   import type { Companion, Member } from '../../../lib/companion/companion.svelte';
+  import { unlockSounds } from '../../../lib/companion/sounds';
   import { gazeOf, moodOf } from '../../../lib/island/face';
-  import { LongPress } from '../../../lib/island/hold.svelte';
   import { islandMember, islandSkin, nextAgent } from '../../../lib/island/swap';
   import { fill, strings } from '../../../lib/strings';
   import CompanionCharacter from '../../companion/CompanionCharacter.svelte';
@@ -55,16 +53,12 @@
   let said = $state<string | null>(null);
   let swipeTimer: ReturnType<typeof setTimeout> | undefined;
   let nameTimer: ReturnType<typeof setTimeout> | undefined;
-  // Held long enough: the drag that follows pulls the robot out.
-  const hold = new LongPress((event) => companion.onpress(event, true));
   $effect(() => () => {
-    hold.dispose();
     clearTimeout(swipeTimer);
     clearTimeout(nameTimer);
   });
 
   function click() {
-    if (companion.dropped || hold.held) return;
     // Read once: `next` moves on as soon as the Chat turns.
     const to = next;
     if (!to) return companion.poke(shown.key);
@@ -94,11 +88,9 @@
     data-testid="island-robot"
     data-agent={shown.key}
     onclick={click}
-    onpointerdown={(event) => hold.press(event)}
-    onpointermove={companion.onmove}
-    onpointerup={companion.onrelease}
+    onpointerdown={unlockSounds}
   >
-    <span class="stack" class:held={hold.armed && !companion.dragging}>
+    <span class="stack">
       {#key shown.key}
         <span class="slot" in:slide={{ from: SLIDE }} out:slide={{ from: -SLIDE }}>
           <!-- Its eyes follow the pointer while it is on the island, and it cheers when any thread finishes. -->
@@ -154,16 +146,6 @@
   /* The face going and the one coming share the same place while they slide. */
   .stack {
     display: grid;
-    transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  /* A long press armed: the robot grows a little, ready to come out. */
-  .stack.held {
-    transform: scale(1.12);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .stack {
-      transition: none;
-    }
   }
   .slot {
     grid-area: 1 / 1;

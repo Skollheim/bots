@@ -34,13 +34,10 @@
     request's CI told in the line (`pr-watch.svelte.ts`) opens its thread in
     Boite on a click.
 
-  - On a pill with words, a press on the robot that moves pulls it out of
-    the island, loose on the desktop (`Companion.onpress`); on the rest of
-    the pill, it carries the island to another place
-    (`lib/island/move.svelte.ts`). On a pill that shows the robot alone, a
-    drag anywhere carries the island; the robot comes out after a press held
-    still (`lib/island/hold.svelte.ts`), lifting a little as it arms. Without
-    moving, a press is a click either way.
+  - A press that moves, anywhere on the pill, its robot included, carries the
+    island to another place (`lib/island/move.svelte.ts`). The robot never
+    comes out of the island by a drag: only Settings > Placement sets it
+    loose on the desktop. Without moving, a press is a click.
   - With the island on the screen's bottom edge, the pill is upside down: the
     line against the edge, the request above it, the lip on top.
 
@@ -53,9 +50,9 @@
   import { describePermission, threadLabel } from '../../lib/companion/describe';
   import { writeCompanionPrefs } from '../../lib/companion/prefs';
   import { showMain } from '../../lib/companion/shell';
+  import { unlockSounds } from '../../lib/companion/sounds';
   import { ruleTarget, ruleText, type RuleScope } from '../../lib/island/allow-rules';
   import { dotLine, pillDots } from '../../lib/island/dots';
-  import { LongPress, pressRoute } from '../../lib/island/hold.svelte';
   import { gazeOf, moodOf } from '../../lib/island/face';
   import type { FinishLine } from '../../lib/island/finished';
   import type { IslandFrame } from '../../lib/island/frame.svelte';
@@ -323,7 +320,6 @@
 
   /** The dot under the pointer, if any: its hover target is the column it stands in. */
   function pointerMove(event: PointerEvent) {
-    companion.onmove(event);
     const target = event.target instanceof Element ? event.target : null;
     onDots = target?.closest('.dots') != null;
     hoveredKey = target?.closest<HTMLElement>('[data-dot]')?.dataset.dot ?? null;
@@ -334,25 +330,14 @@
     hoveredKey = null;
   }
 
-  /** The pill shows the robot alone at rest: its face is nearly all of it, so a drag carries the island and a long press pulls the robot. */
-  const robotOnly = $derived(!asking && !viewText);
-  // Held long enough: the island stays, the drag that follows pulls the robot out.
-  const hold = new LongPress((event) => {
-    move.abort();
-    companion.onpress(event, true);
-  });
-  $effect(() => () => hold.dispose());
-
-  /** On the robot, the press may pull it out; elsewhere on the pill, it may carry the island. */
+  /** A press anywhere may carry the island; the first one also lets the chimes ring. */
   function press(event: PointerEvent) {
-    const route = pressRoute(event.target instanceof Node && barFace?.contains(event.target) === true, robotOnly);
-    if (route === 'pull') return companion.onpress(event, true);
+    unlockSounds();
     move.press(event);
-    if (route === 'hold') hold.press(event);
   }
 
   function barClick() {
-    if (companion.dropped || move.moved || hold.held) return;
+    if (move.moved) return;
     if (told?.threadId && frame.flashing) return void showMain(told.threadId);
     frame.click();
   }
@@ -371,12 +356,11 @@
     onpointerdown={press}
     onpointermove={pointerMove}
     onpointerleave={leave}
-    onpointerup={companion.onrelease}
     onwheel={wheel}
     onfocus={(event) => (focused = event.currentTarget.matches(':focus-visible'))}
     onblur={() => (focused = false)}
   >
-    <span class="face" class:held={hold.armed && !companion.dragging} bind:this={barFace}>
+    <span class="face" bind:this={barFace}>
       <CompanionCharacter
         mood={moodOf(companion, lead.talk.thinking, true)}
         busy={companion.mood.busy}
@@ -499,10 +483,6 @@
     flex: none;
     height: 100%;
     transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  /* A long press armed: the robot grows a little, ready to come out. */
-  .face.held {
-    transform: scale(1.14);
   }
   /* A line that rolls: the old one and the new one share the cell while they pass. */
   .roll {

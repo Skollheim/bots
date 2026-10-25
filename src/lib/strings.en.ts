@@ -774,7 +774,7 @@ export const strings = {
       hotkeyOff: 'None',
       hotkeyTaken: 'Another app already uses {hotkey}. Pick another shortcut.',
       robots: 'Robots',
-      robotsHint: 'In the island at the top of the screen, or loose on the desktop. You can also drag a robot out of the island, and back to the top edge to return it.',
+      robotsHint: 'In the island at the top of the screen, or loose on the desktop.',
       robotsChoice: { island: 'In the island', desktop: 'On the desktop' },
       openOnHover: 'Open on hover',
       openOnHoverHint: 'Resting the pointer on the island a moment opens it. Off, only a click does.',

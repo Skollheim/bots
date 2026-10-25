@@ -59,7 +59,7 @@
     <span class="text ui-label-box"><span class="ui-label">{copy.robots}</span><InfoTip topic={copy.robots} text={copy.robotsHint} /></span>
     <div class="segmented" role="radiogroup" aria-label={copy.robots} data-testid="companion-robots">
       {#each ROBOTS as robots (robots)}
-        <button type="button" role="radio" aria-checked={prefs.robots === robots} class:on={prefs.robots === robots} onclick={() => save({ robots })} data-testid={`companion-robots-${robots}`}>{copy.robotsChoice[robots]}</button>
+        <button type="button" role="radio" aria-checked={prefs.robots === robots} class:on={prefs.robots === robots} onclick={() => save({ robots, robotsPicked: robots === 'desktop' })} data-testid={`companion-robots-${robots}`}>{copy.robotsChoice[robots]}</button>
       {/each}
     </div>
   </div>

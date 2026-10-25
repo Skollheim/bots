@@ -13,6 +13,13 @@ test('saved prefs from before the places keep the island at the top centre', () 
   for (const place of ISLAND_PLACES) expect(parseCompanionPrefs({ islandPlace: place }).islandPlace).toBe(place);
 });
 
+test('a robot pulled out of the island by a drag goes back in; the desktop picked in Settings stays', () => {
+  expect(parseCompanionPrefs({ robots: 'desktop', islandPlace: 'top-center' }).robots).toBe('island');
+  expect(parseCompanionPrefs({ robots: 'desktop', robotsPicked: true })).toMatchObject({ robots: 'desktop', robotsPicked: true });
+  expect(parseCompanionPrefs({ robots: 'island', robotsPicked: true }).robots).toBe('island');
+  expect(DEFAULT_COMPANION_PREFS.robotsPicked).toBe(false);
+});
+
 test('a place splits into its edge and side, as the shell takes them', () => {
   expect(placeParts('bottom-right')).toEqual({ edge: 'bottom', side: 'right' });
   expect(placeLayout('top-left')).toEqual({ align: 'left', edge: 'top' });
