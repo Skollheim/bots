@@ -2,34 +2,34 @@
   "schema": 1,
   "id": "bots",
   "name": "B.O.T.S",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "description": "Little robots on your desktop that follow your Boite agents, answer your questions and keep you company while you work.",
   "homepage": "https://github.com/Skollheim/bots",
   "executable": "bots",
   "artifacts": {
     "win32-x64": {
-      "url": "https://github.com/Skollheim/bots/releases/download/v0.1.20/bots-x86_64-pc-windows-msvc.exe",
-      "sha256": "ed8cad9e0b48097700d8ebd11b686892994726f8e83690260de7f632bc19a874"
+      "url": "https://github.com/Skollheim/bots/releases/download/v0.1.21/bots-x86_64-pc-windows-msvc.exe",
+      "sha256": "9f61d698caced34868dbff574731f1a74ff7e7ac1ba95da112ef70bc3d79c67d"
     },
     "win32-arm64": {
-      "url": "https://github.com/Skollheim/bots/releases/download/v0.1.20/bots-aarch64-pc-windows-msvc.exe",
-      "sha256": "63b9090240fa72d5fdf480b383852819985bf622807fa75ba775923c5fcf97d0"
+      "url": "https://github.com/Skollheim/bots/releases/download/v0.1.21/bots-aarch64-pc-windows-msvc.exe",
+      "sha256": "54b50085157539c49228e29fa6bf1f9a0b675b069479970b167cd59868a7c562"
     },
     "darwin-x64": {
-      "url": "https://github.com/Skollheim/bots/releases/download/v0.1.20/bots-x86_64-apple-darwin",
-      "sha256": "ec02f834d8658dae786a10d0b9ccf5a9edb0bb18016c66e5d69b06d3916141bf"
+      "url": "https://github.com/Skollheim/bots/releases/download/v0.1.21/bots-x86_64-apple-darwin",
+      "sha256": "5c777f0caa2b51d29c0ee1f859e2cb93f6990da77499a2e85237a2cbe8e763f5"
     },
     "darwin-arm64": {
-      "url": "https://github.com/Skollheim/bots/releases/download/v0.1.20/bots-aarch64-apple-darwin",
-      "sha256": "51935d8e2c06e3f63bcf49a1cc0fd6a356a3e19b0b0943692df433a997a69e9b"
+      "url": "https://github.com/Skollheim/bots/releases/download/v0.1.21/bots-aarch64-apple-darwin",
+      "sha256": "f4742099da7e09a744588dec314104d6dacd03594b51da40c0e76cc8004881a7"
     },
     "linux-x64": {
-      "url": "https://github.com/Skollheim/bots/releases/download/v0.1.20/bots-x86_64-unknown-linux-gnu",
-      "sha256": "54dd2c0939e75574098a147db71c12f9ebb2f8b35dae782c35b3b4d0dfb78179"
+      "url": "https://github.com/Skollheim/bots/releases/download/v0.1.21/bots-x86_64-unknown-linux-gnu",
+      "sha256": "dbb0f792f075d5062a50194ca8a8f720b62bcd0f28846e113ad2129ee89709c4"
     },
     "linux-arm64": {
-      "url": "https://github.com/Skollheim/bots/releases/download/v0.1.20/bots-aarch64-unknown-linux-gnu",
-      "sha256": "2ccae4b932a495f51f35707cd78bf862b41fd7288907bc6b42b175e03b9b9255"
+      "url": "https://github.com/Skollheim/bots/releases/download/v0.1.21/bots-aarch64-unknown-linux-gnu",
+      "sha256": "5c94539580c975b54d447cc5c58ddf2e0cf5ee6f066d61e3b47366222016a501"
     }
   },
   "provides": {
