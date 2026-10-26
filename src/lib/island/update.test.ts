@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { compareVersions, latestOf, newerRelease, trackOf, type GitHubRelease } from './update';
 
 function release(tag: string, extra: Partial<GitHubRelease> = {}): GitHubRelease {
-  return { tag_name: tag, draft: false, html_url: `https://github.com/beboite/boite/releases/tag/${tag}`, published_at: '2026-10-10T03:00:00Z', assets: [{ name: 'latest.json' }], ...extra };
+  return { tag_name: tag, draft: false, html_url: `https://github.com/mtsu-dev/boite/releases/tag/${tag}`, published_at: '2026-10-10T03:00:00Z', assets: [{ name: 'latest.json' }], ...extra };
 }
 
 test('versions follow semver, prereleases included', () => {
@@ -33,7 +33,7 @@ test('the newest release of a track skips drafts, the other track and unsigned b
     release('desktop-tools')
   ];
   expect(latestOf(list, 'nightly')?.version).toBe('2.0.0-nightly.20261010.2');
-  expect(latestOf(list, 'stable')).toMatchObject({ version: '2.0.0-beta.4', track: 'stable', url: 'https://github.com/beboite/boite/releases/tag/v2.0.0-beta.4' });
+  expect(latestOf(list, 'stable')).toMatchObject({ version: '2.0.0-beta.4', track: 'stable', url: 'https://github.com/mtsu-dev/boite/releases/tag/v2.0.0-beta.4' });
 });
 
 test('a newer release on the running track is offered, the current one is not', () => {

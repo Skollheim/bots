@@ -1,6 +1,6 @@
 # B.O.T.S
 
-A little robot at the top of your screen that keeps an eye on your [Boite](https://github.com/beboite/boite) agents. It shows what they are doing, tells you when one of them needs you, and lets you talk to them without opening Boite's window. It also runs your scheduled missions, keeps your to-do list and, on Windows, puts the computer at hand: its system, wallpapers, clipboard and apps.
+A little robot at the top of your screen that keeps an eye on your [Boite](https://github.com/mtsu-dev/boite) agents. It shows what they are doing, tells you when one of them needs you, and lets you talk to them without opening Boite's window. It also runs your scheduled missions, keeps your to-do list and, on Windows, puts the computer at hand: its system, wallpapers, clipboard and apps.
 
 <p align="center">
   <img src="docs/media/hero.gif" width="780" alt="The B.O.T.S island at the top of the screen: the pill opens under the pointer, the robot follows the pointer with its eyes and reacts when poked">

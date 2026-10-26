@@ -8,7 +8,7 @@
 import type { Client } from '@boite/ui/lib/client';
 import { newerRelease, type GitHubRelease, type Release } from './update';
 
-export const RELEASES_URL = 'https://api.github.com/repos/beboite/boite/releases?per_page=100';
+export const RELEASES_URL = 'https://api.github.com/repos/mtsu-dev/boite/releases?per_page=100';
 export const UPDATE_STORAGE_KEY = 'bots.update';
 /** GitHub is read once a while after the start, then every six hours. */
 export const FIRST_CHECK_MS = 60_000;
