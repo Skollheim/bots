@@ -45,6 +45,7 @@ import { Dropped, joinScreen } from './drop.svelte';
 import { Tasks } from './tasks.svelte';
 import { Missions } from './missions.svelte';
 import { Todos } from './todo.svelte';
+import { asksRead, oneAtATime } from './reads';
 import { contextLine } from './brain';
 import { coreKey } from '../island/followed';
 import { digestFor, Finder, Radar, replyInThread, ThreadReader } from './watch.svelte';
@@ -442,7 +443,10 @@ export class Companion {
     this.projectNames = taskProjects(local).map((project) => project.name);
   }
 
-  private async refresh(): Promise<void> {
+  /** One read of the lists at a time: a slow core does not get the next before it answered. */
+  private readonly refresh = oneAtATime(() => this.readLists());
+
+  private async readLists(): Promise<void> {
     const client = this.client;
     if (!client || this.disposed) return;
     try {
@@ -466,11 +470,12 @@ export class Companion {
     this.refreshTimer = setTimeout(() => void this.refresh(), delay);
   }
 
-  /** A thread that changed: its status counts at once, the requests are read again a moment later. */
+  /** A thread that changed: its status counts at once; a new thread or a new status reads the requests again a moment later. */
   private acceptThread = (thread: ThreadSummary): void => {
-    this.threads = this.threads.some((entry) => entry.id === thread.id) ? this.threads.map((entry) => (entry.id === thread.id ? thread : entry)) : [...this.threads, thread];
+    const before = this.threads.find((entry) => entry.id === thread.id);
+    this.threads = before ? this.threads.map((entry) => (entry.id === thread.id ? thread : entry)) : [...this.threads, thread];
     this.recompute();
-    this.soon();
+    if (asksRead(before, thread)) this.soon();
   };
 
   // ---------------------------------------------------------------------
